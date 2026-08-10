@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="神門穴">
+<title>神門穴</title>
+<!-- 佔位小人（程式產生）。要換成手繪版就直接覆蓋這個檔，檔名別動。 -->
+<g stroke="rgba(0,0,0,.16)" stroke-width="1">
+  <ellipse cx="24" cy="58.5" rx="5" ry="2.6" fill="#3da49d"/>
+  <ellipse cx="40" cy="58.5" rx="5" ry="2.6" fill="#3da49d"/>
+  <circle cx="17.5" cy="47" r="4" fill="#3da49d"/>
+  <circle cx="46.5" cy="47" r="4" fill="#3da49d"/>
+  <ellipse cx="32" cy="47.5" rx="13.5" ry="11.5" fill="#3da49d"/>
+  <circle cx="32" cy="27" r="16" fill="#c9eeeb"/>
+</g>
+<path d="M16 25a16 16 0 0 1 32 0c0-6-5-11-16-11S16 19 16 25z" fill="#255f5c"/><circle cx="14" cy="28" r="5" fill="#255f5c"/><circle cx="50" cy="28" r="5" fill="#255f5c"/>
+<ellipse cx="21.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<ellipse cx="42.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<path d="M22.5 29c1.5-3 4.5-3 6 0" stroke="#1F2A26" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M35.5 29c1.5-3 4.5-3 6 0" stroke="#1F2A26" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M30.4 34.4c1 1.2 2.2 1.2 3.2 0" stroke="#1F2A26" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<g transform="rotate(-20 42 34)"><rect x="38" y="32" width="9" height="4.5" rx="2.2" fill="#cb4d95"/><circle cx="41" cy="34.2" r=".5" fill="rgba(0,0,0,.3)"/><circle cx="44" cy="34.2" r=".5" fill="rgba(0,0,0,.3)"/></g>
+</svg>

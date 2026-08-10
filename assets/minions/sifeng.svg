@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="四縫穴">
+<title>四縫穴</title>
+<!-- 佔位小人（程式產生）。要換成手繪版就直接覆蓋這個檔，檔名別動。 -->
+<g stroke="rgba(0,0,0,.16)" stroke-width="1">
+  <ellipse cx="24" cy="58.5" rx="5" ry="2.6" fill="#3d8ca4"/>
+  <ellipse cx="40" cy="58.5" rx="5" ry="2.6" fill="#3d8ca4"/>
+  <circle cx="17.5" cy="47" r="4" fill="#3d8ca4"/>
+  <circle cx="46.5" cy="47" r="4" fill="#3d8ca4"/>
+  <ellipse cx="32" cy="47.5" rx="13.5" ry="11.5" fill="#3d8ca4"/>
+  <circle cx="32" cy="27" r="16" fill="#c9e5ee"/>
+</g>
+<path d="M16 25a16 16 0 0 1 32 0c0-6-5-11-16-11S16 19 16 25z" fill="#25525f"/><path d="M32 12c1-5 5-7 8-6-3 1-4 3-4 6z" fill="#25525f"/>
+<ellipse cx="21.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<ellipse cx="42.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<ellipse cx="25.5" cy="28" rx="3.3" ry="4.1" fill="#1F2A26"/><circle cx="24.4" cy="26.4" r="1.35" fill="#fff"/><path d="M35.5 28.5c1.5-2.5 4.5-2.5 6 0" stroke="#1F2A26" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M30.4 34.4c1 1.2 2.2 1.2 3.2 0" stroke="#1F2A26" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<path d="M20 39c7 4 17 4 24 0v4c-7 4-17 4-24 0z" fill="#cb4d6f"/><path d="M43 42l3 8-4 1-2-8z" fill="#cb4d6f"/>
+</svg>

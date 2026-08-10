@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AcuNavi 理想版</title>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       這是「外殼」：只有 header、步驟軌、底部分頁列。
+       每一個畫面都在 pages/ 底下，一頁一個檔（長相 + 行為都在裡面）。
+       要改某一頁，開那一頁的檔就好，不用碰這裡。
+       新增一頁：建 pages/xx.js，在下面加一行 <script>。
+
+       ⚠️ 這份可以直接雙擊開（file://），所以不能用 fetch 載入片段
+       ——那會被 CORS 擋掉。片段一律寫在各頁 .js 的 html 欄位。
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shell.css">
+
+  <!-- MediaPipe：版本與 js/vision.js 的 locateFile 必須一致，
+       否則 JS 與 wasm 資產版本不匹配會偶發載入失敗 -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+  <!-- 臉部用另一個模型（版本同樣要與 js/face-vision.js 的 locateFile 一致） -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+
+  <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
+  <script src="js/acu-data.js"></script>
+  <script src="js/acu-math.js"></script>
+
+  <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
+  <script src="js/face-data.js"></script>
+  <script src="js/face-math.js"></script>
+
+  <!-- 共用 -->
+  <script src="js/i18n.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/regions.js"></script>
+  <script src="js/minions.js"></script>
+  <script src="js/acu-ref.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/vision.js"></script>
+  <script src="js/face-vision.js"></script>
+
+  <!-- 一頁一檔：順序＝療程順序 -->
+  <script src="pages/01-home.js"></script>
+  <script src="pages/02-recommend.js"></script>
+  <script src="pages/03-acu-detail.js"></script>
+  <script src="pages/04-camera.js"></script>
+  <script src="pages/05-massage.js"></script>
+  <script src="pages/06-complete.js"></script>
+  <script src="pages/07-face.js"></script>
+  <script src="pages/tab-gallery.js"></script>
+  <script src="pages/tab-gallery-info.js"></script>
+  <script src="pages/tab-settings.js"></script>
+  <script src="pages/tab-profile.js"></script>
+</head>
+
+<body>
+  <div class="device">
+    <div class="bezel"></div>
+
+    <!-- 功能全在底部分頁列，語言在「設定」裡，所以 header 只剩品牌 -->
+    <header>
+      <div class="wordmark">Acu<span>Navi</span></div>
+    </header>
+
+    <!-- 返回列：在步驟軌上面。哪一頁要顯示、退到哪裡，看各頁註冊的 backTo。
+         右邊是動作區，各頁用 registerPage 的 actions 掛自己的按鈕（如按摩頁的齒輪） -->
+    <div class="backbar" id="backbar">
+      <button class="back" id="back-btn" onclick="goBack()" data-i18n="btn-back">← 返回</button>
+      <div class="backbar-actions" id="backbar-actions"></div>
+    </div>
+
+    <!-- 步驟軌由 js/nav.js 依各頁註冊的 step 欄位自動生成 -->
+    <ol class="steprail" id="steprail"></ol>
+
+    <!-- MediaPipe 的 Camera 需要真的 video 元素，不能餵 canvas -->
+    <video id="hidden-video" playsinline muted></video>
+
+    <!-- 各頁的 html 會在開站時串起來塞進這裡（見 js/nav.js 的 boot） -->
+    <main id="pages"></main>
+
+    <nav class="tabbar" id="tabbar" aria-label="主功能">
+      <button type="button" data-tab="home" onclick="goTab('home')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.75 20v-5.5h4.5V20"/></svg>
+        <span data-i18n="nav-home">首頁</span>
+      </button>
+      <button type="button" data-tab="gallery" onclick="goTab('gallery')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7"/><rect x="13.5" y="3.5" width="7" height="7"/><rect x="3.5" y="13.5" width="7" height="7"/><rect x="13.5" y="13.5" width="7" height="7"/></svg>
+        <span data-i18n="nav-gallery">圖冊</span>
+      </button>
+      <button type="button" data-tab="settings" onclick="goTab('settings')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h9"/><path d="M17 7.5h3"/><circle cx="15" cy="7.5" r="2"/><path d="M4 16.5h3"/><path d="M11 16.5h9"/><circle cx="9" cy="16.5" r="2"/></svg>
+        <span data-i18n="nav-settings">設定</span>
+      </button>
+      <button type="button" data-tab="profile" onclick="goTab('profile')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c0-3.6 3.4-5.5 7.5-5.5s7.5 1.9 7.5 5.5"/></svg>
+        <span data-i18n="nav-profile">個人</span>
+      </button>
+    </nav>
+  </div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="中渚穴">
+<title>中渚穴</title>
+<!-- 佔位小人（程式產生）。要換成手繪版就直接覆蓋這個檔，檔名別動。 -->
+<g stroke="rgba(0,0,0,.16)" stroke-width="1">
+  <ellipse cx="24" cy="58.5" rx="5" ry="2.6" fill="#a4773d"/>
+  <ellipse cx="40" cy="58.5" rx="5" ry="2.6" fill="#a4773d"/>
+  <circle cx="17.5" cy="47" r="4" fill="#a4773d"/>
+  <circle cx="46.5" cy="47" r="4" fill="#a4773d"/>
+  <ellipse cx="32" cy="47.5" rx="13.5" ry="11.5" fill="#a4773d"/>
+  <circle cx="32" cy="27" r="16" fill="#eedec9"/>
+</g>
+<path d="M16 25a16 16 0 0 1 32 0c0-6-5-11-16-11S16 19 16 25z" fill="#5f4625"/><circle cx="14" cy="28" r="5" fill="#5f4625"/><circle cx="50" cy="28" r="5" fill="#5f4625"/>
+<ellipse cx="21.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<ellipse cx="42.5" cy="33" rx="3" ry="1.9" fill="rgba(255,120,120,.5)"/>
+<path d="M22.5 29c1.5-3 4.5-3 6 0" stroke="#1F2A26" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M35.5 29c1.5-3 4.5-3 6 0" stroke="#1F2A26" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M30.4 34.4c1 1.2 2.2 1.2 3.2 0" stroke="#1F2A26" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+</svg>

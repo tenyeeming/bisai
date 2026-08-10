@@ -1,0 +1,313 @@
+/* ═══════════════════════════════════════════════════════════════
+   外殼與共用元件。
+   規則：只有「兩頁以上會用到」的東西才放這裡；
+   　　　只有某一頁用的樣式，寫在那一頁自己的 pages/*.html 裡。
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 機身外框 ─────────────────────────────────────── */
+.device {
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--surface);
+  border-inline: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 頂部黃銅刻度條：儀器的鉻件，不是裝飾 */
+.bezel {
+  height: 3px;
+  background: linear-gradient(90deg, var(--brass) 0%, var(--brass-lit) 50%, var(--brass) 100%);
+  flex: none;
+}
+
+header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+.wordmark {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.wordmark span { color: var(--brass); }
+
+/* ── 步驟軌：這是真的流程順序，所以編號帶有資訊 ── */
+.steprail {
+  display: grid;
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+  flex: none;
+}
+.steprail li {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  text-align: center;
+  padding: 7px 2px 6px;
+  color: var(--ink-soft);
+  opacity: .5;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.steprail li .n { display: block; font-size: 10px; color: var(--brass); }
+.steprail li.on { opacity: 1; border-bottom-color: var(--brass); color: var(--ink); }
+.steprail li.done { opacity: .85; }
+
+/* ── 底部分頁列（LINE 式）──────────────────────────
+   四個大功能永遠在同一個位置、同一個順序，使用者不用回想「剛剛從哪進來的」。
+   黃銅只標「你在哪一頁」，不當裝飾；相機頁會整條隱藏，把畫面讓給取景框。 */
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  flex: none;
+}
+.tabbar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 0;
+  padding: 9px 2px 8px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.tabbar button svg {
+  width: 21px; height: 21px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.tabbar button:hover { color: var(--ink); }
+.tabbar button.on,
+.tabbar button.on:hover {
+  color: var(--brass);
+  box-shadow: inset 0 2px 0 var(--brass);
+}
+
+/* ── 頁面容器 ──────────────────────────────────── */
+main { padding: 18px 18px 22px; flex: 1; }
+.page { display: none; }
+.page.active { display: block; }
+@media (prefers-reduced-motion: no-preference) {
+  .page.active { animation: rise .22s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+
+/* ── 排版 ──────────────────────────────────────── */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 6px;
+}
+h2 {
+  font-family: var(--font-ming);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
+  letter-spacing: .01em;
+}
+.lede { color: var(--ink-soft); font-size: 13.5px; margin-top: 6px; max-width: 34em; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.rule { height: 1px; background: var(--line); border: 0; }
+.center { text-align: center; }
+.small { font-size: 12.5px; color: var(--ink-soft); }
+.mono-sm { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); letter-spacing: .06em; }
+.acu-title { font-family: var(--font-ming); font-size: 30px; font-weight: 600; }
+
+/* ── 按鈕 ──────────────────────────────────────── */
+button { font-family: inherit; }
+.btn {
+  font-family: var(--font-sans);
+  background: var(--brass);
+  color: #fff;
+  border: 1px solid var(--brass);
+  padding: 11px 16px;
+  border-radius: var(--r);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover:not(:disabled) { background: var(--brass-lit); border-color: var(--brass-lit); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.ghost {
+  background: none;
+  color: var(--ink);
+  border-color: var(--line);
+}
+.btn.ghost:hover:not(:disabled) { border-color: var(--brass); color: var(--brass); background: none; }
+.btn.wide { width: 100%; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row > .btn { flex: 1; }
+/* 返回列：夾在 header 與步驟軌之間，永遠在同一個位置。
+   左邊返回、右邊各頁自己的動作按鈕 */
+.backbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 5px 18px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.backbar-actions { display: flex; gap: 6px; }
+
+/* 齒輪按鈕 + 它的下拉選單 */
+.gear-btn {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.gear-btn:hover { border-color: var(--brass); color: var(--brass); }
+.gear-btn svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.gear-menu {
+  position: absolute; top: calc(100% + 5px); right: 14px; z-index: 30;
+  min-width: 194px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+.gear-menu[hidden] { display: none; }
+.gear-menu button {
+  display: block; width: 100%; text-align: left;
+  font-family: var(--font-sans); font-size: 13px;
+  background: none; border: 0; border-radius: var(--r);
+  padding: 9px 10px; cursor: pointer; color: var(--ink);
+}
+.gear-menu button:hover { background: var(--surface-2); }
+.gear-menu hr { height: 1px; background: var(--line); border: 0; margin: 4px 2px; }
+.gear-menu .danger { color: var(--bad); }
+.gear-menu .danger small {
+  display: block; font-size: 10.5px; color: var(--ink-soft);
+  font-weight: 400; margin-top: 2px;
+}
+.back {
+  font-family: var(--font-mono);
+  background: none; border: 0; padding: 0;
+  color: var(--ink-soft); font-size: 11.5px; letter-spacing: .08em;
+  cursor: pointer;
+}
+.back:hover { color: var(--brass); }
+
+/* ── 分段切換：選穴頁的部位、設定頁的語言共用 ───── */
+.seg { display: flex; }
+.seg button {
+  flex: 1;
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-left: 0;
+  padding: 9px 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  line-height: 1.3;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.seg button:first-child { border-left: 1px solid var(--line); border-radius: var(--r) 0 0 var(--r); }
+.seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+.seg button:hover { color: var(--ink); }
+.seg button.on {
+  background: var(--surface-2);
+  border-color: var(--brass);
+  color: var(--brass);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--brass);
+}
+/* 還沒開放的選項：看得到、點得到（會說明何時開放），但不假裝可用 */
+.seg button.soon { opacity: .55; }
+.seg button .n {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  opacity: .8;
+  margin-top: 2px;
+}
+
+/* ── 提示塊：語意色只出現在這裡 ─────────────────── */
+.notice {
+  border-left: 2px solid var(--line);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.notice.warn { border-left-color: var(--warn); background: var(--warn-bg); color: var(--ink); }
+.notice.bad  { border-left-color: var(--bad);  background: var(--bad-bg);  color: var(--ink); font-weight: 600; }
+
+/* ── 相機顯示窗：定位頁與按摩頁共用 ─────────────── */
+.viewport {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: #0A0F0E;
+}
+canvas.cam { width: 100%; display: block; aspect-ratio: 4 / 3; }
+
+/* 讀數條：直接黏在顯示窗下緣，像儀器面板 */
+.readout {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .02em;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--r) var(--r);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  display: flex; align-items: center; gap: 8px;
+  min-height: 36px;
+  font-variant-numeric: tabular-nums;
+}
+.readout::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-soft); flex: none;
+}
+.readout.gate-ok   { background: var(--good-bg); color: var(--good); border-color: var(--good); }
+.readout.gate-ok::before   { background: var(--good); }
+.readout.gate-warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.readout.gate-warn::before { background: var(--warn); }
+.readout.gate-bad  { background: var(--bad-bg);  color: var(--bad);  border-color: var(--bad); }
+.readout.gate-bad::before  { background: var(--bad); }
+.viewport + .readout { margin-top: -1px; }
+
+/* MediaPipe 的 Camera 需要真的 <video>，但畫面是畫在 canvas 上，所以藏起來 */
+#hidden-video { display: none; }

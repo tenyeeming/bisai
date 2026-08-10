@@ -1,0 +1,92 @@
+/* ═══════════════════════════════════════════════════════════════
+   設計方向：量測儀器，不是養生 App。
+   產品論述是「精度誠實」—— 系統會講出自己何時不可信 —— 所以介面
+   走儀器語彙：黃銅鉻件、明體標穴名（中醫典籍的字）、等寬數字讀數。
+   強調色（黃銅）只用在結構鉻件；語意色（青/琥珀/朱）只用在狀態塊，
+   兩者角色不重疊，狀態才能一眼讀出來。
+
+   這支只放「色票與字體」。動到顏色、字型、圓角、深淺主題來這裡。
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light dark;
+
+  /* 中性色帶一點青綠偏移，不是撿現成的純灰 */
+  --paper:      #EAEDE8;
+  --surface:    #F6F7F3;
+  --surface-2:  #DFE4DC;
+  --line:       #C4CCC0;
+  --line-soft:  #D6DCD1;
+  --ink:        #1C2522;
+  --ink-soft:   #5A6560;
+
+  /* 強調色：黃銅／青銅。只做鉻件（細線、標籤、刻度、焦點環） */
+  --brass:      #8C6A3F;
+  --brass-lit:  #A8763C;
+
+  /* 語意色：只做狀態塊，絕不當強調色用 */
+  --good:       #2E7D5B;
+  --warn:       #B4700F;
+  --bad:        #B0402F;
+  --good-bg:    rgba(46, 125, 91, 0.12);
+  --warn-bg:    rgba(180, 112, 15, 0.13);
+  --bad-bg:     rgba(176, 64, 47, 0.12);
+
+  --font-ming: "Songti TC", "Noto Serif TC", "Noto Serif CJK TC", "PMingLiU", "MingLiU", Georgia, serif;
+  --font-sans: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  --r: 3px;              /* 儀器面板是方的，不是到處 rounded-lg */
+  --shadow: 0 1px 0 rgba(28,37,34,.06), 0 6px 20px -12px rgba(28,37,34,.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:     #101614;
+    --surface:   #17201D;
+    --surface-2: #202B27;
+    --line:      #2E3B36;
+    --line-soft: #263230;
+    --ink:       #E4EAE5;
+    --ink-soft:  #94A29C;
+    --brass:     #C79A5B;
+    --brass-lit: #E0B570;
+    --good:      #4FBF8B;
+    --warn:      #E0A33C;
+    --bad:       #E0705C;
+    --good-bg:   rgba(79, 191, 139, 0.14);
+    --warn-bg:   rgba(224, 163, 60, 0.14);
+    --bad-bg:    rgba(224, 112, 92, 0.14);
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 24px -14px #000;
+  }
+}
+/* 觀看者的主題切換必須壓過 media query，兩個方向都要 */
+:root[data-theme="light"] {
+  --paper: #EAEDE8; --surface: #F6F7F3; --surface-2: #DFE4DC;
+  --line: #C4CCC0; --line-soft: #D6DCD1; --ink: #1C2522; --ink-soft: #5A6560;
+  --brass: #8C6A3F; --brass-lit: #A8763C;
+  --good: #2E7D5B; --warn: #B4700F; --bad: #B0402F;
+  --good-bg: rgba(46,125,91,.12); --warn-bg: rgba(180,112,15,.13); --bad-bg: rgba(176,64,47,.12);
+}
+:root[data-theme="dark"] {
+  --paper: #101614; --surface: #17201D; --surface-2: #202B27;
+  --line: #2E3B36; --line-soft: #263230; --ink: #E4EAE5; --ink-soft: #94A29C;
+  --brass: #C79A5B; --brass-lit: #E0B570;
+  --good: #4FBF8B; --warn: #E0A33C; --bad: #E0705C;
+  --good-bg: rgba(79,191,139,.14); --warn-bg: rgba(224,163,60,.14); --bad-bg: rgba(224,112,92,.14);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brass-lit);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
