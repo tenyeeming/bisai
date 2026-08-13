@@ -27,7 +27,7 @@ const FACE_MODEL_TIMEOUT_MS = 20000;
 function getFaceMesh() {
   if (faceMesh) return faceMesh;
   faceMesh = new FaceMesh({
-    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`,
+    locateFile: (f) => mpAsset('face_mesh', f),  // 本機或 CDN，見 js/mp-loader.js
   });
   faceMesh.setOptions({
     maxNumFaces: 1,

@@ -46,7 +46,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ── 載入 ──
   const n = d.querySelectorAll('#pages .page').length;
-  ok(n === 11, `11 頁全部載入（實得 ${n}）`);
+  ok(n === 15, `15 頁全部載入（實得 ${n}）`);
   ok(active().join() === 'home', '起始在首頁');
   ok(activeTab().join() === 'home', '起始分頁 = 首頁');
   ok(d.querySelectorAll('#steprail li').length === 5, '步驟軌自動長出 5 格');
@@ -318,18 +318,21 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval('state.selectedAcupoints.length') === before, '在別頁切語言不會清掉已勾的穴道');
   ok(w.localStorage.getItem('language') === 'en', '語言有存檔');
 
-  // 設定頁的語言切換
-  w.showPage('settings');
+  // 設定 › 語言（語言已經自己一頁，不再跟其他開關擠在設定首頁）
+  w.showPage('settings-lang');
   const seg = () => [...d.querySelectorAll('#lang-seg button')];
-  ok(seg().length === 2 && seg().map(b => b.textContent).join() === '中文,English', '設定裡有中文/English 兩格');
-  ok(seg().find(b => b.classList.contains('on')).getAttribute('data-lang') === 'en', '目前語言那格是亮的（en）');
+  const segText = () => seg().map(b => b.querySelector('.grow').textContent).join();
+  ok(seg().length === 2 && segText() === '中文,English', '語言頁有中文/English 兩列');
+  ok(seg().find(b => b.classList.contains('on')).getAttribute('data-lang') === 'en', '目前語言那列是亮的（en）');
   seg()[0].click();
   ok(w.eval('currentLanguage') === 'zh', '點「中文」切回中文');
-  ok(seg().find(b => b.classList.contains('on')).getAttribute('data-lang') === 'zh', '亮的那格跟著換');
-  ok($('page-settings').querySelector('h2').textContent === '設定', '設定頁標題跟著切');
+  ok(seg().find(b => b.classList.contains('on')).getAttribute('data-lang') === 'zh', '亮的那列跟著換');
+  ok($('page-settings-lang').querySelector('h2').textContent === '語言', '語言頁標題跟著切');
   seg()[0].click();
-  ok(w.eval('currentLanguage') === 'zh', '重複點同一格不出事');
+  ok(w.eval('currentLanguage') === 'zh', '重複點同一列不出事');
   ok([...d.querySelectorAll('#tabbar button span')].map(s => s.textContent).join() === '首頁,圖冊,設定,個人', '切回中文');
+  ok(w.eval("PAGES['settings-lang'].backTo") === 'settings' && w.eval("PAGES['settings-lang'].tab") === 'settings',
+     '子頁退回設定目錄、且仍歸設定分頁');
 
   // ── 急症擋話 ──
   w.goHome();
@@ -338,12 +341,62 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goToRecommendation();
   ok($('emergency-warn').querySelector('.notice.bad') && /119/.test($('emergency-warn').textContent), '急症顯示 119 紅框');
 
-  // ── 設定 ──
+  // ── 設定目錄：一個功能一列，點進去才調整 ──
   w.showPage('settings');
+  const menuRows = () => [...d.querySelectorAll("#settings-menu button")];
+  ok(menuRows().length === 4, `設定目錄列出 4 個功能（實得 ${menuRows().length}）`);
+  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,每日提醒,定位精度,資料與紀錄',
+     '目錄四列：語言／每日提醒／定位精度／資料與紀錄');
+  ok(!$('page-settings').querySelector('input'), '設定首頁本身沒有任何開關（全都搬進子頁）');
+  ok(menuRows()[0].querySelector('.value').textContent === '中文', '目錄右邊直接顯示現在設成什麼');
+  menuRows()[0].click();
+  ok(active().join() === 'settings-lang' && activeTab().join() === 'settings', '點「語言」進子頁，分頁仍停在設定');
+  w.goBack();
+  ok(active().join() === 'settings', '返回列退回設定目錄');
+
+  // ── 設定 › 定位精度 ──
+  w.showPage('settings-accuracy');
   ok($('strict-gate').checked === w.eval('strictGate'), '嚴格模式勾選狀態同步');
   w.onStrictChange(false);
   ok(w.eval('strictGate') === false && w.localStorage.getItem('strictGate') === 'false', '關閉嚴格模式會存檔');
+  w.showPage('settings');
+  ok(menuRows()[2].querySelector('.value').textContent === '寬鬆', '關掉之後目錄那列跟著顯示「寬鬆」');
   w.onStrictChange(true);
+
+  // ── 設定 › 每日提醒 ──
+  w.showPage('settings-notify');
+  ok($('notify-time').value === '20:00', '提醒時間預設 20:00');
+  ok($('notify-plan-body').innerHTML === '', '預設「不指定」時不列任何清單');
+  w.setNotifyMode('symptom');
+  const syms = () => [...$('notify-plan-body').querySelectorAll('input')];
+  ok(syms().length === w.eval('SYMPTOM_MAP.length') - 2,
+     `依症狀列出 ${syms().length} 個症狀（13 個扣掉 2 個急症）`);
+  // 只看清單本身：底下那段說明文字本來就會提到急症，不能拿它當判準
+  ok(!/中暑|昏迷/.test($('notify-plan-body').querySelector('.optlist').textContent),
+     '急症不列入每日提醒的清單');
+  ok(/119/.test($('notify-plan-body').textContent), '並且說明為什麼不列（要打 119）');
+  const hIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='緩解頭痛')");
+  w.toggleNotifySymptom(hIdx);
+  ok(w.eval('notifyPlan().symptoms').join() === '緩解頭痛', '勾的症狀存的是名字不是索引');
+  w.onNotifyChange(true);
+  w.showPage('settings');
+  ok(menuRows()[1].querySelector('.value').textContent === '20:00 · 緩解頭痛', '目錄那列顯示「幾點 · 按什麼」');
+
+  w.showPage('settings-notify');
+  w.setNotifyMode('acupoint');
+  const acus = () => [...$('notify-plan-body').querySelectorAll('input')];
+  ok(acus().length === w.eval('IMPLEMENTED.size'), `直接選穴道只列 ${acus().length} 個算得出位置的穴道`);
+  const hegu = w.eval("ACUPOINTS.findIndex(a=>a.name==='合谷穴')");
+  w.toggleNotifyAcu(hegu);
+  ok(w.eval('notifyPlan().acupoints').join() === '合谷穴', '勾的穴道有存起來');
+  w.startNotifyPlan();
+  ok(active().join() === 'acu-detail' && w.eval('curAcuName()') === '合谷穴',
+     '點提醒直接排成療程、落在認穴頁（不自動開始按摩）');
+  w.onNotifyChange(false);
+  ok(w.eval('reminderTimer') === null, '關掉提醒會把排程取消掉');
+
+  // ── 設定 › 資料與紀錄 ──
+  w.showPage('settings-data');
   w.confirm = () => true;
   w.resetProgress();
   ok(w.eval('Object.keys(state.history).length') === 0, '清除紀錄');

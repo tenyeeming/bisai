@@ -295,6 +295,75 @@ function computeAcuConfidence(acuName, lm, W, H) {
 }
 
 /**
+ * 查某個穴道的角度上限（度）。表在 acu-data.js 的 ACU_ANGLE_LIMIT。
+ * 沒列到的穴道回傳共同上限 ACU_ANGLE_HARD_CAP，不會回傳 undefined。
+ */
+function acuAngleLimit(acuName) {
+  const v = ACU_ANGLE_LIMIT[acuName];
+  return typeof v === "number" ? v : ACU_ANGLE_HARD_CAP;
+}
+
+/**
+ * ⭐ 逐穴道角度閘門（2026-08-12 新增）。
+ *
+ * 取代「一個 TILT_MAX_DEG=25° 管全部穴道」的舊做法。判斷的是**這個穴道自己那塊皮膚**
+ * 偏離鏡頭幾度，不是整隻手歪幾度 —— 對側緣穴（二間/後溪/陽谷…）這兩件事差了約 90°。
+ *
+ * 行為是「軟降級」（2026-08-12 用戶決定）：超標時**照樣畫點**，但把點染色 + 出提示，
+ * 不像正反面閘門那樣直接不畫。理由：角度超標是「這個位置可能偏了幾 mm」，
+ * 正反面錯是「這塊皮膚根本不在鏡頭這一側」，後者畫出來的點是錯的，前者只是不精確。
+ *
+ * 回傳 { level, angleDeg, limitDeg, overBy, kind, color, hint } 或 null：
+ *   level     "ok" / "edge" / "bad"
+ *             ok   = 在上限內
+ *             edge = 超過上限但還在 ACU_ANGLE_MARGIN_DEG 以內（黃字，仍可參考）
+ *             bad  = 超過上限 + margin（紅字，位置僅供參考）
+ *   angleDeg  這塊皮膚偏離鏡頭幾度（0=正對）
+ *   limitDeg  這個穴道的上限
+ *   overBy    超出幾度（沒超就是 0）
+ *   color     畫點用的顏色，直接餵 drawAcupoint
+ *   hint      給使用者看的中文提示（level=ok 時為 null）
+ *
+ * ⚠ 提示文字刻意**不講「往左轉/往右轉」**：方向要靠 azimuthDeg，而 computeAcuConfidence
+ *   的註釋③已載明 W≠H 時 azimuthDeg 有非等向縮放的系統性偏差，是四個角度裡最不可信的一個。
+ *   講錯方向比不講方向更糟，所以只給「要擺成什麼姿勢」這種靠 kind 就能確定的定性指引。
+ */
+function computeAcuGate(acuName, lm, W, H) {
+  const info = computeAcuConfidence(acuName, lm, W, H);
+  if (!info) return null;
+
+  const limitDeg = acuAngleLimit(acuName);
+  const overBy = Math.max(0, info.angleDeg - limitDeg);
+  const level =
+    overBy <= 0 ? "ok" : overBy <= ACU_ANGLE_MARGIN_DEG ? "edge" : "bad";
+
+  // side 類穴道長在側緣，要它正對鏡頭＝手要轉成手刀；palm 類則是把手掌攤平朝鏡頭。
+  const poseHint =
+    info.kind === "side"
+      ? "請把手轉成手刀（側緣朝鏡頭）"
+      : "請把手掌攤平正對鏡頭";
+
+  const hint =
+    level === "ok"
+      ? null
+      : `${acuName}這塊皮膚偏離鏡頭 ${Math.round(info.angleDeg)}°（上限 ${limitDeg}°）${
+          level === "bad" ? "，位置僅供參考" : ""
+        }　${poseHint}`;
+
+  return {
+    level,
+    angleDeg: info.angleDeg,
+    limitDeg,
+    overBy,
+    kind: info.kind,
+    // 綠=在上限內、橘=邊緣、紅=明顯超標。與信心圓盤同一套語意色。
+    color: level === "ok" ? "#00e5a0" : level === "edge" ? "#ffaa3c" : "#ff505a",
+    hint,
+    info, // 原始的 computeAcuConfidence 結果，畫圓盤/記 log 時可直接用，不必重算
+  };
+}
+
+/**
  * 算信心圓盤的頂點（畫在畫布上的多邊形）。
  *
  * ⭐ 整個「圓盤會自己跟著手轉」的祕密就在最後兩行：算出來的頂點本來是 3D 的，

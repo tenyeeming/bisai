@@ -6,10 +6,11 @@ const path = require('path');
 
 const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SUITES = [
-  ['check',  '靜態檢查（不需要套件）'],
-  ['e2e',    '端對端流程（需要 jsdom）'],
-  ['mirror', '鏡像繪製（需要 jsdom + 測試記錄/）'],
-  ['face',   '臉部公式（需要 臉部/標注結果/）'],
+  ['check',      '靜態檢查（不需要套件）'],
+  ['e2e',        '端對端流程（需要 jsdom）'],
+  ['mirror',     '鏡像繪製（需要 jsdom + 測試記錄/）'],
+  ['face',       '臉部公式（需要 臉部/標注結果/）'],
+  ['angle-gate', '逐穴道角度閘門（需要 測試記錄/）'],
 ];
 
 let bad = 0;

@@ -18,12 +18,19 @@
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">
 
-  <!-- MediaPipe：版本與 js/vision.js 的 locateFile 必須一致，
-       否則 JS 與 wasm 資產版本不匹配會偶發載入失敗 -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
-  <!-- 臉部用另一個模型（版本同樣要與 js/face-vision.js 的 locateFile 一致） -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+  <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
+  <script src="js/mp-loader.js"></script>
+
+  <!-- 本機優先，沒下載過就退回 CDN（onerror）。本機檔怎麼來：node vendor/下載.js
+       ⚠️ 版本號要與 mp-loader.js / vendor/下載.js 一致，
+          JS 與 wasm 資產版本不匹配會偶發載入失敗，而且很難查 -->
+  <script src="vendor/mediapipe/hands/hands.js"
+          onerror="mpFallback(this,'hands','hands.js')"></script>
+  <script src="vendor/mediapipe/camera_utils/camera_utils.js"
+          onerror="mpFallback(this,'camera_utils','camera_utils.js')"></script>
+  <!-- 臉部用另一個模型 -->
+  <script src="vendor/mediapipe/face_mesh/face_mesh.js"
+          onerror="mpFallback(this,'face_mesh','face_mesh.js')"></script>
 
   <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
   <script src="js/acu-data.js"></script>
@@ -54,6 +61,11 @@
   <script src="pages/tab-gallery.js"></script>
   <script src="pages/tab-gallery-info.js"></script>
   <script src="pages/tab-settings.js"></script>
+  <!-- 設定的四個子頁：一個功能一頁，目錄在 tab-settings.js -->
+  <script src="pages/settings-lang.js"></script>
+  <script src="pages/settings-notify.js"></script>
+  <script src="pages/settings-accuracy.js"></script>
+  <script src="pages/settings-data.js"></script>
   <script src="pages/tab-profile.js"></script>
 </head>
 

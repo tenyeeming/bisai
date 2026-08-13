@@ -9,10 +9,43 @@ const read = f => fs.readFileSync(DIR + f, 'utf8');
 const shell = read('acunavi-ideal.html');
 
 // ── 1. 外殼引用的檔案都存在 ──
-const srcs = [...shell.matchAll(/<script src="([^"]+)"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
+// vendor/ 是下載物（node vendor/下載.js，不進版控），沒抓也能跑（會退回 CDN），
+// 所以它不列入「一定要存在」，另外用第 1b 條守。
+const allSrcs = [...shell.matchAll(/<script src="([^"]+)"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
+const vendorSrcs = allSrcs.filter(s => s.startsWith('vendor/'));
+const srcs = allSrcs.filter(s => !s.startsWith('vendor/'));
 const links = [...shell.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(x => x[1]);
 const missingFiles = [...srcs, ...links].filter(f => !fs.existsSync(DIR + f));
 ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個檔案都存在` + (missingFiles.length ? ': ' + missingFiles : ''));
+
+// ── 1b. MediaPipe 離線化 ──
+{
+  const dl = read('vendor/下載.js');
+  // 外殼指到 vendor 的每一支，下載腳本都要真的會去抓（拼錯路徑就永遠靜靜地退回 CDN）
+  const badVendor = vendorSrcs.filter(s => {
+    const [, , pkg, file] = s.split('/');
+    return !dl.includes(`dir: '${pkg}'`) || !dl.includes(`'${file}'`);
+  });
+  ok(vendorSrcs.length === 3 && badVendor.length === 0,
+     `外殼的 ${vendorSrcs.length} 支 vendor 腳本都在 下載.js 的清單裡` + (badVendor.length ? ': ' + badVendor : ''));
+
+  // 三個包的版本號要一致：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查
+  const loader = read('js/mp-loader.js');
+  const vers = [...dl.matchAll(/npm: '(@mediapipe\/[^']+)'/g)].map(x => x[1]);
+  const badVer = vers.filter(v => !loader.includes(`'${v}'`));
+  ok(vers.length === 3 && badVer.length === 0,
+     '下載.js 與 mp-loader.js 的三個版本號一致' + (badVer.length ? ': ' + badVer : ''));
+
+  // 要嘛整包都在、要嘛整包都不在。只有 .js 沒有 wasm 是最糟的狀態：
+  // 本機 .js 讀得到 → 不會觸發 onerror → 資產仍指本機 → 404
+  const want = [...dl.matchAll(/dir: '(\w+)',[\s\S]*?files: \[([\s\S]*?)\]/g)]
+    .flatMap(m => [...m[2].matchAll(/'([^']+)'/g)].map(f => `vendor/mediapipe/${m[1]}/${f[1]}`));
+  const have = want.filter(f => fs.existsSync(DIR + f));
+  ok(have.length === 0 || have.length === want.length,
+     have.length === 0
+       ? `離線資產未下載（${want.length} 個），會退回 CDN —— 決賽前要跑 node vendor/下載.js`
+       : `離線資產齊全（${have.length}/${want.length}），現場可離線`);
+}
 
 // ── 2. 每支 JS 語法正確 ──
 const jsFiles = srcs.filter(s => s.endsWith('.js'));

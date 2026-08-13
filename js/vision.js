@@ -21,7 +21,7 @@ let onTarget = false;               // 指尖是否對準（按摩頁計時用�
 function getHands() {
   if (hands) return hands;
   hands = new Hands({
-    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`,
+    locateFile: (f) => mpAsset('hands', f),      // 本機或 CDN，見 js/mp-loader.js
   });
   hands.setOptions({
     maxNumHands: 2,                 // 按摩頁要同時看到「被按的手」和「按的手」
@@ -133,10 +133,12 @@ function onHandsResults(results) {
     if (!lm || lm.length < 21 || !handedness) continue;
     const dorsal = isDorsalView(lm, handedness);
     const sideOk = bilateral || (needDorsal === dorsal);
-    const info = computeAcuConfidence(name, lm, W, H);
+    // computeAcuGate 內部就會呼叫 computeAcuConfidence，拿 gate 順便就有 info，不必算兩次
+    const gate = computeAcuGate(name, lm, W, H);
+    const info = gate ? gate.info : null;
     const conf = info ? info.conf : 0;
     const score = (sideOk ? 10 : 0) + conf;
-    if (!best || score > best.score) best = { i, lm, handedness, dorsal, sideOk, info, conf, score };
+    if (!best || score > best.score) best = { i, lm, handedness, dorsal, sideOk, info, gate, conf, score };
   }
   if (!best) {
     setGate('warn', isZh() ? '手部偵測不穩' : 'Unstable detection');
@@ -154,8 +156,12 @@ function onHandsResults(results) {
   }
 
   // ── 閘門二：傾角（嚴格模式擋下，非嚴格也要照實說）──
+  // ⚠ 2026-08-12：這道全域門檻只管 palm 類穴道。side 類（二間/後溪/陽谷…）長在側緣，
+  //   **手刀才是它們的最佳視角**，掌面偏離 ~90° 是正常的；擋下等於誤殺它們最準的那批幀。
+  //   它們改由閘門三（自己的 ACU_ANGLE_LIMIT）管。
+  const isSideAcu = best.gate && best.gate.kind === 'side';
   const tiltDeg = computeHandTiltDeg(best.lm);
-  const tiltBad = tiltDeg > TILT_MAX_DEG;
+  const tiltBad = tiltDeg > TILT_MAX_DEG && !isSideAcu;
   if (tiltBad && strictGate) {
     setGate('bad', isZh()
       ? `傾斜 ${Math.round(tiltDeg)}° > ${TILT_MAX_DEG}°　定位不可靠，請轉正`
@@ -185,12 +191,32 @@ function onHandsResults(results) {
   }
   // 穴位點是圓的，翻不翻都一樣；但它帶的穴名不能被鏡射成反字，
   // 所以這裡不用 transform，改成把 x 座標自己翻過去畫
+  // 點色帶著逐穴道角度閘門的結果：綠=在上限內、橘=邊緣、紅=明顯超標。
+  // 軟降級 —— 超標照樣畫點，只換色 + 降級提示，不像正反面閘門直接不畫。
+  const dotColor = best.gate ? best.gate.color : '#00e5a0';
   pts.forEach((p, i) => {
-    drawAcupoint(ctx, mx(p.x), p.y, pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name), '#00e5a0', r);
+    drawAcupoint(ctx, mx(p.x), p.y, pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name), dotColor, r);
   });
 
   if (renderMode === 'locate') {
     const pct = Math.round((best.info ? best.info.conf : 0) * 100);
+    const g = best.gate;
+    if (g && g.level !== 'ok') {
+      // ── 閘門三：這個穴道自己的角度上限（2026-08-12）──
+      // 講的是「**這塊皮膚**偏離鏡頭幾度」，不是「手歪幾度」——對側緣穴這兩件事差約 90°。
+      // 姿勢指引照 kind 給：side 類要手刀、palm 類要攤平。
+      // ⚠ 刻意不講「往左轉/往右轉」：方向要靠 azimuthDeg，而它是四個角度裡最不可信的
+      //   （acu-math.js computeAcuConfidence 註釋③：W≠H 時有非等向縮放偏差）。
+      const poseZh = g.kind === 'side' ? '請把手轉成手刀（側緣朝鏡頭）' : '請把手掌攤平正對鏡頭';
+      const poseEn = g.kind === 'side' ? 'Turn your hand edge-on to the camera.' : 'Lay your palm flat toward the camera.';
+      const tailZh = g.level === 'bad' ? '　位置僅供參考' : '';
+      const tailEn = g.level === 'bad' ? ' · indicative only' : '';
+      setGate(g.level === 'bad' ? 'bad' : 'warn', isZh()
+        ? `${acuLabel(name)}這塊皮膚偏離 ${Math.round(g.angleDeg)}°（上限 ${g.limitDeg}°）${tailZh}　${poseZh}`
+        : `Surface tilted ${Math.round(g.angleDeg)}° (limit ${g.limitDeg}°)${tailEn} · ${poseEn}`);
+      onTarget = true; // 軟降級：只降級提示，不中斷流程
+      return;
+    }
     if (tiltBad) {
       setGate('warn', isZh()
         ? `已放行　傾斜 ${Math.round(tiltDeg)}°　位置僅供參考`

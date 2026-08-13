@@ -261,6 +261,42 @@ button { font-family: inherit; }
   margin-top: 2px;
 }
 
+/* ── 選項列：一列一個選項，選中的右邊打勾 ─────────
+   設定的語言頁、每日提醒頁共用（LINE 式子頁的長相）。
+   容器是 .optlist，每一列是 <button> 或 <label>。 */
+.optlist {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface);
+}
+.optlist > * {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  background: none;
+  color: var(--ink);
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+.optlist > *:first-child { border-top: 0; }
+.optlist > *:hover:not(:disabled) { background: var(--surface-2); }
+.optlist > *:disabled { opacity: .45; cursor: not-allowed; }
+.optlist .grow { flex: 1; }
+.optlist .sub { display: block; font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+.optlist input[type="checkbox"] { accent-color: var(--brass); width: 15px; height: 15px; }
+/* 打勾：位置永遠佔著，只切換可見度，免得選來選去整列在跳 */
+.optlist .tick { color: var(--brass); font-weight: 600; visibility: hidden; }
+.optlist .on { color: var(--brass); font-weight: 600; }
+.optlist .on .tick { visibility: visible; }
+
 /* ── 提示塊：語意色只出現在這裡 ─────────────────── */
 .notice {
   border-left: 2px solid var(--line);

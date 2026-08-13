@@ -11,11 +11,24 @@ const LS = {
   streak:  'acuStreak',    // { date, count }
   minions: 'minions',      // { 穴名: { level, times } }
   notify:  'notifyEnabled',
+  notifyTime: 'notifyTime',// 'HH:MM'
+  notifyPlan: 'notifyPlan',// { mode, symptoms, region }：每天提醒你按什麼
   strict:  'strictGate',
 };
 
 // localStorage 讀 JSON，壞掉就回預設值（不要讓一筆爛資料炸掉整頁）
 const jget = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+
+// ── 每日提醒的「內容」──────────────────────────────
+// mode: 'none'      只提醒你來按，不指定按什麼
+//       'symptom'   指定幾個症狀 → 提醒點進去會幫你把症狀勾好
+//       'acupoint'  直接指定幾個穴道 → 提醒點進去直接排成今天的療程
+// 一律存「名字」不存索引：索引會被 SYMPTOM_MAP / ACUPOINTS 的增刪弄歪，名字不會。
+const NOTIFY_TIME_DEFAULT = '20:00';
+const notifyTime = () => localStorage.getItem(LS.notifyTime) || NOTIFY_TIME_DEFAULT;
+const notifyPlan = () => Object.assign(
+  { mode: 'none', symptoms: [], acupoints: [] }, jget(LS.notifyPlan, {}));
+const saveNotifyPlan = (p) => localStorage.setItem(LS.notifyPlan, JSON.stringify(p));
 
 let state = {
   selectedSymptoms: [],       // 選了哪幾個症狀（存 SYMPTOM_MAP 的索引）
