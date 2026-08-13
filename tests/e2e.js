@@ -165,6 +165,27 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(!$('timer-display').classList.contains('paused') && remain < 5000 && remain > 4000,
      `對準後計時開始前進（5000ms → ${remain}ms）`);
 
+  // ── 全螢幕按摩（2026-08-13）──
+  // 重點不是「有沒有變大」（jsdom 不排版），是「元件被搬走之後還找不找得到」
+  ok(d.body.classList.contains('massage-fs'), '按下開始 → 進全螢幕');
+  ok($('massage-hud-slot').contains($('timer-display')) && $('massage-hud-slot').contains($('massage-gate')),
+     '計時與讀數條是搬進 HUD，不是另外複製一份');
+  ok(/左手.*1\/2/.test($('fs-hand').textContent), 'HUD 標出本輪是哪隻手：' + $('fs-hand').textContent);
+  ok($('btn-massage-zoom').hidden, '全螢幕時不顯示「放大顯示」');
+  w.eval('setGate("ok","測試讀數")');
+  ok($('massage-gate').textContent === '測試讀數', '搬走之後讀數條照樣寫得到（靠 id 找元件）');
+
+  w.exitMassageFullscreen();
+  ok(!d.body.classList.contains('massage-fs') && !$('btn-massage-zoom').hidden,
+     '縮小 → 退出全螢幕，並出現「放大顯示」');
+  ok(w.eval('massageRunning') === true, '縮小不會停掉計時');
+  ok($('timer-display').parentNode.classList.contains('meter')
+     && $('massage-gate').previousElementSibling.id === 'massage-viewport',
+     '退出後兩個元件都回到原位');
+  w.enterMassageFullscreen();
+  ok(d.body.classList.contains('massage-fs'), '「放大顯示」可以再回到全螢幕');
+  w.exitMassageFullscreen();   // 底下要點齒輪，真的使用者也得先縮小才點得到
+
   // ── 畫面上的設定選單 + 提早結束 ──
   ok($('massage-menu').hidden, '設定選單預設收起');
   $('massage-gear').click();
@@ -210,6 +231,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.eval('massageRemainMs=100');
   await wait(300);
   ok(active().join() === 'massage', '第一輪歸零仍留在按摩頁');
+  ok(!d.body.classList.contains('massage-fs') && $('btn-massage-zoom').hidden,
+     '一輪按完自動退出全螢幕（換手提示與開始鈕都在小畫面上）');
   ok($('round-hand').textContent === '右手', '換手：標成「右手」');
   ok($('round-pips').textContent === '2/2', '輪次進到 2/2');
   ok(!$('round-switch').hidden && /左手完成/.test($('round-switch').textContent)

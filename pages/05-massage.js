@@ -114,6 +114,66 @@ registerPage('massage', {
       .timer-slider { width: 100%; margin: 12px 0 4px; accent-color: var(--brass); }
       .hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-soft); letter-spacing: .04em; }
       #round-switch[hidden] { display: none; }
+      #btn-massage-zoom { margin-top: 8px; }
+      #btn-massage-zoom[hidden] { display: none; }
+
+      /* ── 全螢幕按摩（2026-08-13）────────────────────────────────
+         按下「開始按摩」之後滑桿與按鈕都鎖住了，底下那塊面板就變成佔位子的死角；
+         而這時使用者真正要盯的只剩兩件事：穴道圓盤、指尖有沒有對準。
+         所以整個取景框跳出手機外框鋪滿視窗，計時與讀數條**搬**進畫面下緣
+         （搬 DOM 而不是複製一份，才不會有兩個計時器要同步）。
+         一輪結束時 stopMassageTimer() 會自動退回，Esc 或「縮小」也能手動退。 */
+      #massage-viewport { position: relative; }
+      .fs-hud { display: none; }
+
+      body.massage-fs { overflow: hidden; }
+      body.massage-fs #massage-viewport {
+        position: fixed; inset: 0; z-index: 60;
+        border: 0; border-radius: 0; background: #000;
+      }
+      body.massage-fs #massage-canvas {
+        width: 100%; height: 100%;
+        aspect-ratio: auto;          /* 蓋掉 canvas.cam 的 4/3，改由 object-fit 決定 */
+        object-fit: contain;
+      }
+      body.massage-fs .fs-hud {
+        display: block;
+        position: absolute; inset: 0;
+        pointer-events: none;        /* 只有按鈕收點擊，其餘讓影像透出來 */
+      }
+
+      .fs-top {
+        position: absolute; top: 0; left: 0; right: 0;
+        display: flex; align-items: center; gap: 10px;
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+        background: linear-gradient(rgba(0,0,0,.55), transparent);
+      }
+      .fs-hand {
+        font-family: var(--font-ming); font-size: 17px; font-weight: 600;
+        color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.7);
+      }
+      .fs-btn {
+        margin-left: auto; pointer-events: auto;
+        font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em;
+        color: #fff; background: rgba(0,0,0,.45);
+        border: 1px solid rgba(255,255,255,.45); border-radius: var(--r);
+        padding: 7px 11px; cursor: pointer;
+      }
+      .fs-btn:hover { border-color: var(--brass); color: var(--brass); }
+
+      .fs-bottom {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        display: flex; align-items: flex-end; gap: 12px;
+        padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(transparent, rgba(0,0,0,.72));
+      }
+      /* 搬進來的那兩個元件要改裝成「疊在影像上」的樣子 */
+      .fs-bottom .timer-display {
+        flex: none; margin: 0; font-size: 52px; color: #fff;
+        text-shadow: 0 2px 14px rgba(0,0,0,.75);
+      }
+      .fs-bottom .timer-display.paused { color: rgba(255,255,255,.4); }
+      .fs-bottom .readout { flex: 1; margin: 0; border-radius: var(--r); }
     </style>
 
     <div class="stack">
@@ -131,7 +191,17 @@ registerPage('massage', {
           <div class="pips" id="round-pips"></div>
         </div>
 
-        <div class="viewport"><canvas id="massage-canvas" class="cam"></canvas></div>
+        <div class="viewport" id="massage-viewport">
+          <canvas id="massage-canvas" class="cam"></canvas>
+          <!-- 全螢幕時才看得到；計時與讀數條會被搬進 .fs-bottom（見 enterMassageFullscreen） -->
+          <div class="fs-hud" id="massage-hud">
+            <div class="fs-top">
+              <span class="fs-hand" id="fs-hand"></span>
+              <button class="fs-btn" onclick="exitMassageFullscreen()" data-i18n="btn-shrink">⤡ 縮小</button>
+            </div>
+            <div class="fs-bottom" id="massage-hud-slot"></div>
+          </div>
+        </div>
         <div class="readout gate-warn" id="massage-gate" data-i18n="massage-hint">用另一隻手的指尖對準穴道圓盤</div>
       </div>
 
@@ -144,6 +214,9 @@ registerPage('massage', {
         <input type="range" class="timer-slider" id="timer-input" min="5" max="120" value="30"
                oninput="updateTimerDisplay()">
         <button class="btn wide" id="btn-massage-start" onclick="startMassage()" data-i18n="btn-massage-start">開始按摩</button>
+        <!-- 只在「計時中但已經縮小」時出現，讓人能再放大回去 -->
+        <button class="btn ghost wide" id="btn-massage-zoom" hidden
+                onclick="enterMassageFullscreen()" data-i18n="btn-zoom">⤢ 放大顯示</button>
         <p class="hint" id="timer-tip" style="margin-top:10px" data-i18n="timer-tip">計時只在指尖對準穴道時前進</p>
         <p class="hint" style="margin-top:4px" data-i18n="round-tip">同一個穴道左右手各有一個，兩隻手都按完才算完成。</p>
       </div>
@@ -194,6 +267,13 @@ function renderRound() {
   pips.appendChild(n);
 
   document.getElementById('btn-massage-start').textContent = startLabel();
+  renderFsHand();
+}
+
+// 全螢幕時輪次條被蓋住了，所以那個資訊要在 HUD 左上角再出現一次
+function renderFsHand() {
+  const el = document.getElementById('fs-hand');
+  if (el) el.textContent = `${t(curHandKey())}　${massageRound}/${TOTAL_ROUNDS}`;
 }
 
 // 換手提示：寫在頁面上而不是讀數條，因為讀數條下一幀就會被偵測結果蓋掉
@@ -252,6 +332,47 @@ function endMassageEarly() {
   }
 }
 
+// ── 全螢幕 ────────────────────────────────────────────────────────
+// 計時器與讀數條是「搬」進 HUD 的，不是複製一份 —— 兩份就會有同步問題，
+// 而且 updateTimerDisplay / setGate 都是靠 id 找元件，搬走了照樣寫得到。
+let massageFsOn = false;
+let fsMoved = null;              // [{ el, parent, next }]：退出時放回原位用
+
+function enterMassageFullscreen() {
+  if (massageFsOn) return;
+  const slot = document.getElementById('massage-hud-slot');
+  const els = ['timer-display', 'massage-gate'].map(id => document.getElementById(id));
+  if (!slot || els.some(el => !el)) return;
+
+  closeMassageMenu();            // 齒輪選單在 backbar 上，等一下會被蓋住
+  fsMoved = els.map(el => ({ el, parent: el.parentNode, next: el.nextSibling }));
+  els.forEach(el => slot.appendChild(el));
+  renderFsHand();
+  document.body.classList.add('massage-fs');
+  document.addEventListener('keydown', onFsKey);
+  massageFsOn = true;
+  syncZoomBtn();
+}
+
+function exitMassageFullscreen() {
+  if (!massageFsOn) return;
+  fsMoved.forEach(({ el, parent, next }) => parent.insertBefore(el, next));
+  fsMoved = null;
+  document.body.classList.remove('massage-fs');
+  document.removeEventListener('keydown', onFsKey);
+  massageFsOn = false;
+  syncZoomBtn();
+}
+
+// Esc 退出是瀏覽器的慣例，不照做的話使用者會以為卡住了
+function onFsKey(e) { if (e.key === 'Escape') exitMassageFullscreen(); }
+
+// 縮小之後計時還在跑，要留一個回得去的入口
+function syncZoomBtn() {
+  const b = document.getElementById('btn-massage-zoom');
+  if (b) b.hidden = !(massageRunning && !massageFsOn);
+}
+
 // ── 計時 ──────────────────────────────────────────────────────────
 function updateTimerDisplay() {
   const v = parseInt(document.getElementById('timer-input').value, 10);
@@ -264,6 +385,9 @@ function updateTimerDisplay() {
 function stopMassageTimer() {
   massageRunning = false;
   if (massageTickId) { clearInterval(massageTickId); massageTickId = null; }
+  // 一輪按完就要退回來 —— 換手提示、開始鈕都在小畫面上，蓋著就看不到
+  exitMassageFullscreen();
+  syncZoomBtn();
 }
 
 function startMassage() {
@@ -273,6 +397,7 @@ function startMassage() {
   massageRunning = true;
   document.getElementById('btn-massage-start').disabled = true;
   document.getElementById('timer-input').disabled = true;
+  enterMassageFullscreen();      // 計時中只剩「圓盤 + 指尖」要看，把畫面讓出來
 
   massageTickId = setInterval(() => {
     const disp = document.getElementById('timer-display');
