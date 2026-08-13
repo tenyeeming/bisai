@@ -1098,16 +1098,28 @@ function drawConfidenceDisc(ctx, cx, cy, radiusPx, info) {
   ctx.restore();
 }
 
+/**
+ * ⚡ 2026-08-13 效能：光暈原本是 ctx.shadowBlur = 12 做的。
+ *    canvas2d 的 shadow blur 在多數行動瀏覽器會掉到軟體路徑，是 canvas2d 最貴的
+ *    單一操作；而這裡每幀每個穴位點都要來一次（八邪一次 4 個點 = 4 次模糊）。
+ *    改成「外圈半透明大圓 + 內圈實心點」，視覺上一樣是發光的點，但成本是普通填色。
+ *    ⚠️ 純繪製改動，座標與半徑都沒動。
+ */
 function drawAcupoint(ctx, x, y, label, color, radius) {
   radius = radius || 6;
   ctx.save();
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
+  // 外圈光暈（取代 shadowBlur）
+  ctx.globalAlpha = 0.22;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  // 實心點
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.shadowBlur = 0;
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 1.5;
   ctx.stroke();

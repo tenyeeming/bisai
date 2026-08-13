@@ -345,5 +345,15 @@ canvas.cam { width: 100%; display: block; aspect-ratio: 4 / 3; }
 .readout.gate-bad::before  { background: var(--bad); }
 .viewport + .readout { margin-top: -1px; }
 
-/* MediaPipe 的 Camera 需要真的 <video>，但畫面是畫在 canvas 上，所以藏起來 */
-#hidden-video { display: none; }
+/* MediaPipe 的 Camera 需要真的 <video>，但畫面是畫在 canvas 上，所以藏起來。
+   ⚠️ 不能用 display:none —— 部分 iOS Safari 版本會因此不解碼影像，
+   drawImage 就抓到全黑幀（整頁看起來像壞掉但沒有任何錯誤訊息）。
+   改成「畫面外的 1px 元素」：一樣看不到，但瀏覽器認定它是可見的、會照常解碼。 */
+#hidden-video {
+  position: fixed;
+  top: 0; left: 0;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}

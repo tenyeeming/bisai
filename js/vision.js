@@ -23,25 +23,68 @@ function getHands() {
   hands = new Hands({
     locateFile: (f) => mpAsset('hands', f),      // 本機或 CDN，見 js/mp-loader.js
   });
-  hands.setOptions({
-    maxNumHands: 2,                 // 按摩頁要同時看到「被按的手」和「按的手」
-    modelComplexity: 1,
+  hands.onResults(onHandsResults);
+  return hands;
+}
+
+// ⚡ 手數依頁面而定（2026-08-13 效能）：
+//   定位頁只挑「一隻目標手」（見下面的 best 迴圈），第二隻手的 landmark 推論
+//   算完就丟 —— 而 landmark 推論是每幀最貴的一筆，手數砍半＝推論量砍半。
+//   按摩頁才真的需要兩隻（被按的手 + 按的手）。
+//   ⚠️ 這是純效能改動：定位頁本來就只用 best 那一隻，輸出座標完全不變。
+let handsNumConfigured = null;
+function applyHandsOptions(h, mode) {
+  const n = mode === 'massage' ? 2 : 1;
+  if (handsNumConfigured === n) return;         // setOptions 會重配 graph，別每幀呼叫
+  h.setOptions({
+    maxNumHands: n,
+    modelComplexity: 1,           // ⚠️ 不要為了流暢降成 0：lite 模型的 landmark 誤差
+                                  //    會直接進到 v35 公式，而本專案的閾值是 2mm。
     minDetectionConfidence: 0.6,
     minTrackingConfidence: 0.6,
   });
-  hands.onResults(onHandsResults);
-  return hands;
+  handsNumConfigured = n;
+}
+
+// ⚡ 預熱（2026-08-13）：MediaPipe 首次使用要抓 ~16MB（wasm 6.1MB + packed assets 4.2MB
+//    + hand_landmark_full.tflite 5.4MB），手機 4G 上要 10~30 秒。原本這件事發生在
+//    使用者按下「開始定位」的那一刻 —— 體感就是「點下去卡死」。
+//
+//    改成在**認穴頁**（步驟三）就先在背景載好：使用者在那頁讀定位說明、看參考圖
+//    通常要 5~15 秒，剛好把載入藏起來。等他按下一步時模型已經在記憶體裡。
+//
+//    ⚠️ 這不會開啟相機，也不會畫任何東西（onHandsResults 開頭就擋掉 camRunning=false）。
+//    ⚠️ 純載入時機改動，跟定位公式與精度完全無關。
+let handsWarmed = false;
+function warmUpHands() {
+  if (handsWarmed || typeof Hands === 'undefined') return;
+  handsWarmed = true;
+  // 用 idle 時段做，別跟頁面切換動畫搶主執行緒
+  const go = () => {
+    try {
+      const h = getHands();
+      if (typeof h.initialize === 'function') {
+        h.initialize().catch(() => {});          // 失敗就算了，等使用者真的進定位頁再載一次
+      }
+    } catch (e) { /* 預熱失敗不能影響 UI */ }
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 1500 });
+  else setTimeout(go, 300);
 }
 
 async function startCamera(canvasId, mode) {
   renderMode = mode;
   activeCanvas = document.getElementById(canvasId);
+  // 定位頁 → 按摩頁是「相機不停、只換模式」，會走下面的 early return，
+  // 所以手數要在這裡先調整，不能等到 getHands() 之後
+  if (hands) applyHandsOptions(hands, mode);
   if (camRunning || camStarting) return;   // 已在跑就只換畫布/模式
   camStarting = true;
   setGate('warn', isZh() ? '啟動相機中…' : 'Starting camera…');
   try {
     video = document.getElementById('hidden-video');
     const h = getHands();
+    applyHandsOptions(h, mode);
     camera = new Camera(video, {
       onFrame: async () => {
         if (!camRunning) return;
@@ -92,11 +135,26 @@ function onHandsResults(results) {
   const canvas = activeCanvas;
   if (!canvas || !camRunning) return;
 
-  // 畫布尺寸必須跟著影像走，否則 landmark(0~1) × W/H 全部算錯位置
+  // 畫布尺寸必須跟著影像走，否則 landmark(0~1) × W/H 全部算錯位置。
+  //
+  // ⚡ 2026-08-13 效能：640×480 是 getUserMedia 的 **ideal 不是 exact**，很多手機
+  //    （尤其前鏡頭）會回 1280×720 甚至更高。那時每幀 clearRect + drawImage 的
+  //    像素量是 3 倍以上，而 MediaPipe 內部無論餵多大都會縮到 ~224×224 去推論
+  //    —— 多出來的解析度對定位精度毫無幫助，純浪費。所以這裡設一個上限。
+  //
+  // ⚠️ 只做**等比**縮小，長寬比一個像素都不能改：
+  //    acu-math.js 的 _cv() 是 x,z 乘 W 而 y 乘 H（見該檔註釋③），
+  //    等比縮放時三軸同倍數 → 法向量方向不變 → conf / angleDeg 完全相同；
+  //    但長寬比一改（例如硬塞成 4:3）法向量就會歪，閘門判定跟著錯。
+  //    （Math.round 帶來的比例誤差 < 0.1%，換算 angleDeg < 0.05°。）
+  const CANVAS_MAX_EDGE = 640;
   const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-  if (canvas.width !== vw || canvas.height !== vh) { canvas.width = vw; canvas.height = vh; }
+  const s = Math.min(1, CANVAS_MAX_EDGE / Math.max(vw, vh));
+  const cw = Math.round(vw * s), ch = Math.round(vh * s);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
   const W = canvas.width, H = canvas.height;
-  const ctx = canvas.getContext('2d');
+  // alpha:false —— 這塊畫布每幀都被影像整片蓋滿，不需要跟底下的東西做透明合成
+  const ctx = canvas.getContext('2d', { alpha: false });
 
   // 前鏡頭要鏡像，使用者才會覺得畫面裡的手跟自己的手同一邊（照鏡子）。
   // 後鏡頭是「看別人」，鏡像反而不對。
@@ -109,7 +167,11 @@ function onHandsResults(results) {
   ctx.clearRect(0, 0, W, H);
   ctx.save();
   flip();
-  ctx.drawImage(results.image || video, 0, 0, W, H);
+  // ⚡ 2026-08-13 效能：這裡**刻意不用 results.image**。
+  //    results.image 是 MediaPipe 內部那張 WebGL canvas，把它畫進 2D canvas 會強迫
+  //    瀏覽器做一次 GPU→CPU 同步讀回（pipeline stall），行動 GPU 上特別貴。
+  //    直接畫 <video> 的內容一模一樣，而且走的是硬體解碼器的快路徑。
+  ctx.drawImage(video, 0, 0, W, H);
   ctx.restore();
 
   const allHands = results.multiHandLandmarks || [];

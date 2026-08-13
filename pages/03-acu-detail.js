@@ -7,7 +7,9 @@ registerPage('acu-detail', {
   step: 3,
   stepLabel: 'step-3',
   backTo: 'recommend',
-  onEnter: () => renderAcuDetail(),
+  // 下一步就是定位頁，趁使用者在這頁讀說明時，先把 MediaPipe 在背景載好
+  // （~16MB，不預熱的話會卡在「開始定位」那一下）。見 js/vision.js warmUpHands。
+  onEnter: () => { renderAcuDetail(); warmUpHands(); },
   onLanguage: () => renderAcuDetail(),
 
   html: `

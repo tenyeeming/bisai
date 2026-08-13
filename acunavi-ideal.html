@@ -15,6 +15,11 @@
        ——那會被 CORS 擋掉。片段一律寫在各頁 .js 的 html 欄位。
        ═══════════════════════════════════════════════════════════════ -->
 
+  <!-- ⚡ 只在 vendor/ 沒下載、要退回 CDN 時才用得到：先把 DNS 查詢與 TLS 握手做掉，
+       等真的要抓那 16MB 時就不必再等連線建立（省數百 ms，手機網路上更明顯）。
+       vendor/ 有檔的時候這行是無害的閒置提示。 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">
 
