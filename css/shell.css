@@ -104,9 +104,17 @@ header {
 }
 
 /* ── 頁面容器 ──────────────────────────────────── */
-main { padding: 18px 18px 22px; flex: 1; }
+/* main 改成 flex 直排，作用是把「還沒用到的高度」交給 .page，
+   這樣需要撐滿的頁面（如首頁的症狀格）可以往下長到底、不留空白。
+   .page 本身仍是 block，內部排版寫法完全不變，其他頁面看起來一樣。
+
+   ⚠️ 這裡**故意不寫** min-height: 0。
+      flex item 預設 min-height:auto 代表「不會縮到比內容還小」——
+      內容多的時候頁面自己長高、整頁可以捲。寫成 0 就會反過來把內容壓縮、
+      溢出去蓋到底部分頁列（矮螢幕上首頁的「下一步」會被蓋住）。 */
+main { padding: 18px 18px 22px; flex: 1; display: flex; flex-direction: column; }
 .page { display: none; }
-.page.active { display: block; }
+.page.active { display: block; flex: 1 1 auto; }
 @media (prefers-reduced-motion: no-preference) {
   .page.active { animation: rise .22s ease-out; }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -171,8 +179,8 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 34px;
-  padding: 5px 18px;
+  min-height: 44px;          /* 2026-09-04 從 34px 放大：要塞得下夠大的返回鈕 */
+  padding: 3px 18px;         /* 內距讓給按鈕自己，這樣可點範圍才會真的變大 */
   border-bottom: 1px solid var(--line);
   flex: none;
 }
@@ -217,13 +225,26 @@ button { font-family: inherit; }
   display: block; font-size: 10.5px; color: var(--ink-soft);
   font-weight: 400; margin-top: 2px;
 }
+/* 返回鈕（2026-09-04 放大，用戶提）。
+   原本是 11.5px + padding:0 —— 可點範圍就只有那幾個字，手機單手持握很難按到。
+   放大分兩件事做，缺一不可：
+     ① 字本身變大（11.5 → 13.5px）
+     ② 補內距把「可點範圍」撐開，再用負的 margin 把字拉回原本的對齊線，
+        所以看起來位置沒變，但實際點得到的區域大了一圈
+   高度 38px 已接近行動裝置 44px 的建議值；再大就會把步驟軌往下擠。 */
 .back {
   font-family: var(--font-mono);
-  background: none; border: 0; padding: 0;
-  color: var(--ink-soft); font-size: 11.5px; letter-spacing: .08em;
+  background: none; border: 0;
+  padding: 10px 12px;
+  margin-left: -12px;        /* 抵銷左內距，字仍對齊 18px 的版心 */
+  color: var(--ink-soft); font-size: 13.5px; letter-spacing: .08em;
   cursor: pointer;
+  border-radius: var(--r);
 }
-.back:hover { color: var(--brass); }
+.back:hover { color: var(--brass); background: var(--surface-2); }
+.back:active { background: var(--surface-2); }
+/* 鍵盤 Tab 到的時候要看得出來（原本沒有外框，focus 完全沒有回饋） */
+.back:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
 
 /* ── 分段切換：選穴頁的部位、設定頁的語言共用 ───── */
 .seg { display: flex; }

@@ -1,26 +1,44 @@
-// ══ 步驟五：按摩 ═════════════════════════════════════════════════
+// ══ 步驟四：按摩 ═════════════════════════════════════════════════
 // 兩個核心規則：
-//   ① 計時只在「另一隻手的指尖真的對準穴道」時前進（onTarget 由 js/vision.js 每幀更新）
+//   ① 計時只在「指尖真的對準穴道」時前進（onTarget 每幀更新）
 //   ② 同一個穴道左右手各一個，兩輪都按完才算完成這個穴道
+//
+// ⭐ 2026-09-04 起臉部穴道也走這一頁。這頁**不去問「這是不是臉部」**，
+//    只問 js/regions.js 那層抽象（itemLabel / itemRounds / itemDetector），
+//    差別集中在三處：標題用 itemLabel、輪數用 itemRounds（臉部正中穴＝1 輪、
+//    沒有換手）、相機用 itemDetector 決定開 Hands 還是 FaceMesh。
+//   ⚠️ onTarget 兩邊都有，但算法不同：手部在 js/vision.js（同模型兩點距離），
+//      臉部在 js/face-vision.js + js/face-gate.js（跨模型，用表觀大小比值判深度）。
+//      這一頁只讀那個旗標，不必知道是誰算的。
 
 let massageRunning = false;
 let massageRemainMs = 30000;
 let massageTickId = null;
 const TICK_MS = 100;
 
-// 第幾輪（1 = 左手，2 = 右手）。順序固定，使用者照著換手就好
-const ROUND_HANDS = ['hand-left', 'hand-right'];
-const TOTAL_ROUNDS = ROUND_HANDS.length;
+// 第幾輪。手部是 2（左右手各一輪），手序由設定決定（預設先右後左）；
+// 臉部正中穴只有一個點，沒有左右之分 → 1 輪，也就沒有換手這回事。
+// ⚠️ 寫成函式不是常數：同一次療程裡手部與臉部項目混著跑，換穴時輪數會變。
+const totalRounds = () => itemRounds(curAcuName());
+const roundHands = () =>
+  (flow.handOrder === 'left') ? ['hand-left', 'hand-right'] : ['hand-right', 'hand-left'];
 let massageRound = 1;
-const curHandKey = () => ROUND_HANDS[massageRound - 1];
+const curHandKey = () => roundHands()[massageRound - 1];
+// 只有一輪的項目不談「哪隻手」—— 輪次條改成顯示部位
+const hasRounds = () => totalRounds() > 1;
+
+// 換手倒數：一隻手按滿之後不必再點一次「開始」，倒數完自己接上
+let switchTickId = null;
+let switchRemain = 0;
 
 registerPage('massage', {
   tab: 'home',
-  step: 5,
-  stepLabel: 'step-5',
+  step: 4,
+  stepLabel: 'step-4',
   backTo: 'camera',
   hideTabbar: true,     // 按摩中手在鏡頭前，誤觸切頁會直接中斷計時
   keepsCamera: true,
+  keepsFaceCamera: true,   // 臉部項目在這頁跑 FaceMesh（＋Hands 供閘門用）
 
   // 齒輪掛在返回列右邊（外殼的 #backbar-actions），不壓在取景框上
   actions: `
@@ -32,8 +50,9 @@ registerPage('massage', {
       </svg>
     </button>
     <div class="gear-menu" id="massage-menu" hidden role="menu">
-      <button type="button" role="menuitem" onclick="switchCamera()" data-i18n="btn-flip">切換鏡頭</button>
-      <button type="button" role="menuitem" data-disc-label onclick="toggleDisc()">隱藏信心圓盤</button>
+      <button type="button" role="menuitem" onclick="flipMassageCamera()" data-i18n="btn-flip">切換鏡頭</button>
+      <button type="button" role="menuitem" data-disc-label onclick="toggleMassageDisc()">隱藏信心圓盤</button>
+      <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
       <hr>
       <button type="button" role="menuitem" class="danger" onclick="endMassageEarly()">
         <span data-i18n="menu-end-early">提早結束</span>
@@ -42,16 +61,18 @@ registerPage('massage', {
     </div>`,
 
   onEnter: () => {
-    document.getElementById('massage-title').textContent = acuLabel(curAcuName());
+    document.getElementById('massage-title').textContent = itemLabel(curAcuName());
     closeMassageMenu();
     syncDiscLabels();
+    syncAdvanceLabels();
     resetMassageSession();
-    startCamera('massage-canvas', 'massage');
+    startMassageCamera();
   },
-  onLeave: () => { stopMassageTimer(); closeMassageMenu(); },
+  onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
   onLanguage: () => {
-    document.getElementById('massage-title').textContent = acuLabel(curAcuName());
+    document.getElementById('massage-title').textContent = itemLabel(curAcuName());
     syncDiscLabels();
+    syncAdvanceLabels();
     updateTimerDisplay();
     renderRound();
   },
@@ -178,7 +199,7 @@ registerPage('massage', {
 
     <div class="stack">
       <div>
-        <p class="eyebrow" data-i18n="eyebrow-massage">步驟五 · 雙手確認</p>
+        <p class="eyebrow" data-i18n="eyebrow-massage">步驟四 · 雙手確認</p>
         <h2 id="massage-title" class="acu-title"></h2>
       </div>
 
@@ -202,23 +223,25 @@ registerPage('massage', {
             <div class="fs-bottom" id="massage-hud-slot"></div>
           </div>
         </div>
-        <div class="readout gate-warn" id="massage-gate" data-i18n="massage-hint">用另一隻手的指尖對準穴道圓盤</div>
+        <div class="readout gate-warn" id="massage-gate">用另一隻手的指尖對準穴道圓盤</div>
       </div>
 
       <p class="notice warn" id="round-switch" hidden></p>
+      <button class="btn ghost wide" id="btn-switch-now" hidden
+              onclick="skipSwitchCountdown()" data-i18n="btn-ready-now">立即開始</button>
 
       <div class="meter">
         <p class="label" data-i18n="massage-timer">按摩時間（每隻手）</p>
         <div class="timer-display" id="timer-display">30</div>
         <p class="hint" id="timer-label"></p>
-        <input type="range" class="timer-slider" id="timer-input" min="5" max="120" value="30"
-               oninput="updateTimerDisplay()">
+        <input type="range" class="timer-slider" id="timer-input" min="5" max="120" step="5" value="30"
+               oninput="onPressSecChange()">
         <button class="btn wide" id="btn-massage-start" onclick="startMassage()" data-i18n="btn-massage-start">開始按摩</button>
         <!-- 只在「計時中但已經縮小」時出現，讓人能再放大回去 -->
         <button class="btn ghost wide" id="btn-massage-zoom" hidden
                 onclick="enterMassageFullscreen()" data-i18n="btn-zoom">⤢ 放大顯示</button>
         <p class="hint" id="timer-tip" style="margin-top:10px" data-i18n="timer-tip">計時只在指尖對準穴道時前進</p>
-        <p class="hint" style="margin-top:4px" data-i18n="round-tip">同一個穴道左右手各有一個，兩隻手都按完才算完成。</p>
+        <p class="hint" style="margin-top:4px" id="round-tip">同一個穴道左右手各有一個，兩隻手都按完才算完成。</p>
       </div>
     </div>
   </div>`,
@@ -232,56 +255,82 @@ function goToMassage() {
 // ── 輪次 ──────────────────────────────────────────────────────────
 function resetMassageSession() {   // 整個穴道重來（進頁時）
   massageRound = 1;
+  acuElapsedMs = 0;
+  stopSwitchCountdown();
   armTimer();
   renderRound();
 }
+
+// 這一穴實際按滿了多少毫秒（左右兩輪相加），完成時寫進 sessionLog 給總結頁
+let acuElapsedMs = 0;
 
 function armTimer() {              // 準備下一輪的計時，不動輪次
   stopMassageTimer();
   const btn = document.getElementById('btn-massage-start');
   btn.disabled = false;
   btn.textContent = startLabel();
-  document.getElementById('timer-input').disabled = false;
+  const input = document.getElementById('timer-input');
+  input.disabled = false;
+  input.value = acuSecOf(curAcuName());   // 這一穴的秒數（選穴頁拉的），不是滑桿上次停的位置
   document.getElementById('timer-display').classList.remove('paused');
   updateTimerDisplay();
 }
 
 function startLabel() {
-  if (massageRound === 1) return t('btn-massage-start');
+  if (massageRound === 1 || !hasRounds()) return t('btn-massage-start');
   return isZh() ? `開始按${t(curHandKey())}` : `Start (${t(curHandKey()).toLowerCase()})`;
 }
 
 function renderRound() {
-  document.getElementById('round-hand').textContent = t(curHandKey());
+  // 臉部只有一輪，講「右手／左手」是錯的（按臉用哪隻手都行）
+  document.getElementById('round-hand').textContent =
+    hasRounds() ? t(curHandKey()) : t('round-face');
 
   const pips = document.getElementById('round-pips');
   pips.innerHTML = '';
-  for (let i = 1; i <= TOTAL_ROUNDS; i++) {
+  for (let i = 1; i <= totalRounds(); i++) {
     const p = document.createElement('span');
     p.className = 'pip' + (i < massageRound ? ' done' : i === massageRound ? ' now' : '');
     pips.appendChild(p);
   }
   const n = document.createElement('span');
   n.className = 'n';
-  n.textContent = `${massageRound}/${TOTAL_ROUNDS}`;
+  n.textContent = `${massageRound}/${totalRounds()}`;
   pips.appendChild(n);
 
   document.getElementById('btn-massage-start').textContent = startLabel();
   renderFsHand();
+  syncMassageHints();
+}
+
+// 輪次說明與讀數條的初始提示：手部講「左右手兩輪」，臉部講「只有一輪」。
+// ⚠️ 不用 data-i18n：那是「一個元素固定一個 key」，這兩處的 key 會隨項目變。
+function syncMassageHints() {
+  const tip = document.getElementById('round-tip');
+  if (tip) tip.textContent = t(hasRounds() ? 'round-tip' : 'round-tip-face');
+  // 讀數條：這裡寫的是「還沒偵測到之前」的那句。模型一活起來，
+  // setGate / setFaceGate 每幀都會蓋掉它，所以不必判斷現在是不是空的。
+  const gate = document.getElementById('massage-gate');
+  if (gate) gate.textContent = t(massageDetector() === 'face' ? 'massage-hint-face' : 'massage-hint');
 }
 
 // 全螢幕時輪次條被蓋住了，所以那個資訊要在 HUD 左上角再出現一次
 function renderFsHand() {
   const el = document.getElementById('fs-hand');
-  if (el) el.textContent = `${t(curHandKey())}　${massageRound}/${TOTAL_ROUNDS}`;
+  if (!el) return;
+  el.textContent = hasRounds()
+    ? `${t(curHandKey())}　${massageRound}/${totalRounds()}`
+    : t('round-face');
 }
 
 // 換手提示：寫在頁面上而不是讀數條，因為讀數條下一幀就會被偵測結果蓋掉
 function showSwitchHint(doneHandKey) {
   const box = document.getElementById('round-switch');
-  box.textContent = isZh()
-    ? `${t(doneHandKey)}完成！請換成${t(curHandKey())}，再按「${startLabel()}」。`
-    : `${t(doneHandKey)} done. Switch to your ${t(curHandKey()).toLowerCase()}, then press “${startLabel()}”.`;
+  const base = isZh()
+    ? `${t(doneHandKey)}完成！請換成${t(curHandKey())}。`
+    : `${t(doneHandKey)} done. Switch to your ${t(curHandKey()).toLowerCase()}.`;
+  box.setAttribute('data-base', base);
+  box.textContent = base;
   box.hidden = false;
 }
 
@@ -382,6 +431,44 @@ function updateTimerDisplay() {
   document.getElementById('timer-label').textContent = isZh() ? `${v} 秒` : `${v} SEC`;
 }
 
+// 滑桿改的是**這一穴**的秒數，不是全域設定（2026-09-08 改）。
+// 以前這裡寫 setFlow('pressSec', v)，等於在按摩頁隨手一拉就把之後每一穴、
+// 每一次療程都改掉 —— 想讓這一穴慢一點的人不會預期那個副作用。
+// 全域值現在只當「沒特別調過時的預設」，在設定 › 療程節奏那頁改。
+function onPressSecChange() {
+  const v = parseInt(document.getElementById('timer-input').value, 10);
+  setAcuSec(curAcuName(), v);
+  updateTimerDisplay();
+}
+
+// ── 相機：手部跑 Hands、臉部跑 FaceMesh（＋Hands 供閘門用）─────────
+// 沿用定位頁 pages/04-camera.js 的分流寫法，兩套模型共用同一個 <video>，
+// 開一邊之前一定要把另一邊關掉。
+const massageDetector = () => itemDetector(curAcuName());
+
+function startMassageCamera() {
+  const id = curAcuName();
+  if (itemDetector(id) === 'face') {
+    stopCamera();                       // 手部那邊可能還開著（定位頁過來）
+    faceSelected = [id];                // 按摩頁只畫現在這一穴
+    // 第三個參數 'massage' 才會連 Hands 一起跑 —— 那是對準閘門的來源
+    startFaceCamera('massage-canvas', 'massage-gate', 'massage');
+  } else {
+    stopFaceCamera();
+    startCamera('massage-canvas', 'massage');
+  }
+}
+
+// 齒輪選單那兩顆要分流，否則在臉部項目上按會去動已經關掉的手部相機
+function flipMassageCamera() {
+  if (massageDetector() === 'face') switchFaceCamera(); else switchCamera();
+}
+
+function toggleMassageDisc() {
+  if (massageDetector() === 'face') { toggleFaceDisc(); syncDiscLabels(); return; }
+  toggleDisc();
+}
+
 function stopMassageTimer() {
   massageRunning = false;
   if (massageTickId) { clearInterval(massageTickId); massageTickId = null; }
@@ -404,6 +491,7 @@ function startMassage() {
     if (!onTarget) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
     disp.classList.remove('paused');
     massageRemainMs -= TICK_MS;
+    acuElapsedMs += TICK_MS;                                   // 只算「真的對準」的時間
     disp.textContent = Math.max(0, Math.ceil(massageRemainMs / 1000));
     if (massageRemainMs <= 0) { stopMassageTimer(); finishRound(); }
   }, TICK_MS);
@@ -411,13 +499,74 @@ function startMassage() {
 
 function finishRound() {
   // 還有下一隻手就換手再來一輪，兩輪都完成才算完成這個穴道
-  if (massageRound < TOTAL_ROUNDS) {
+  if (massageRound < totalRounds()) {
     const done = curHandKey();
     massageRound++;
     armTimer();
     renderRound();
     showSwitchHint(done);
+    startSwitchCountdown();
     return;
   }
+  // 這一穴按完了，把實際時間留給總結頁（完成頁才會寫進長期紀錄）
+  sessionLog.push({ name: curAcuName(), ms: acuElapsedMs });
   completeMassage();
+}
+
+// ── 換手倒數 ──────────────────────────────────────────────────────
+// 手還舉在鏡頭前，這時候要人再點一次「開始」是最難點的一下 ——
+// 所以倒數完自己開始。想快一點就按「立即開始」。
+function startSwitchCountdown() {
+  stopSwitchCountdown();
+  const sec = Number(flow.switchSec) || 0;
+  const btn = document.getElementById('btn-switch-now');
+
+  if (sec <= 0) { skipSwitchCountdown(); return; }
+
+  switchRemain = sec;
+  if (btn) btn.hidden = false;
+  renderSwitchCountdown();
+
+  switchTickId = setInterval(() => {
+    switchRemain--;
+    if (switchRemain <= 0) { skipSwitchCountdown(); return; }
+    renderSwitchCountdown();
+  }, 1000);
+}
+
+function stopSwitchCountdown() {
+  if (switchTickId) { clearInterval(switchTickId); switchTickId = null; }
+  const btn = document.getElementById('btn-switch-now');
+  if (btn) btn.hidden = true;
+}
+
+function skipSwitchCountdown() {
+  stopSwitchCountdown();
+  const box = document.getElementById('round-switch');
+  if (box) box.hidden = true;
+  startMassage();
+}
+
+// 換手提示那一行後面接上「X 秒後自動開始」
+function renderSwitchCountdown() {
+  const box = document.getElementById('round-switch');
+  if (!box || box.hidden) return;
+  const base = box.getAttribute('data-base') || box.textContent;
+  box.setAttribute('data-base', base);
+  box.textContent = isZh()
+    ? `${base}（${switchRemain} 秒後自動開始）`
+    : `${base} (auto-start in ${switchRemain}s)`;
+}
+
+// ── 換穴模式（齒輪選單）────────────────────────────────────────────
+function toggleAutoAdvance() {
+  setFlow('autoAdvance', !flow.autoAdvance);
+  syncAdvanceLabels();
+  closeMassageMenu();
+}
+
+function syncAdvanceLabels() {
+  document.querySelectorAll('[data-advance-label]').forEach(el => {
+    el.textContent = t(flow.autoAdvance ? 'menu-advance-auto' : 'menu-advance-manual');
+  });
 }

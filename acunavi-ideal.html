@@ -44,6 +44,8 @@
   <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
   <script src="js/face-data.js"></script>
   <script src="js/face-math.js"></script>
+  <!-- 臉部按摩的對準判定（跨兩個模型，不是定位公式，所以獨立一支） -->
+  <script src="js/face-gate.js"></script>
 
   <!-- 共用 -->
   <script src="js/i18n.js"></script>
@@ -51,6 +53,7 @@
   <script src="js/regions.js"></script>
   <script src="js/minions.js"></script>
   <script src="js/acu-ref.js"></script>
+  <script src="js/acu-video.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/vision.js"></script>
   <script src="js/face-vision.js"></script>
@@ -63,13 +66,16 @@
   <script src="pages/05-massage.js"></script>
   <script src="pages/06-complete.js"></script>
   <script src="pages/07-face.js"></script>
+  <script src="pages/08-summary.js"></script>
   <script src="pages/tab-gallery.js"></script>
   <script src="pages/tab-gallery-info.js"></script>
   <script src="pages/tab-settings.js"></script>
-  <!-- 設定的四個子頁：一個功能一頁，目錄在 tab-settings.js -->
+  <!-- 設定的子頁：一個功能一頁，目錄在 tab-settings.js -->
   <script src="pages/settings-lang.js"></script>
   <script src="pages/settings-notify.js"></script>
   <script src="pages/settings-accuracy.js"></script>
+  <script src="pages/settings-presets.js"></script>
+  <script src="pages/settings-flow.js"></script>
   <script src="pages/settings-data.js"></script>
   <script src="pages/tab-profile.js"></script>
 </head>

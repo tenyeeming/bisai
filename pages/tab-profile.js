@@ -78,8 +78,13 @@ function initProfile() {
   const todayDone = names.filter(n => hist[n].lastDate === today).length;
 
   // 連續天數要「還活著」才算：最後一次是今天或昨天。斷了就顯示 0，不吃老本
+  // ⭐ 下界 0 是防時鐘回撥（2026-09-06 從 App 那邊同步過來的修正）：
+  //    使用者把系統日期往回調，daysBetween 會是負數，原本只寫 `<= 1` 照樣成立
+  //    —— 斷掉的連續天數就一直掛著。未來的日期不該算「還活著」。
+  //    （壞掉的日期字串會讓 daysBetween 回 NaN，兩個比較都是 false，本來就安全。）
   const st = state.streak;
-  const alive = st.date && daysBetween(st.date, today) <= 1;
+  const d = st.date ? daysBetween(st.date, today) : null;
+  const alive = d !== null && d >= 0 && d <= 1;
   const streak = alive ? (st.count || 0) : 0;
 
   const unit = (zh, en) => `<span class="u">${isZh() ? zh : en}</span>`;

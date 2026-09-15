@@ -2,8 +2,15 @@
 // 臉部相機與偵測迴圈
 //
 // 跟手部的 js/vision.js 是**兩套獨立的東西**（模型不同：Hands vs FaceMesh），
-// 但共用同一個 <video id="hidden-video">，所以同一時間只能有一邊在跑。
+// 共用同一個 <video id="hidden-video">。
 // 誰該關掉由 js/nav.js 的 showPage 決定（看 keepsCamera / keepsFaceCamera）。
+//
+// ⭐ 2026-09-04：**按摩模式例外，兩個模型一起跑**（faceMode==='massage'）。
+//    臉部要有「對準才扣秒」的閘門就非得同時看到手不可（判定在 js/face-gate.js）。
+//    做法是同一幀先 `await faceMesh.send()` 再 `await hands.send()`。
+//    ⚠️ 一定要一個 await 完再送下一個 —— MediaPipe 內部的 wasm 是單執行緒佇列，
+//       兩邊同時送進去，onResults 會交錯回來，變成拿不同幀的手和臉配在一起。
+//    定位模式仍然只跑 FaceMesh（那裡不需要手，多跑一個模型只是白白吃幀率）。
 //
 // ⚠️ 這支不要改定位公式。公式在 js/face-math.js。
 // ═══════════════════════════════════════════════════════════════════
@@ -13,10 +20,26 @@ let faceCamRunning = false, faceCamStarting = false;
 let faceFacingMode = 'user';
 let faceShowDisc = true;
 let faceCanvas = null;
+// 畫到哪、讀數寫到哪。原本寫死 'face-canvas' / 'face-gate'，
+// 2026-09-04 臉部穴道要能在「定位頁」（video-canvas / camera-gate）出現，
+// 所以改成啟動時記下來 —— 同一時間只有一邊在跑，一組變數就夠。
+let faceCanvasId = 'face-canvas';
+let faceGateId = 'face-gate';
 let faceSelected = [];       // 現在要顯示哪些穴道（代碼陣列）
 let faceShowRefs = false;    // 除錯用：把參考 landmark 也畫出來
 let faceGotResult = false;   // 模型吐過第一幀結果了沒
 let faceWatchdog = null;
+
+// 'locate'（只跑 FaceMesh）| 'massage'（連 Hands 一起跑，才有對準閘門）
+let faceMode = 'locate';
+// 按摩模式下，Hands 每幀把 landmark 放這裡（由 js/vision.js 的 onHandsResults 轉交）。
+// 沒有手就是 null —— 這跟「手在畫面外」是同一件事，不必分開表示。
+let faceHandLm = null;
+// 最近一次的閘門結果，讀數條與計時器都看它
+let faceGate = { state: 'noface', R: null, ipdFrac: null, gap: null };
+// 施密特觸發用：現在算不算「貼著」（含寬限期）。決定下一幀要用哪一組門檻。
+let faceHeld = false;
+let faceOkUntil = 0;
 
 // 臉部模型第一次要下載約 10MB（wasm 6.1MB + packed assets 4MB）。
 // 在那之前 onFaceResults 不會被呼叫 —— 如果只有它會畫圖，畫面就是一片黑，
@@ -39,8 +62,12 @@ function getFaceMesh() {
   return faceMesh;
 }
 
-async function startFaceCamera(canvasId) {
-  faceCanvas = document.getElementById(canvasId);
+async function startFaceCamera(canvasId, gateId, mode) {
+  faceCanvasId = canvasId || 'face-canvas';
+  faceGateId = gateId || 'face-gate';
+  faceMode = mode === 'massage' ? 'massage' : 'locate';
+  faceHandLm = null;
+  faceCanvas = document.getElementById(faceCanvasId);
   if (faceCamRunning || faceCamStarting) return;
   faceCamStarting = true;
   setFaceGate('warn', isZh() ? '啟動相機中…' : 'Starting camera…');
@@ -49,12 +76,20 @@ async function startFaceCamera(canvasId) {
     if (typeof camRunning !== 'undefined' && camRunning) stopCamera();
     faceVideo = document.getElementById('hidden-video');
     const fm = getFaceMesh();
+    // 按摩模式要順便看手。用的是 js/vision.js 那個共用實例（不另外建一個，
+    // 不然 wasm 要載兩份），只是把結果導到這裡來 —— 見該檔的 faceMode 分支。
+    const hm = (faceMode === 'massage' && typeof getHands === 'function') ? getHands() : null;
+    if (hm && typeof applyHandsOptions === 'function') applyHandsOptions(hm, 'locate');  // 臉部只需要一隻手
     faceCamera = new Camera(faceVideo, {
       onFrame: async () => {
         if (!faceCamRunning) return;
         // 模型還沒吐過結果之前，先把影像畫上去，不然使用者盯著一片黑
         if (!faceGotResult) drawFacePreview();
         try { await fm.send({ image: faceVideo }); } catch (e) { /* 關閉瞬間的競態 */ }
+        // ⚠️ 一定排在 FaceMesh **之後**、而且是另一個 await：見檔頭說明
+        if (hm && faceCamRunning) {
+          try { await hm.send({ image: faceVideo }); } catch (e) { /* 同上 */ }
+        }
       },
       width: 640, height: 480, facingMode: faceFacingMode,
     });
@@ -95,6 +130,10 @@ function drawFacePreview() {
 function stopFaceCamera() {
   faceCamRunning = false;
   faceGotResult = false;
+  faceHandLm = null;
+  faceGate = { state: 'noface', R: null, ipdFrac: null, gap: null };
+  faceHeld = false; faceOkUntil = 0;
+  if (typeof onTarget !== 'undefined') onTarget = false;   // 計時器不能停在「還對著」
   clearTimeout(faceWatchdog);
   if (faceCamera) { try { faceCamera.stop(); } catch (e) {} faceCamera = null; }
   if (faceVideo && faceVideo.srcObject) {
@@ -106,12 +145,14 @@ function stopFaceCamera() {
 
 async function switchFaceCamera() {
   faceFacingMode = faceFacingMode === 'user' ? 'environment' : 'user';
+  // stopFaceCamera 會把 faceMode 留著，但讀在前面比較不怕日後改動
+  const c = faceCanvasId, g = faceGateId, m = faceMode;
   stopFaceCamera();
-  await startFaceCamera('face-canvas');
+  await startFaceCamera(c, g, m);
 }
 
 function setFaceGate(kind, msg) {
-  const el = document.getElementById('face-gate');
+  const el = document.getElementById(faceGateId);
   if (!el) return;
   el.textContent = msg;
   el.className = 'readout gate-' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : 'warn');
@@ -165,17 +206,25 @@ function onFaceResults(results) {
 
   const r = faceDiscR(pose.ipd);
   let drawn = 0;
+  const allPts = [];
 
   faceSelected.forEach(code => {
     const pts = computeFaceAcupoint(code, lm, W, H);
     if (!pts) return;
     drawn += pts.length;
     pts.forEach(p => {
+      allPts.push(p);
       if (faceShowDisc) drawFaceDisc(ctx, mx(p.x), p.y, r, pose);
       // 穴名不能被鏡射成反字，所以只把 x 翻過去畫，不用 canvas transform
       drawAcupoint(ctx, mx(p.x), p.y, faceLabel(code), '#00e5a0', Math.max(4, r * 0.42));
     });
   });
+
+  // ── 按摩模式：另外判「手指是不是真的貼上去」，並接管讀數條 ──
+  if (faceMode === 'massage') {
+    renderFaceMassage(ctx, allPts, pose, W, H, mx);
+    return;
+  }
 
   // ── 讀數：連續信心度，不是「行 / 不行」二選一 ──
   const pct = Math.round(pose.facing * 100);
@@ -190,6 +239,72 @@ function onFaceResults(results) {
     setFaceGate('ok', isZh()
       ? `定位中　${drawn} 點　信心 ${pct}%　側傾 ${roll}°`
       : `Locating · ${drawn} pts · confidence ${pct}% · roll ${roll}°`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 按摩模式：對準閘門
+//
+// 判定本身在 js/face-gate.js（純函式，可單獨測）。這裡只負責
+// 「畫指尖 + 寫讀數條 + 設 onTarget」。
+//
+// ⭐ onTarget 是 js/vision.js 宣告的同一個變數（同一個全域腳本作用域），
+//    pages/05-massage.js 的計時器讀它 —— 手部與臉部因此共用同一條計時邏輯，
+//    按摩頁不必知道自己在按臉還是按手。
+// ═══════════════════════════════════════════════════════════════════
+function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
+  // wasOk 一傳進去就改用比較鬆的退場門檻（施密特觸發，見 face-gate.js）
+  faceGate = faceTouchGate(faceHandLm, acuPts, pose.ipd, W, H, faceHeld);
+  const g = faceGate;
+
+  // 太遠的時候**不擋計時**：這個判定在遠距離已知會失效（門檻方向會反轉），
+  // 硬擋會變成「明明按對了卻不扣秒」。改成放行 + 明講沒在驗證。
+  // → 這就是「有距離前提的閘門」，同手部既有的 cunPx<22 太遠不顯示。
+  const now = Date.now();
+  if (g.state === 'ok') faceOkUntil = now + FACE_HOLD_MS;
+  // 掉出去之後撐 FACE_HOLD_MS 才真的停錶 —— 蓋掉手擋住自己造成的閃斷。
+  // ⚠️ far 不吃這個寬限：那是「判不了」不是「剛剛還貼著」，本來就一路放行。
+  faceHeld = g.state === 'ok' || now < faceOkUntil;
+  onTarget = faceHeld || g.state === 'far';
+
+  // 指尖標記與導引線。距離已經在原始座標算完，這裡只是把畫的位置翻過去。
+  if (faceHandLm && acuPts.length) {
+    const tip = { x: faceHandLm[8].x * W, y: faceHandLm[8].y * H };
+    ctx.save();
+    if (!faceHeld) {
+      // 沒對準就指向穴道，使用者才知道要往哪邊移。
+      // 2026-09-12：虛線改成箭頭，與手部（vision.js）共用 drawGuideArrow。
+      let near = acuPts[0], best = Infinity;
+      for (const p of acuPts) {
+        const d = Math.hypot(tip.x - p.x, tip.y - p.y);
+        if (d < best) { best = d; near = p; }
+      }
+      drawGuideArrow(ctx, mx(tip.x), tip.y, mx(near.x), near.y);
+    }
+    ctx.fillStyle = faceHeld ? '#00e5a0' : '#e0a33c';
+    ctx.beginPath(); ctx.arc(mx(tip.x), tip.y, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  if (!acuPts.length) {
+    setFaceGate('warn', isZh() ? '算不出穴位' : 'Cannot compute acupoint');
+    return;
+  }
+  const zh = isZh();
+  if (g.state === 'far') {
+    setFaceGate('warn', zh
+      ? '離鏡頭太遠　無法驗證有沒有按對　計時照走'
+      : 'Too far to verify contact · timer runs anyway');
+  } else if (g.state === 'nohand') {
+    setFaceGate('warn', zh ? '請把手放進畫面' : 'Bring your hand into frame');
+  } else if (faceHeld) {
+    setFaceGate('ok', zh
+      ? `按壓中　側傾 ${Math.round(pose.rollDeg)}°`
+      : `Pressing · roll ${Math.round(pose.rollDeg)}°`);
+  } else {
+    // 只看 2D 的時候，off 只有一個原因：指尖離穴位太遠。
+    // （深度檢查開回來的話，這裡要多一句「手指還浮在前面」。）
+    setFaceGate('warn', zh ? '指尖再靠近穴位一點' : 'Move your fingertip onto the point');
   }
 }
 

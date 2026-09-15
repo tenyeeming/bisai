@@ -132,6 +132,17 @@ function setGate(kind, msg) {
 // 主偵測迴圈：每一幀都會跑
 // ═══════════════════════════════════════════════════════════════════
 function onHandsResults(results) {
+  // ⭐ 臉部按摩模式（2026-09-04）：這一幀的手只是拿來判「有沒有真的貼到臉」，
+  //    畫面完全由 js/face-vision.js 負責（那邊才有臉的 landmark）。
+  //    所以這裡只交出 landmark 就走人 —— 兩個模型同時跑，但只有一個在畫。
+  //    ⚠️ 擋在最前面：這時候 camRunning 是 false（相機由 face-vision 開的），
+  //       走下去只會被下一行的 early return 吃掉，手就永遠傳不過去。
+  if (typeof faceMode !== 'undefined' && faceMode === 'massage' && faceCamRunning) {
+    const hs = results.multiHandLandmarks || [];
+    faceHandLm = hs.length ? hs[0] : null;
+    return;
+  }
+
   const canvas = activeCanvas;
   if (!canvas || !camRunning) return;
 
@@ -221,9 +232,16 @@ function onHandsResults(results) {
   // ⚠ 2026-08-12：這道全域門檻只管 palm 類穴道。side 類（二間/後溪/陽谷…）長在側緣，
   //   **手刀才是它們的最佳視角**，掌面偏離 ~90° 是正常的；擋下等於誤殺它們最準的那批幀。
   //   它們改由閘門三（自己的 ACU_ANGLE_LIMIT）管。
-  const isSideAcu = best.gate && best.gate.kind === 'side';
+  //   ⭐ 2026-08-18：tip 類（指端穴，目前只有中衝）也一併放行，理由與 side 完全相同 ——
+  //   **指尖對著鏡頭才是它的最佳視角**，而那個姿勢下手掌必然遠超 25°。
+  //   實測（真實 landmark 繞 x 軸旋轉模擬）：中指從朝上轉到朝鏡頭時，中衝的圓盤
+  //   本來就會從 59×9px 的線張開成 59×57px 的正圓 —— 但手掌傾角同時從 11° 升到 79°，
+  //   從 45° 起就被這道閘門整頁擋掉，使用者根本看不到圓盤張開的過程，
+  //   只會覺得「指尖明明對著鏡頭了，圓盤卻沒有變成正對」。
+  const gateKind = best.gate ? best.gate.kind : 'palm';
+  const skipPalmTilt = gateKind === 'side' || gateKind === 'tip';
   const tiltDeg = computeHandTiltDeg(best.lm);
-  const tiltBad = tiltDeg > TILT_MAX_DEG && !isSideAcu;
+  const tiltBad = tiltDeg > TILT_MAX_DEG && !skipPalmTilt;
   if (tiltBad && strictGate) {
     setGate('bad', isZh()
       ? `傾斜 ${Math.round(tiltDeg)}° > ${TILT_MAX_DEG}°　定位不可靠，請轉正`
@@ -244,39 +262,91 @@ function onHandsResults(results) {
   const discR = CONF_DISC_CUN * cunPx;
 
   // 圓盤的形狀是 3D 基底投影出來的多邊形，整組頂點都要跟著翻，
-  // 所以走 transform 而不是只翻中心點
+  // 所以走 transform 而不是只翻中心點。
+  //
+  // ⭐ 2026-08-18：閘門擋下時**圓盤照畫、只有穴道點不畫**（用戶要求）。
+  //    圓盤是「該往哪轉」的唯一視覺線索 —— 它貼在皮膚上，手一轉就被壓扁，
+  //    扁成一條線＝正在切著看，轉回來就變回正圓。連它一起藏掉，使用者只剩一行字，
+  //    根本不知道自己離「轉對」還有多遠。擋下時改用降級樣式（虛線、幾乎不填色），
+  //    語意是「這塊皮膚朝哪」而不是「穴道就在這裡」。
+  const gateBlocked = !!(best.gate && best.gate.blocked);
+
+  // ⭐ tip 類把圓盤沿骨軸往指尖外推（見 TIP_DISC_OFFSET_CUN）。
+  //    法向量的 (x, y) 分量本來就是「骨軸投影在畫面上」的方向與長度（_cv 已經把
+  //    x 乘 W、y 乘 H，都是像素），所以直接乘上去就是正確的正投影位移 ——
+  //    指尖轉向鏡頭時投影自然縮到 0，不需要任何額外判斷。
+  //    ⚠️ **只移動圓盤，穴道點仍然畫在 lm[12]**：那是 WHO 定義的位置，不能為了好看而挪。
+  let discDX = 0, discDY = 0;
+  if (best.info && best.info.kind === 'tip') {
+    const off = TIP_DISC_OFFSET_CUN * cunPx;
+    discDX = off * best.info.normal.x;
+    discDY = off * best.info.normal.y;
+  }
+
+  // ⭐ 圓盤中心那顆白點就是穴道座標，所以**圓盤畫在點上、不再另外畫大光暈點**。
+  //    tip 類的外推只推圓盤外框、不推白點 —— 白點必須留在 lm[12]。
   if (showDisc && best.info) {
     ctx.save();
     flip();
-    pts.forEach(p => drawConfidenceDisc(ctx, p.x, p.y, discR, best.info));
+    pts.forEach(p => {
+      drawConfidenceDisc(ctx, p.x + discDX, p.y + discDY, discR, best.info,
+        { degraded: gateBlocked, centerAt: { x: p.x, y: p.y } });
+    });
     ctx.restore();
   }
-  // 穴位點是圓的，翻不翻都一樣；但它帶的穴名不能被鏡射成反字，
-  // 所以這裡不用 transform，改成把 x 座標自己翻過去畫
-  // 點色帶著逐穴道角度閘門的結果：綠=在上限內、橘=邊緣、紅=明顯超標。
-  // 軟降級 —— 超標照樣畫點，只換色 + 降級提示，不像正反面閘門直接不畫。
+  // 標籤不能被鏡射成反字，所以這裡不用 transform，改成把 x 座標自己翻過去畫。
+  //
+  // ⭐ 2026-08-18【規格改寫】用戶原話：**「反正就要做到在某些角度上也可以看出
+  //    正確位置在哪裏」**。舊寫法在 `gateBlocked` 時**整個點都不畫**，直接違反這條 ——
+  //    使用者在斜角時看到的是「位置消失了」，而他要的正是那時候還看得見位置。
+  //
+  //    改成照 `網頁版3d` 的分工：
+  //      **圓盤中心的白點** → 位置（永遠都在，不管扁成什麼樣、有沒有降級）
+  //      **圓盤的形狀與顏色** → 可不可信（扁掉＝正在切著看、灰虛線＝這一幀別當真）
+  //    位置與可信度分開表達，斜角時就不會因為可信度低而連位置一起丟掉。
   const dotColor = best.gate ? best.gate.color : '#00e5a0';
+  const showingDisc = showDisc && best.info;
   pts.forEach((p, i) => {
-    drawAcupoint(ctx, mx(p.x), p.y, pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name), dotColor, r);
+    const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
+    if (showingDisc) {
+      // 圓盤已經把白點畫在正確位置上了，這裡只補標籤 ——
+      // 而且要畫在**圓盤外面**，不然會壓在色塊上看不清（3d 版 drawLabel 的做法）。
+      drawAcuLabel(ctx, mx(p.x), p.y, label, discR);
+    } else {
+      // 圓盤關掉時退回舊的點畫法，否則什麼都看不到。
+      drawAcupoint(ctx, mx(p.x), p.y, label, dotColor, r);
+    }
   });
 
   if (renderMode === 'locate') {
     const pct = Math.round((best.info ? best.info.conf : 0) * 100);
     const g = best.gate;
-    if (g && g.level !== 'ok') {
-      // ── 閘門三：這個穴道自己的角度上限（2026-08-12）──
+    if (g && (g.level !== 'ok' || g.blocked)) {
+      // ── 閘門三：這個穴道自己的角度（2026-08-12 建立，08-18 改成兩層）──
       // 講的是「**這塊皮膚**偏離鏡頭幾度」，不是「手歪幾度」——對側緣穴這兩件事差約 90°。
       // 姿勢指引照 kind 給：side 類要手刀、palm 類要攤平。
       // ⚠ 刻意不講「往左轉/往右轉」：方向要靠 azimuthDeg，而它是四個角度裡最不可信的
       //   （acu-math.js computeAcuConfidence 註釋③：W≠H 時有非等向縮放偏差）。
       const poseZh = g.kind === 'side' ? '請把手轉成手刀（側緣朝鏡頭）' : '請把手掌攤平正對鏡頭';
       const poseEn = g.kind === 'side' ? 'Turn your hand edge-on to the camera.' : 'Lay your palm flat toward the camera.';
-      const tailZh = g.level === 'bad' ? '　位置僅供參考' : '';
-      const tailEn = g.level === 'bad' ? ' · indicative only' : '';
-      setGate(g.level === 'bad' ? 'bad' : 'warn', isZh()
-        ? `${acuLabel(name)}這塊皮膚偏離 ${Math.round(g.angleDeg)}°（上限 ${g.limitDeg}°）${tailZh}　${poseZh}`
-        : `Surface tilted ${Math.round(g.angleDeg)}° (limit ${g.limitDeg}°)${tailEn} · ${poseEn}`);
-      onTarget = true; // 軟降級：只降級提示，不中斷流程
+      if (g.blocked) {
+        // 圓盤已經扁到看不出形狀 → 這時才擋。措辭要說明「為什麼看不到點」，
+        // 不能說「位置僅供參考」（根本沒畫點）。圓盤還是會畫（降級樣式），
+        // 使用者靠那條線的方向知道要往哪轉回來。
+        setGate('bad', isZh()
+          ? `${acuLabel(name)}這塊皮膚幾乎是側著看的（偏離 ${Math.round(g.angleDeg)}°）　暫不顯示　${poseZh}`
+          : `${acuLabel(name)} is almost edge-on (${Math.round(g.angleDeg)}° off) · hidden for now · ${poseEn}`);
+      } else {
+        // 圓盤還看得到 → 不擋，點照畫，只是提醒可能偏了。
+        // 使用者看得出圓盤被壓扁多少，自己就能轉回來。
+        const tailZh = g.level === 'bad' ? '　位置僅供參考' : '';
+        const tailEn = g.level === 'bad' ? ' · indicative only' : '';
+        setGate(g.level === 'bad' ? 'bad' : 'warn', isZh()
+          ? `${acuLabel(name)}這塊皮膚偏離 ${Math.round(g.angleDeg)}°（上限 ${g.limitDeg}°）${tailZh}　${poseZh}`
+          : `Surface tilted ${Math.round(g.angleDeg)}° (limit ${g.limitDeg}°)${tailEn} · ${poseEn}`);
+      }
+      // 擋下時沒有畫點，就不可能「對準」——按摩計時那頁靠這個旗標決定要不要扣秒。
+      onTarget = !g.blocked;
       return;
     }
     if (tiltBad) {
@@ -313,16 +383,14 @@ function onHandsResults(results) {
   const touching = minD <= tol;
   onTarget = touching;
 
-  // 指尖標記與導引線：距離已經在原始座標算完了，這裡只是把畫的位置翻過去
+  // 指尖標記與引導箭頭：距離已經在原始座標算完了，這裡只是把畫的位置翻過去
   if (hitTip) {
     ctx.save();
     if (!touching && hitPt) {
-      ctx.beginPath();
-      ctx.moveTo(mx(hitTip.x), hitTip.y);
-      ctx.lineTo(mx(hitPt.x), hitPt.y);
-      ctx.strokeStyle = 'rgba(224,112,92,.75)';
-      ctx.setLineDash([4, 4]); ctx.lineWidth = 2; ctx.stroke();
-      ctx.setLineDash([]);
+      // 2026-09-12：虛線改成箭頭。虛線只連出兩點之間，往哪移要自己判斷；
+      // 箭頭把方向直接講出來。尖端留白避免蓋住信心圓盤。
+      drawGuideArrow(ctx, mx(hitTip.x), hitTip.y, mx(hitPt.x), hitPt.y,
+                     { gap: Math.max(16, discR * 0.9) });
     }
     ctx.beginPath();
     ctx.arc(mx(hitTip.x), hitTip.y, 8, 0, Math.PI * 2);
@@ -333,9 +401,12 @@ function onHandsResults(results) {
   }
 
   if (!massageRunning) {
+    // 2026-09-12：原本是「再靠近 N px」。px 對使用者沒有意義，而且手離鏡頭
+    // 遠近不同時同一個 px 代表的實際距離差很多 —— 距離資訊改由箭頭長度承載，
+    // 文案只講要做什麼。措辭與臉部（face-vision.js）統一。
     setGate(touching ? 'ok' : 'warn', touching
       ? (isZh() ? '對準了　可按「開始按摩」' : 'On target · press Start')
-      : (isZh() ? `再靠近 ${Math.round(minD - tol)} px` : `Move ${Math.round(minD - tol)} px closer`));
+      : (isZh() ? '指尖沿箭頭移到穴道上' : 'Follow the arrow to the point'));
   } else {
     setGate(touching ? 'ok' : 'bad', touching
       ? (isZh() ? '按對了　計時進行中' : 'On target · timing')

@@ -2,7 +2,7 @@
 // 相機與偵測在 js/face-vision.js，公式在 js/face-math.js，資料在 js/face-data.js。
 // 這支只負責這一頁的 UI，外加選穴頁「臉部」分頁的清單（renderFaceList）。
 //
-// ⚠️ 臉部目前沒有按摩流程 —— 23 穴只完成 4 穴定位，先把定位做對再談計時。
+// ⚠️ 臉部目前沒有按摩流程 —— 23 穴只完成 15 穴定位，先把定位做對再談計時。
 //    所以這頁不接步驟軌（step: 0），是獨立的一頁。
 
 registerPage('face', {
@@ -152,10 +152,27 @@ function syncFaceButtons() {
 
 // ── 選穴頁的「臉部」分頁 ──────────────────────────────────────────
 // 由 pages/02-recommend.js 的 renderAcuList() 在 currentRegion==='face' 時呼叫。
-// 臉部沒有按摩流程，所以自帶一顆「開始臉部定位」，不共用手部那顆「開始療程」。
+//
+// ⭐ 2026-09-04 起，勾選的臉部穴道會被「開始療程」一起帶進療程
+//    （見 pages/03-acu-detail.js 的 buildTreatmentList），排在手部之後。
+//    這裡自帶的那顆按鈕因此改成**只看定位**的旁路 —— 它跳過認穴與按摩，
+//    直接開臉部相機，而且可以一次顯示多個穴道。研究用（也是原本的行為）。
 function renderFaceList(list) {
   const symptoms = state.selectedSymptoms.map(i => SYMPTOM_MAP[i].name);
-  const codes = faceRecommend(symptoms);
+  let codes = faceRecommend(symptoms);
+
+  // 選穴頁的症狀膠囊篩選中（見 02-recommend.js 的 filterSymptom）：只留那個症狀的臉部穴道
+  if (typeof filterSymptom !== 'undefined' && filterSymptom !== null) {
+    const s = SYMPTOM_MAP[filterSymptom];
+    const only = s ? (FACE_SYMPTOM_MAP[s.name] || []) : [];
+    codes = codes.filter(c => only.includes(c));
+    if (!codes.length) {
+      list.appendChild(notice('small', isZh()
+        ? `「${symptomLabel(s.name)}」沒有對應的臉部穴道。`
+        : 'No facial acupoints for this symptom.'));
+      return;
+    }
+  }
 
   if (!codes.length) {
     list.appendChild(notice('small', isZh()
@@ -169,6 +186,7 @@ function renderFaceList(list) {
     const checked = ready && state.selectedFace.includes(code);
     const item = document.createElement('div');
     item.className = 'acu-item' + (checked ? ' checked' : '');
+    item.dataset.acu = code;
     item.setAttribute('role', 'checkbox');
     item.setAttribute('aria-checked', String(checked));
     item.setAttribute('aria-disabled', String(!ready));
@@ -189,7 +207,12 @@ function renderFaceList(list) {
     tick.textContent = ready ? (checked ? '✓' : '') : (isZh() ? '準備中' : 'SOON');
     if (!ready) tick.style.color = 'var(--ink-soft)';
 
-    item.append(dot, nm, tick);
+    // ⓘ 詳情（見 pages/02-recommend.js）。「準備中」的穴道也給 ⓘ ——
+    // 那正是使用者最想知道「這是什麼、為什麼不能選」的時候。
+    item.append(dot, nm, tick, infoButton(() => openFaceInfo(code)));
+    // ▾ 逐穴秒數（見 pages/02-recommend.js）。「準備中」的不給 ——
+    // 排不進療程的穴道，調它要按幾秒沒有意義。
+    if (ready) { item.insertBefore(secsBadge(code), tick); item.appendChild(expandButton(code, checked)); }
 
     if (ready) {
       const toggle = () => {
@@ -197,19 +220,22 @@ function renderFaceList(list) {
         state.selectedFace = on
           ? [...state.selectedFace, code]
           : state.selectedFace.filter(c => c !== code);
+        if (!on && openTimeFor === code) openTimeFor = null;   // 見 02-recommend.js toggleAcupoint
         renderAcuList();
       };
       item.onclick = toggle;
       item.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } };
     }
     list.appendChild(item);
+    if (checked && openTimeFor === code) list.appendChild(acuTimePanel(code));
   });
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn wide';
   btn.style.gridColumn = '1 / -1';
-  btn.textContent = t('face-btn-start');
+  btn.className = 'btn wide ghost';    // 次要動作：主要的路是上面那顆「開始療程」
+  btn.textContent = t('face-btn-peek');
   btn.onclick = () => {
     if (!state.selectedFace.length) {
       alert(isZh() ? '請至少選一個臉部穴道' : 'Please select at least one facial acupoint');

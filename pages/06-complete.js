@@ -72,6 +72,17 @@ function completeMassage() {
   saveState();
 
   lastCompleted = { name, level: m.level, times: m.times, streak: state.streak.count };
+
+  // ── 自動模式：不停在完成頁 ────────────────────────────────
+  // 使用者要的是「按完自己接下去」，所以小人獎勵改到總結頁一次看完。
+  // 手動模式維持原樣：停在這頁，自己按「下一穴」。
+  const isLast = state.currentAcupointIndex >= state.selectedAcupoints.length - 1;
+  if (flow.autoAdvance) {
+    if (isLast) { showPage('summary'); return; }
+    state.currentAcupointIndex++;
+    showPage('acu-detail');
+    return;
+  }
   showPage('complete');
 }
 
@@ -106,7 +117,6 @@ function goToNextAcu() {
     state.currentAcupointIndex++;
     showPage('acu-detail');
   } else {
-    alert(isZh() ? '今日療程完成！' : 'Today\'s treatment complete!');
-    goHome();
+    showPage('summary');
   }
 }

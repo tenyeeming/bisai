@@ -10,18 +10,26 @@
 :root {
   color-scheme: light dark;
 
-  /* 中性色帶一點青綠偏移，不是撿現成的純灰 */
-  --paper:      #EAEDE8;
-  --surface:    #F6F7F3;
-  --surface-2:  #DFE4DC;
-  --line:       #C4CCC0;
-  --line-soft:  #D6DCD1;
+  /* 亮色改純白（2026-09-02 用戶定）。
+     純白背景配白卡片就沒有層次了，所以層次改由「邊框」承擔，不用陰影 ——
+     陰影堆多了會顯得廉價，細邊框比較利落，也合這個產品的量測調性。
+     只有 surface-2（次級面，如輪次條底）留一格極淡的灰，用來分出「這塊被框起來了」。 */
+  --paper:      #FFFFFF;
+  --surface:    #FFFFFF;
+  --surface-2:  #F4F6F3;
+  --line:       #DCE1DA;   /* 2026-09-13 從 #C9D0C6 收淡：App 那邊加了卡片微陰影，
+                              陰影配深灰線會顯髒（兩套分界訊號打架）。兩邊要一致 */
+  --line-soft:  #E2E6DF;
   --ink:        #1C2522;
   --ink-soft:   #5A6560;
 
-  /* 強調色：黃銅／青銅。只做鉻件（細線、標籤、刻度、焦點環） */
-  --brass:      #8C6A3F;
-  --brass-lit:  #A8763C;
+  /* 強調色。只做鉻件（細線、標籤、刻度、焦點環）——「角色」不變，只換顏色。
+     ⭐ 2026-09-13 從黃銅換成藍色系（老師說介面不好看 → 介面沙盒定案）。
+        來源：比賽專區/介面討論/assets/藍色系配色_20260912.jpg（截圖取色，JPEG 壓縮過）。
+        變數名還是 brass —— 全站幾百處引用，改名的風險大於「名字對不上顏色」。
+     ⚠️ 這一組必須跟 App 的 ui/theme/Color.kt 一模一樣。改一邊要改兩邊。 */
+  --brass:      #A0C6D9;
+  --brass-lit:  #A5C6D7;
 
   /* 語意色：只做狀態塊，絕不當強調色用 */
   --good:       #2E7D5B;
@@ -48,8 +56,10 @@
     --line-soft: #263230;
     --ink:       #E4EAE5;
     --ink-soft:  #94A29C;
-    --brass:     #C79A5B;
-    --brass-lit: #E0B570;
+    /* 暗色的藍是**推算的、沒有人挑過**（2026-09-13）：亮色那組直接放深底上會顯髒，
+       所以往「亮度略降、飽和略升」走。要調就改這兩行（App 的 BrassD/BrassLitD 同步）。 */
+    --brass:     #8FBEDA;
+    --brass-lit: #B3D6EC;
     --good:      #4FBF8B;
     --warn:      #E0A33C;
     --bad:       #E0705C;
@@ -61,16 +71,16 @@
 }
 /* 觀看者的主題切換必須壓過 media query，兩個方向都要 */
 :root[data-theme="light"] {
-  --paper: #EAEDE8; --surface: #F6F7F3; --surface-2: #DFE4DC;
-  --line: #C4CCC0; --line-soft: #D6DCD1; --ink: #1C2522; --ink-soft: #5A6560;
-  --brass: #8C6A3F; --brass-lit: #A8763C;
+  --paper: #FFFFFF; --surface: #FFFFFF; --surface-2: #F4F6F3;
+  --line: #DCE1DA; --line-soft: #E2E6DF; --ink: #1C2522; --ink-soft: #5A6560;
+  --brass: #A0C6D9; --brass-lit: #A5C6D7;
   --good: #2E7D5B; --warn: #B4700F; --bad: #B0402F;
   --good-bg: rgba(46,125,91,.12); --warn-bg: rgba(180,112,15,.13); --bad-bg: rgba(176,64,47,.12);
 }
 :root[data-theme="dark"] {
   --paper: #101614; --surface: #17201D; --surface-2: #202B27;
   --line: #2E3B36; --line-soft: #263230; --ink: #E4EAE5; --ink-soft: #94A29C;
-  --brass: #C79A5B; --brass-lit: #E0B570;
+  --brass: #8FBEDA; --brass-lit: #B3D6EC;
   --good: #4FBF8B; --warn: #E0A33C; --bad: #E0705C;
   --good-bg: rgba(79,191,139,.14); --warn-bg: rgba(224,163,60,.14); --bad-bg: rgba(224,112,92,.14);
 }

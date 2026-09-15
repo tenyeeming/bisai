@@ -4,6 +4,7 @@
 // 實際的開關都在子頁：
 //   settings-lang      語言
 //   settings-notify    每日提醒（含每天要按什麼）
+//   settings-presets   我的流程（一組穴道＋一套節奏，點一下直接開始）
 //   settings-accuracy  定位精度（嚴格模式）
 //   settings-data      資料與紀錄（清除）
 //
@@ -57,6 +58,8 @@ function renderSettingsMenu() {
       { page: 'settings-notify', label: t('settings-notify'), value: notifySummary() },
     ]},
     { title: t('settings-group-locate'), rows: [
+      { page: 'settings-presets', label: t('settings-presets'), value: presetsSummary() },
+      { page: 'settings-flow', label: t('settings-flow'), value: flowSummary() },
       { page: 'settings-accuracy', label: t('settings-accuracy'),
         value: t(strictGate ? 'settings-strict-on' : 'settings-strict-off') },
     ]},

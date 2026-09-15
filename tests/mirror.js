@@ -39,6 +39,10 @@ const dom = new JSDOM(html, {
 });
 const w = dom.window, d = w.document;
 
+// 圓盤中心那顆「位置白點」的半徑，跟 acu-math.js 的 drawConfidenceDisc 對齊。
+// 用它把位置白點從一堆 arc 呼叫（外圈輝光、描邊…）裡挑出來。
+const CENTER_DOT_R = 2.4;
+
 // ── 假的 2D context：把所有呼叫錄下來，並自己維護一個水平翻轉旗標 ──
 function makeRecorder() {
   const calls = [];
@@ -57,6 +61,9 @@ function makeRecorder() {
     arc(x, y, r) { calls.push(['arc', x, y, r, { flipped }]); },
     fill() {}, stroke() {}, setLineDash() {},
     fillText(txt, x, y) { calls.push(['fillText', txt, x, y, { flipped }]); },
+    // 2026-08-18：穴名標籤改成「先黑描邊再白填字」（膚色背景上白字會糊掉），
+    // 所以假 context 也要有 strokeText。只錄不驗 —— 要驗的是 fillText 有沒有被鏡射。
+    strokeText(txt, x, y) { calls.push(['strokeText', txt, x, y, { flipped }]); },
     measureText() { return { width: 10 }; },
   };
   return rec;
@@ -101,8 +108,14 @@ setTimeout(() => {
   const discPts = ctx.calls.filter(c => (c[0] === 'lineTo' || c[0] === 'moveTo') && c[3] && c[3].flipped);
   ok(discPts.length > 0, `信心圓盤的 ${discPts.length} 個頂點是翻轉著畫的（形狀才對）`);
 
-  const dotMirrored = ctx.calls.filter(c => c[0] === 'arc' && c[4].flipped === false);
-  ok(dotMirrored.length > 0, '穴位點在正常座標系畫');
+  // ⭐ 2026-08-18 改版：位置不再靠外面那顆大光暈點，改成**圓盤中心的 2.4px 白點**
+  //    （見 acu-math.js drawConfidenceDisc）。它跟圓盤畫在同一個翻轉座標系裡，
+  //    所以這裡不能再驗「畫在正常座標系」—— 那是舊實作的細節。
+  //    改驗真正該成立的事：**白點存在，而且它換算到螢幕上的位置是對的**（下面對稱性檢查）。
+  const centerDots = ctx.calls.filter(c => c[0] === 'arc' && Math.abs(c[3] - CENTER_DOT_R) < 1e-9);
+  ok(centerDots.length > 0, `圓盤中心畫了位置白點（${centerDots.length} 個，半徑 ${CENTER_DOT_R}px）`);
+  ok(centerDots.every(c => c[4].flipped === true),
+     '位置白點與圓盤畫在同一個翻轉座標系（前鏡頭）—— 兩者必須一起鏡射才會對齊');
 
   // ── 後鏡頭：不應鏡像 ──
   w.eval("facingMode = 'environment'");
@@ -113,9 +126,14 @@ setTimeout(() => {
   ok(ctx.calls.filter(c => c[0] === 'scale').length === 0, '後鏡頭完全不呼叫 scale');
 
   // ── 同一穴道，兩種鏡頭的畫出位置應該左右對稱 ──
+  //
+  // ⭐ 取的是位置白點，而且**換算成螢幕座標再比**：白點畫在翻轉座標系裡時，
+  //    螢幕上的 x 是 W − 記錄到的 x。這比舊寫法（直接比記錄值）更接近使用者真正看到的東西。
   const xOf = (calls) => {
-    const a = calls.filter(c => c[0] === 'arc' && c[4].flipped === false);
-    return a.length ? a[a.length - 1][1] : null;
+    const a = calls.filter(c => c[0] === 'arc' && Math.abs(c[3] - CENTER_DOT_R) < 1e-9);
+    if (!a.length) return null;
+    const last = a[a.length - 1];
+    return last[4].flipped ? W - last[1] : last[1];
   };
   const xEnv = xOf(ctx.calls);
   ctx.calls.length = 0;

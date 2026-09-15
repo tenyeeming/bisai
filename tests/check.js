@@ -158,13 +158,37 @@ const badTk = tk.filter(k => !kz.has(k));
 ok(badTk.length === 0, `${tk.length} 個 t() key 都有翻譯` + (badTk.length ? ': ' + badTk : ''));
 
 const stepLabels = regs.map(r => r.body && r.body.match(/stepLabel:\s*'([^']+)'/)).filter(Boolean).map(m => m[1]);
-ok(stepLabels.length === 5 && stepLabels.every(k => kz.has(k)), '步驟軌 5 個 stepLabel 都有翻譯');
+ok(stepLabels.length === 4 && stepLabels.every(k => kz.has(k)), '步驟軌 4 個 stepLabel 都有翻譯');
 
 // 沒有孤兒翻譯（改版後留下的死 key）。
 // 用「字面出現過」判斷，因為有些 key 是三元運算選的：t(x ? 'a' : 'b')
 const elsewhere = jsFiles.filter(f => f !== 'js/i18n.js').map(read).join('') + allHtml;
 const orphans = [...kz].filter(k => !elsewhere.includes(`'${k}'`) && !elsewhere.includes(`"${k}"`));
 ok(orphans.length === 0, '沒有沒人用的翻譯 key' + (orphans.length ? ': ' + orphans : ''));
+
+// ── 9b. 教學影片白名單 vs 磁碟 ──
+// ACU_VIDEO 是白名單（file:// 下沒法探測檔案在不在，見 js/acu-video.js），
+// 所以表跟磁碟對不上時只有這裡抓得到。
+{
+  const ctx = { console, localStorage: { getItem: () => null, setItem() {} } };
+  vm.createContext(ctx);
+  vm.runInContext(read('js/acu-data.js'), ctx);
+  vm.runInContext(read('js/acu-video.js'), ctx);
+  const map = JSON.parse(vm.runInContext('JSON.stringify(ACU_VIDEO)', ctx));
+  const names = Object.keys(map);
+  const acuNames = new Set(JSON.parse(vm.runInContext('JSON.stringify(ACUPOINTS.map(a=>a.name))', ctx)));
+  const badName = names.filter(n => !acuNames.has(n));
+  ok(names.length > 0 && badName.length === 0,
+     `ACU_VIDEO ${names.length} 個 key 都是真的穴名` + (badName.length ? ': ' + badName : ''));
+  const missing = names.filter(n => !fs.existsSync(DIR + 'assets/tutorial/' + map[n]));
+  ok(missing.length === 0, '教學影片檔案都存在' + (missing.length ? ': ' + missing : ''));
+  // 反向：磁碟上有片卻沒登記，等於白做（沒人看得到）
+  const listed = new Set(names.map(n => map[n]));
+  const onDisk = fs.existsSync(DIR + 'assets/tutorial')
+    ? fs.readdirSync(DIR + 'assets/tutorial').filter(f => /\.mp4$/.test(f)) : [];
+  const unlisted = onDisk.filter(f => !listed.has(f));
+  ok(unlisted.length === 0, `assets/tutorial 的 ${onDisk.length} 支影片都登記在 ACU_VIDEO` + (unlisted.length ? ': ' + unlisted : ''));
+}
 
 // ── 10. 外殼保持乾淨 ──
 ok(!/<style>/.test(shell), '外殼不再內嵌 <style>');

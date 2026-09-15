@@ -144,10 +144,18 @@ function showPage(name) {
 }
 
 function goHome() {
+  // 跑完（或中途離開）一組預設流程：節奏還原成使用者的全域設定。
+  // 這裡是療程的唯一出口，所以還原只要放這一個地方（見 state.js applyPresetFlow）。
+  if (typeof restorePresetFlow === 'function') restorePresetFlow();
   state.selectedSymptoms = [];
   state.selectedAcupoints = [];
+  // 臉部另外存，也要清。不清的話從圖冊「練這一穴」進去時，buildTreatmentList
+  // 會把上一次殘留的臉部穴道一起排進療程（2026-09-08 接預設流程時發現）。
+  state.selectedFace = [];
+  state.acuSecs = {};          // 逐穴秒數也是這一次療程的事
   state.recommendedAcupoints = [];
   state.currentAcupointIndex = 0;
+  if (typeof sessionLog !== 'undefined') sessionLog = [];   // 這一次療程的紀錄跟著清掉
   showPage('home');
 }
 

@@ -202,7 +202,10 @@ function _cNorm(a) {
  *   polarDeg   0~180 不取絕對值的極角，可區分正對(0)/切面(90)/背對(180)
  *   azimuthDeg 0~360 法向量投影在畫面上的方位（往哪邊轉的）
  *   azimuthValid     false 時 azimuthDeg 是雜訊（法向量幾乎沿著視線）
- *   kind       "palm" 或 "side"    這個穴道用哪種法向（見 ACU_NORMAL_SPEC）
+ *   kind       "palm" / "side" / "tip"   這個穴道用哪種法向（見 ACU_NORMAL_SPEC）
+ *              palm = 手掌平面法向（多數穴道）
+ *              side = 側緣，法向是手指的側向（指甲角的井穴）
+ *              tip  = 指端正中，法向順著手指骨軸戳出去（目前只有中衝）
  *   basis      { b1, b2 }          圓盤所在平面的兩個方向向量，畫圓盤時用
  *
  * ⚠ 三個必須知道的限制：
@@ -243,6 +246,22 @@ function computeAcuConfidence(acuName, lm, W, H) {
     normal = _cNorm(_cCross(nPalm, fBone));
     b1 = fBone;
     b2 = nPalm;
+  } else if (spec && spec.kind === "tip") {
+    // ⭐ 指端穴（目前只有中衝）：法向量**順著手指骨軸戳出去**，不是手掌法向。
+    //    指尖那塊皮膚面對的是「手指指著的方向」，所以圓盤平面垂直於骨軸 ——
+    //    由手掌法向、以及「骨軸 × 手掌法向」這兩個都垂直於骨軸的方向張成。
+    //
+    //    結果：手張開正對鏡頭時，圓盤被壓扁成一條橫過指尖的線（實測 88.7°），
+    //    而不是平躺在指甲上的正圓。這是幾何事實 —— 你確實看不到自己的指尖端面。
+    //
+    //    ⚠️ 這個角度**不代表定位不準**：中衝的座標就是 lm[12] 本身（ZC_EXT=0），
+    //       沒有任何偏移量會被角度放大。所以 computeAcuGate 對 tip 類做了豁免，
+    //       不然使用者一張開手，點就會被擋掉 —— 那才是真的錯。
+    const [ia, ib] = spec.axis;
+    const fBone = _cNorm(_cSub(_cv(lm, ib, W, H), _cv(lm, ia, W, H)));
+    normal = fBone;
+    b1 = nPalm;
+    b2 = _cNorm(_cCross(fBone, nPalm));
   } else {
     // 手背/手心正面穴：法向量就是手掌法向，圓盤平躺在手掌平面上。
     normal = nPalm;
@@ -289,7 +308,7 @@ function computeAcuConfidence(acuName, lm, W, H) {
     azimuthDeg,
     azimuthValid,
     normal,
-    kind: spec && spec.kind === "side" ? "side" : "palm",
+    kind: spec && (spec.kind === "side" || spec.kind === "tip") ? spec.kind : "palm",
     basis: { b1, b2 },
   };
 }
@@ -309,15 +328,25 @@ function acuAngleLimit(acuName) {
  * 取代「一個 TILT_MAX_DEG=25° 管全部穴道」的舊做法。判斷的是**這個穴道自己那塊皮膚**
  * 偏離鏡頭幾度，不是整隻手歪幾度 —— 對側緣穴（二間/後溪/陽谷…）這兩件事差了約 90°。
  *
- * 行為是「軟降級」（2026-08-12 用戶決定）：超標時**照樣畫點**，但把點染色 + 出提示，
- * 不像正反面閘門那樣直接不畫。理由：角度超標是「這個位置可能偏了幾 mm」，
- * 正反面錯是「這塊皮膚根本不在鏡頭這一側」，後者畫出來的點是錯的，前者只是不精確。
+ * ⭐ **兩層分工（2026-08-18 用戶決定）**：
  *
- * 回傳 { level, angleDeg, limitDeg, overBy, kind, color, hint } 或 null：
- *   level     "ok" / "edge" / "bad"
- *             ok   = 在上限內
- *             edge = 超過上限但還在 ACU_ANGLE_MARGIN_DEG 以內（黃字，仍可參考）
- *             bad  = 超過上限 + margin（紅字，位置僅供參考）
+ * | 狀況 | 誰負責 | 行為 |
+ * |---|---|---|
+ * | 圓盤還看得到 | **圓盤自己** | 點照畫。圓盤被壓扁的程度就是回饋，使用者看得出要轉多少 |
+ * | 圓盤扁到看不見 | **角度限制** | `blocked = true`，不畫點 —— 這時使用者已經沒有線索能自我修正 |
+ *
+ * 所以 `blocked` **不是**「有沒有超過 limitDeg」，而是「圓盤短軸有沒有小於
+ * `DISC_MIN_MINOR_PX`」。`limitDeg` 仍然管顏色與提示文字，但不再管擋不擋。
+ * 沿革：2026-08-12 軟降級 → 08-18 早上以 limitDeg 硬擋（擋太早）→ 08-18 改成現在這樣。
+ *
+ * 回傳 { level, blocked, discMinorPx, discVisible, angleDeg, limitDeg, overBy, kind, color, hint }：
+ *   level        "ok" / "edge" / "bad"（管顏色與提示，不管擋不擋）
+ *                ok   = 在上限內
+ *                edge = 超過上限但還在 ACU_ANGLE_MARGIN_DEG 以內
+ *                bad  = 超過上限 + margin（提示「位置僅供參考」）
+ *   blocked      ⭐ UI 唯一要判斷的：true = 這一幀不要畫點（圓盤仍要畫，降級樣式）
+ *   discMinorPx  圓盤短軸幾像素，除錯用
+ *   discVisible  短軸有沒有達到 DISC_MIN_MINOR_PX
  *   angleDeg  這塊皮膚偏離鏡頭幾度（0=正對）
  *   limitDeg  這個穴道的上限
  *   overBy    超出幾度（沒超就是 0）
@@ -343,8 +372,47 @@ function computeAcuGate(acuName, lm, W, H) {
       ? "請把手轉成手刀（側緣朝鏡頭）"
       : "請把手掌攤平正對鏡頭";
 
-  const hint =
-    level === "ok"
+  // ⭐ 指端穴（tip）豁免角度閘門（2026-08-18）。
+  //
+  // 這一類的座標**就是 landmark 本身**（中衝 = lm[12]，ZC_EXT=0），公式裡沒有任何
+  // 以「寸」為單位的偏移量。整張 ACU_ANGLE_LIMIT 表算的是「偏移量被投影縮短多少」
+  // （見 acu-data.js 表頭），偏移量為 0 時那個誤差恆等於 0 —— 角度再斜也不會讓它偏。
+  //
+  // 而 tip 類的皮膚法向是順著手指戳出去的，所以**手一張開就必定接近 90°**。
+  // 若照一般規則走，使用者擺出最自然的姿勢反而會被判成 bad 並擋掉點，
+  // 那不是把關，是拿一個不適用的尺去量。
+  //
+  // 圓盤照畫（會是一條橫過指尖的線），因為那條線仍然誠實地表達「指尖朝哪」；
+  // 只是它不再被當成警告。
+  if (info.kind === "tip") {
+    return {
+      level: "ok",
+      blocked: false,
+      discMinorPx: 2 * CONF_DISC_CUN * computeCunPx(lm, W, H) * info.conf,
+      discVisible: true,
+      angleDeg: info.angleDeg,
+      limitDeg,
+      overBy: 0,
+      kind: "tip",
+      color: "#00e5a0",
+      hint: null,
+      info,
+    };
+  }
+
+  // ⭐ 擋不擋，看的是「圓盤還看不看得到」，不是有沒有超過 limitDeg（2026-08-18 用戶決定）。
+  //    圓盤短軸 = 2 × 半徑 × cos θ，而 conf 就是 cos θ（見 computeAcuConfidence）。
+  //    半徑跟著 cunPx 走，所以手越遠圓盤越早看不清 —— 這個判準會自動跟著距離調整。
+  //    圓盤還是個橢圓的時候不擋：那時使用者看得出自己歪多少，能自己轉回來。
+  const cunPx = computeCunPx(lm, W, H);
+  const discMinorPx = 2 * CONF_DISC_CUN * cunPx * info.conf;
+  const discVisible = discMinorPx >= DISC_MIN_MINOR_PX;
+  const blocked = ACU_GATE_BLOCK && !discVisible;
+
+  // 措辭分兩種：擋下時不能說「位置僅供參考」（根本沒給位置），要說明為什麼看不到點。
+  const hint = blocked
+    ? `${acuName}這塊皮膚幾乎是側著看的（偏離 ${Math.round(info.angleDeg)}°），暫不顯示　${poseHint}`
+    : level === "ok"
       ? null
       : `${acuName}這塊皮膚偏離鏡頭 ${Math.round(info.angleDeg)}°（上限 ${limitDeg}°）${
           level === "bad" ? "，位置僅供參考" : ""
@@ -352,6 +420,9 @@ function computeAcuGate(acuName, lm, W, H) {
 
   return {
     level,
+    blocked,
+    discMinorPx,
+    discVisible,
     angleDeg: info.angleDeg,
     limitDeg,
     overBy,
@@ -1073,28 +1144,122 @@ function acupointRadius(cunPx) {
  *
  * 顏色沿用等級：綠(高) / 橘(中) / 紅(低)。
  */
-function drawConfidenceDisc(ctx, cx, cy, radiusPx, info) {
-  if (!info || !info.basis) return;
+/**
+ * @param opts.degraded 角度閘門把穴道點擋掉時傳 true（2026-08-18）。
+ *   ⭐ **擋下時圓盤照畫，只有穴道點不畫。** 理由：圓盤的形狀本身就是回饋 ——
+ *   它貼在皮膚上，手一轉就被正投影壓扁，扁成一條線＝你正在切著看。
+ *   把它一起藏掉，使用者就失去「還要往哪轉、轉多少」的唯一視覺線索，只剩一行字。
+ *   降級樣式（虛線、幾乎不填滿）是為了表達語意差別：
+ *   **它說的是「這塊皮膚朝哪」，不是「穴道就在這個點」。**
+ */
+/**
+ * 畫信心圓盤 —— **2026-08-18 改成 `網頁版3d/index.html` 的 `drawDisc()` 畫法。**
+ *
+ * ⭐ 用戶定的規格只有一句：**「任何角度都要看得出正確位置在哪裏」**。
+ *
+ * 舊畫法在斜角時會失敗，有三個原因，都在這裡修掉：
+ *
+ * | | 舊（淡霧 + 大光暈點） | 新（照 3d 版） |
+ * |---|---|---|
+ * | 圓盤 | `alpha 0.28` 的淡淡一層 | **實心填滿** |
+ * | 顏色 | 偏灰 `0,229,160` … | **高飽和** `0,255,133` … |
+ * | 位置怎麼看 | 靠外面那顆 3–8px 的大光暈點 | **中心 2.4px 小白點，永遠都在** |
+ *
+ * 3d 版註釋寫的理由照抄：「攝像頭畫面是低對比的膚色，飽和度不夠會整個糊在背景裡」。
+ *
+ * ⭐ **中心白點是這次規格的關鍵**：它是「正確位置」的唯一載體，
+ *    **不管圓盤扁成什麼樣、不管有沒有被降級，它都照畫。**
+ *    圓盤負責回答「這塊皮膚朝哪、可不可信」，白點負責回答「位置在哪」——
+ *    兩件事分開，斜角時才不會因為圓盤扁掉就連位置一起看不到。
+ *
+ * ⚠️ **與 3d 版的唯一刻意差異：發光不用 `shadowBlur`。**
+ *    3d 版用 `ctx.shadowBlur` 做輝光，但 demo 網站 2026-08-13 的效能優化把它拿掉了
+ *    （原註釋：canvas2d 的 shadow blur 在多數行動瀏覽器會掉到軟體路徑，是最貴的
+ *    單一操作）。這裡改用專案自己發明的替代法：**外圈再描一條半透明粗線**，
+ *    視覺上一樣是發光的邊，成本只是普通描邊。
+ *
+ * @param opts.degraded true = 這一幀的位置不可信（虛線、灰化），但**白點照畫**
+ */
+function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
+  if (!info || !info.basis) {
+    // 沒有法向資訊時退回小白點 —— 位置還是要看得到（3d 版同樣的處理）
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
   const pts = confidenceDiscPoints(cx, cy, radiusPx, info.basis);
   if (pts.length < 3) return;
 
-  const col =
-    info.level === "high"
-      ? "0, 229, 160"
+  const degraded = !!opts.degraded;
+
+  // 高飽和三色（抄 3d 版）。降級時轉灰，但仍然是實心 —— 淡到看不見就違背規格了。
+  const rgb = degraded
+    ? "150, 160, 175"
+    : info.level === "high"
+      ? "0, 255, 133" // 螢光綠
       : info.level === "mid"
-        ? "255, 170, 60"
-        : "255, 80, 90";
+        ? "255, 196, 0" // 亮金黃
+        : "255, 42, 90"; // 亮桃紅
 
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
-  ctx.fillStyle = `rgba(${col}, 0.28)`;
+
+  ctx.fillStyle = `rgba(${rgb}, ${degraded ? 0.45 : 0.85})`;
   ctx.fill();
-  ctx.strokeStyle = `rgba(${col}, 0.95)`;
-  ctx.lineWidth = 2;
+
+  // 外圈輝光（shadowBlur 的便宜替代）：同色、半透明、粗一倍，先描再描細的實線。
+  ctx.strokeStyle = `rgba(${rgb}, 0.35)`;
+  ctx.lineWidth = 7;
   ctx.stroke();
+
+  ctx.strokeStyle = `rgba(${rgb}, ${degraded ? 0.9 : 1})`;
+  ctx.lineWidth = 2.4;
+  if (degraded) ctx.setLineDash([5, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ⭐ 中心白點 = 真正的穴道座標。**任何角度、任何狀態都畫。**
+  //    外面再套一圈深色描邊，免得圓盤是亮綠色時白點糊進去。
+  //    ⚠️ `centerAt` 是給 tip 類用的：圓盤被沿骨軸外推了幾 mm，但白點是「位置」，
+  //       必須留在原本的穴道座標上，不能跟著外框跑。沒給就用圓盤中心。
+  const c = opts.centerAt || { x: cx, y: cy };
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 2.4, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 只畫穴名標籤（不畫點）。
+ *
+ * ⭐ 分出來的理由：標籤要畫在**圓盤外面**（`y - 圓盤半徑 - 8`），
+ *    而 `drawAcupoint()` 是畫在**點半徑外**（3–8px）—— 那會直接壓在圓盤裡面看不清。
+ *    3d 版的 `drawLabel()` 收的就是圓盤半徑，這裡照做。
+ *
+ * ⚠️ 呼叫端必須在**沒有鏡像 transform** 的狀態下呼叫，否則字會左右顛倒。
+ */
+function drawAcuLabel(ctx, x, y, text, discR) {
+  ctx.save();
+  ctx.font = "bold 13px 'Microsoft JhengHei', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  // 黑描邊：膚色背景上白字會糊掉
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.strokeText(text, x, y - discR - 8);
+  ctx.fillStyle = "#fff";
+  ctx.fillText(text, x, y - discR - 8);
   ctx.restore();
 }
 
@@ -1129,4 +1294,75 @@ function drawAcupoint(ctx, x, y, label, color, radius) {
   ctx.textBaseline = "bottom";
   ctx.fillText(label, x, y - radius - 4);
   ctx.restore();
+}
+
+/**
+ * 引導箭頭：從按壓的指尖指向穴道。取代原本的虛線。
+ *
+ * 為什麼改箭頭（2026-09-12）：
+ *   虛線只畫出「兩點之間」，往哪邊移要使用者自己判斷；
+ *   箭頭直接把方向講出來，而且遠比一個 px 數字好懂。
+ *
+ * ⭐ 刻意的三個取捨：
+ *   ① **尖端離穴道留 gap** —— 一路畫到穴道會蓋住信心圓盤，
+ *      而圓盤是「可不可信」的唯一線索，不能被引導蓋掉。
+ *   ② **長度封頂 maxLen** —— 指尖離很遠時畫一條穿過半個畫面的長箭頭很吵，
+ *      封頂之後箭頭停在中途，方向仍然是對的。
+ *   ③ **太近就不畫**（回傳 false）—— 快對準時箭頭會縮成一團色塊蓋住目標，
+ *      那時候使用者已經看得到穴道了，不需要引導。
+ *
+ * 座標約定：傳進來的必須是**已經鏡像換算過**的畫布座標。
+ *   距離判定請在原始座標算（鏡像不改變距離），畫才用這裡的座標 ——
+ *   兩邊混用會讓箭頭指反邊。
+ *
+ * @returns {boolean} 有沒有真的畫（太近時 false，呼叫端可據此決定要不要出提示）
+ */
+function drawGuideArrow(ctx, fromX, fromY, toX, toY, opts = {}) {
+  const color = opts.color || "rgba(255, 186, 74, 0.95)";
+  const startGap = opts.startGap == null ? 13 : opts.startGap;  // 離開指尖標記
+  const gap = opts.gap == null ? 16 : opts.gap;                 // 不蓋住圓盤
+  const maxLen = opts.maxLen == null ? 110 : opts.maxLen;
+  const lineW = opts.width == null ? 3.5 : opts.width;
+  const head = opts.head == null ? 12 : opts.head;
+
+  const dx = toX - fromX, dy = toY - fromY;
+  const dist = Math.hypot(dx, dy);
+  // 短到連「起點留白 + 尖端留白 + 一個箭頭」都擺不下，就別畫了
+  if (!(dist > startGap + gap + head)) return false;
+
+  const ux = dx / dist, uy = dy / dist;
+  const sx = fromX + ux * startGap, sy = fromY + uy * startGap;
+  const len = Math.min(dist - startGap - gap, maxLen);
+  const ex = sx + ux * len, ey = sy + uy * len;
+
+  // 箭身收在箭頭底部，否則線會從三角形中間穿出去
+  const bx = ex - ux * head * 0.78, by = ey - uy * head * 0.78;
+  const px = -uy, py = ux;   // 法向，畫三角形兩個底角用
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // 先黑描邊再上色：膚色背景上單一亮色會糊掉（同 drawAcuLabel 的處理）
+  for (const pass of [0, 1]) {
+    const isOutline = pass === 0;
+    ctx.strokeStyle = isOutline ? "rgba(0, 0, 0, 0.55)" : color;
+    ctx.fillStyle = isOutline ? "rgba(0, 0, 0, 0.55)" : color;
+    ctx.lineWidth = isOutline ? lineW + 3 : lineW;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(bx + px * head * 0.5, by + py * head * 0.5);
+    ctx.lineTo(bx - px * head * 0.5, by - py * head * 0.5);
+    ctx.closePath();
+    if (isOutline) { ctx.lineWidth = 3; ctx.stroke(); } else { ctx.fill(); }
+  }
+
+  ctx.restore();
+  return true;
 }
