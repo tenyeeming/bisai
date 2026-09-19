@@ -126,94 +126,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok([...$('recommend-list').children].filter(e => e.classList.contains('checked')).length === 2,
      '切回來後勾選狀態有還原');
 
-  // ── ▾ 逐穴按壓秒數（2026-09-08 用戶要）──
-  // 以前只有一個全域「單手秒數」，設定頁只給四個選項。改成每格旁邊一顆 ▾，
-  // 往下展開一條滑桿逐穴拉。守的三件事：
-  //   ① 點 ▾ 不可以順手把穴道勾起來（跟 ⓘ 同一個坑）
-  //   ② 一次只展開一片（同時開好幾片，下面的格子會整批位移，拉到一半的滑桿跟著跑掉）
-  //   ③ 沒調過的穴道要跟著全域跑，不是進頁就每一穴填一份
+  // 選穴不再展開時間面板；按摩／流程設定仍能逐穴保存秒數。
   const tItems = () => [...$('recommend-list').querySelectorAll('.acu-item')];
-  const tPanels = () => [...$('recommend-list').querySelectorAll('.acu-time')];
-  const checkedBefore = w.eval('state.selectedAcupoints.length');
-  ok(tItems().every(e => e.querySelector('.expand')), '每個穴道格都有 ▾ 展開鈕');
-  ok(tPanels().length === 0, '預設全部收合');
-  ok(w.eval('JSON.stringify(state.acuSecs)') === '{}', '⭐ 沒調過就不記 —— 進頁不預先填滿每一穴');
-
-  // ⭐ 先勾選才能調（2026-09-08 用戶定）：沒排進療程的穴道，調了時間也不會有效果
-  const unpicked = tItems().find(e => !e.classList.contains('checked'));
-  ok(unpicked && unpicked.querySelector('.expand').disabled, '⭐ 未勾選的穴道 ▾ 是停用的');
-  ok(/先勾選/.test(unpicked.querySelector('.expand').title), '停用時滑過去說得出原因');
-  unpicked.querySelector('.expand').click();
-  ok(tPanels().length === 0, '停用的 ▾ 點下去不會展開');
-  ok(tItems()[0].classList.contains('checked') && !tItems()[0].querySelector('.expand').disabled,
-     '勾選了的那格 ▾ 可以按');
-
-  const acuA = tItems()[0].dataset.acu, acuB = tItems()[1].dataset.acu;
-  tItems()[0].querySelector('.expand').click();
-  ok(tPanels().length === 1, '點 ▾ 展開一片');
-  ok(w.eval('state.selectedAcupoints.length') === checkedBefore, '⭐ 點 ▾ 不會把穴道勾起來');
-  const kids = [...$('recommend-list').children];
-  ok(kids.indexOf(tPanels()[0]) === kids.indexOf(tItems()[0]) + 1, '面板就插在那一格後面（往下展開）');
-
-  const slider = () => tPanels()[0].querySelector('input[type="range"]');
-  ok(slider().min === '5' && slider().max === '120' && slider().step === '5',
-     `滑桿 ${slider().min}–${slider().max}，每 ${slider().step} 秒一格（比原本四個選項多得多）`);
-  ok(Number(slider().value) === w.eval('flow.pressSec'), '沒調過時滑桿停在全域預設值');
-  ok(tPanels()[0].querySelector('.reset').hidden, '沒調過就不顯示「跟著預設」');
-
-  slider().value = '75';
-  slider().dispatchEvent(new w.Event('input'));
-  ok(w.eval(`state.acuSecs[${JSON.stringify(acuA)}]`) === 75, '拉滑桿寫進 state.acuSecs');
-  ok(/75/.test(tPanels()[0].querySelector('.v').textContent), '大讀數跟著拉動更新');
-  ok(/150/.test(tPanels()[0].textContent), '左右各一輪 → 這一穴共 150 秒');
-  ok(tItems()[0].querySelector('.secs').textContent === '75s', '收合後看得到的痕跡：格子上標 75s');
-  ok(tItems()[1].querySelector('.secs').textContent === '', '沒調過的那一格不標數字（標了會被讀成「我設過了」）');
-  ok(w.eval(`acuSecOf(${JSON.stringify(acuB)}) === flow.pressSec`), '沒調過的穴道仍跟著全域走');
-  ok(!tPanels()[0].querySelector('.reset').hidden, '調過之後才出現「跟著預設」');
-
-  tItems()[1].querySelector('.expand').click();
-  ok(tPanels().length === 1 && w.eval('openTimeFor') === acuB, '⭐ 一次只展開一片，前一片自動收起');
-  ok(tItems()[0].querySelector('.secs').textContent === '75s', '收起來之後那一穴的秒數還記著');
-
-  tPanels()[0].querySelector('.reset').click();
-  tItems()[0].querySelector('.expand').click();
-  tPanels()[0].querySelector('.reset').click();
-  ok(w.eval(`!(${JSON.stringify(acuA)} in state.acuSecs)`), '「跟著預設」把那一筆刪掉，不是寫一個等值的數字');
-  ok(tItems()[0].querySelector('.secs').textContent === '', '痕跡跟著消失');
-  tItems()[0].querySelector('.expand').click();
-  ok(tPanels().length === 0 && w.eval('openTimeFor') === null, '再點一次 ▾ 收合');
-  ok(w.eval('state.selectedAcupoints.length') === checkedBefore, '整段操作下來勾選數沒被動到');
-
-  // 展開著的時候取消勾選：面板要收掉（留著一條調不出效果的滑桿會誤導），秒數本身留著
-  tItems()[0].querySelector('.expand').click();
-  const sl2 = tPanels()[0].querySelector('input[type="range"]');
-  sl2.value = '90';
-  sl2.dispatchEvent(new w.Event('input'));
-  tItems()[0].click();                                   // 取消勾選
-  ok(!tItems()[0].classList.contains('checked'), '取消勾選');
-  ok(tPanels().length === 0 && w.eval('openTimeFor') === null, '⭐ 取消勾選會把展開的那片收掉');
-  ok(tItems()[0].querySelector('.expand').disabled, '取消勾選後 ▾ 跟著停用');
-  ok(w.eval(`state.acuSecs[${JSON.stringify(acuA)}]`) === 90,
-     '⭐ 但秒數不刪 —— 反悔再勾回來時剛才拉的時間還在');
-  tItems()[0].click();                                   // 勾回來
-  ok(!tItems()[0].querySelector('.expand').disabled && tItems()[0].querySelector('.secs').textContent === '90s',
-     '勾回來 ▾ 又能按，痕跡也還在');
-  w.eval(`clearAcuSec(${JSON.stringify(acuA)})`);
+  ok(tItems().every(e => !e.querySelector('.expand')), '選穴階段不顯示逐穴秒數入口');
+  const acuA = tItems()[0].dataset.acu;
+  w.setAcuSec(acuA, 75);
   w.renderAcuList();
-
-  // 臉部也有（「準備中」的不給 —— 排不進療程的穴道，調它幾秒沒有意義）
+  ok(tItems()[0].querySelector('.secs').textContent === '75s', '按摩中或流程設定的秒數仍在選穴卡片顯示');
+  tItems()[0].click(); tItems()[0].click();
+  ok(w.eval(`acuSecOf(${JSON.stringify(acuA)})`) === 75, '取消後重選不丟失自訂秒數');
+  w.clearAcuSec(acuA); w.renderAcuList();
+  ok(tItems()[0].querySelector('.secs').textContent === '', '回到預設後不顯示自訂秒數');
   segBtns()[2].click();
-  const fReady = tItems().filter(e => e.getAttribute('aria-disabled') !== 'true');
-  const fSoon  = tItems().filter(e => e.getAttribute('aria-disabled') === 'true');
-  ok(fReady.every(e => e.querySelector('.expand')), '可勾的臉部穴道有 ▾');
-  ok(fSoon.every(e => !e.querySelector('.expand')), '「準備中」的臉部穴道沒有 ▾');
-  ok(fReady[0].querySelector('.expand').disabled, '臉部也一樣：沒勾選就不給調時間');
-  fReady[0].click();                                     // 勾起來
-  const fCode = tItems().find(e => e.classList.contains('checked')).dataset.acu;
-  tItems().find(e => e.dataset.acu === fCode).querySelector('.expand').click();
-  ok(/只按一輪/.test(tPanels()[0].textContent), '臉部只有一輪，總計不乘二');
-  tItems().find(e => e.dataset.acu === fCode).click();    // 取消勾選＝順手收掉面板
-  ok(tPanels().length === 0, '臉部取消勾選也會收掉面板');
+  ok(tItems().every(e => !e.querySelector('.expand')), '臉部選穴也不顯示秒數入口');
+  const fCode = tItems()[0].dataset.acu;
+  w.setAcuSec(fCode, 45); w.renderAcuList();
+  ok(tItems()[0].querySelector('.secs').textContent === '45s', '臉部自訂秒數仍可呈現');
+  w.clearAcuSec(fCode);
   segBtns()[0].click();
 
   w.goToAcuDetail();
@@ -344,7 +273,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ── 全螢幕按摩（2026-08-13）──
   // 重點不是「有沒有變大」（jsdom 不排版），是「元件被搬走之後還找不找得到」
-  ok(d.body.classList.contains('massage-fs'), '按下開始 → 進全螢幕');
+  ok(!d.body.classList.contains('massage-fs'), '按下開始維持原版面，不強制全螢幕');
+  w.enterMassageFullscreen();
+  ok(d.body.classList.contains('massage-fs'), '主動放大才進全螢幕');
   ok($('massage-hud-slot').contains($('timer-display')) && $('massage-hud-slot').contains($('massage-gate')),
      '計時與讀數條是搬進 HUD，不是另外複製一份');
   ok(/右手.*1\/2/.test($('fs-hand').textContent), 'HUD 標出本輪是哪隻手：' + $('fs-hand').textContent);
@@ -1176,6 +1107,51 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(chips().length === 0, '只選一個症狀 → 覆蓋條不出現');
     w.goHome();
   }
+
+  // 首頁選擇上限與鍵盤焦點。
+  w.goHome();
+  ok($('home-next').disabled, '未選症狀不能下一步');
+  // ⭐ 上限讀常數不寫死（2026-09-17 用戶把 5 改成 3，這裡原本寫死 5 就紅了）。
+  //    MAX_SYMPTOMS 是 const，不會掛上 window，所以要用 w.eval 取。
+  const maxSym = w.eval('MAX_SYMPTOMS');
+  for (let i = 0; i < maxSym; i++) $('symptom-grid').children[i].click();
+  const overflow = $('symptom-grid').children[maxSym];
+  overflow.focus(); overflow.click();
+  ok(w.eval('state.selectedSymptoms.length') === maxSym, `第 ${maxSym + 1} 項不加入選擇`);
+  ok(d.activeElement === overflow, '上限提示不丟失鍵盤焦點');
+  ok($('home-cast').querySelectorAll('img').length === maxSym, `${maxSym} 個角色對應 ${maxSym} 個已選症狀`);
+  $('symptom-grid').children[0].click(); overflow.click();
+  ok(w.eval(`state.selectedSymptoms.includes(${maxSym}) && !state.selectedSymptoms.includes(0)`),
+     '取消後可改選另一項');
+  w.goToRecommendation();
+  ok(!$('step-progress').hidden && $('step-track').getAttribute('aria-valuenow') === '1', '選穴頁進度條顯示第一步');
+
+  // 手動暫停不能把時間重設；放大縮小不能重新開始一輪。
+  w.eval("state.selectedAcupoints=['合谷穴']; state.currentAcupointIndex=0");
+  w.showPage('massage'); await tick();
+  $('timer-input').value = '30'; w.updateTimerDisplay();
+  w.eval('onTarget=true'); w.startMassage(); await wait(250);
+  w.toggleMassagePause();
+  const pausedRemain = w.eval('massageRemainMs');
+  await wait(250);
+  ok(w.eval('massageRemainMs') === pausedRemain, '手動暫停不消耗剩餘時間');
+  w.enterMassageFullscreen();
+  ok($('fs-pause').textContent === '繼續', '放大畫面仍有繼續入口');
+  w.toggleMassagePause(); await wait(250);
+  ok(w.eval('massageRemainMs') < pausedRemain, '繼續沿用剩餘時間');
+  w.goHome();
+  ok(!d.body.classList.contains('massage-fs'), '離開按摩頁釋放放大畫面');
+
+  // 總結重繪純展示，不增加歷史或獎勵。
+  w.eval("sessionLog=[{name:'合谷穴',ms:12000},{name:'EX-HN3',ms:5000}]");
+  const savedProgress = w.eval('JSON.stringify([state.history,state.minions,state.streak])');
+  w.showPage('summary');
+  ok($('summary-stage').querySelectorAll('img').length === 5, '總結有五個角色');
+  ok($('summary-rewards').children.length === 2, '總結列出本次兩個穴道獎勵');
+  w.renderSummary(); w.setLanguage('en'); w.setLanguage('zh');
+  ok(w.eval('JSON.stringify([state.history,state.minions,state.streak])') === savedProgress, '重開總結或切語言不重複記帳');
+  ok(!$('summary-stage').classList.contains('celebrate'), '相同紀錄不重播慶祝');
+  w.goHome();
 
   console.log(fail ? `\n=== ${fail} 項失敗 ===` : '\n=== 全過 ===');
   process.exit(fail ? 1 : 0);

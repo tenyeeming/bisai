@@ -212,7 +212,7 @@ function renderFaceList(list) {
     item.append(dot, nm, tick, infoButton(() => openFaceInfo(code)));
     // ▾ 逐穴秒數（見 pages/02-recommend.js）。「準備中」的不給 ——
     // 排不進療程的穴道，調它要按幾秒沒有意義。
-    if (ready) { item.insertBefore(secsBadge(code), tick); item.appendChild(expandButton(code, checked)); }
+    if (ready) item.insertBefore(secsBadge(code), tick);
 
     if (ready) {
       const toggle = () => {
@@ -227,7 +227,7 @@ function renderFaceList(list) {
       item.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } };
     }
     list.appendChild(item);
-    if (checked && openTimeFor === code) list.appendChild(acuTimePanel(code));
+    // 秒數仍可在按摩頁調整。
   });
 
   const btn = document.createElement('button');

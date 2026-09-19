@@ -68,6 +68,18 @@ function updateStepRail(page) {
     li.classList.toggle('done', idx >= 0 && i < idx);
   });
   document.getElementById('steprail').style.display = idx >= 0 ? '' : 'none';
+  const progress = document.getElementById('step-progress');
+  progress.hidden = idx < 0;
+  if (idx >= 0) {
+    document.getElementById('step-title').textContent = t(PAGES[page].stepLabel);
+    document.getElementById('step-count').textContent = `${idx + 1} / ${STEP_ORDER.length}`;
+    document.getElementById('step-fill').style.width = `${(idx + 1) / STEP_ORDER.length * 100}%`;
+    const track = document.getElementById('step-track');
+    track.setAttribute('aria-label', isZh() ? '療程進度' : 'Session progress');
+    track.setAttribute('aria-valuemax', STEP_ORDER.length);
+    track.setAttribute('aria-valuenow', idx + 1);
+    track.setAttribute('aria-valuetext', t(PAGES[page].stepLabel));
+  }
 }
 
 // ── 返回列 ────────────────────────────────────────────────────────
@@ -131,7 +143,11 @@ function showPage(name) {
   if (typeof camRunning !== 'undefined' && camRunning && !cfg.keepsCamera) stopCamera();
   if (typeof faceCamRunning !== 'undefined' && faceCamRunning && !cfg.keepsFaceCamera) stopFaceCamera();
 
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const previous = currentPage;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active', 'page-enter'));
+  el.style.setProperty('--enter-x', previous && PAGES[previous].tab === cfg.tab
+    ? (PAGE_ORDER.indexOf(name) >= PAGE_ORDER.indexOf(previous) ? '18px' : '-18px') : '0px');
+  if (previous !== name) el.classList.add('page-enter');
   el.classList.add('active');
   currentPage = name;
 
@@ -141,6 +157,11 @@ function showPage(name) {
   window.scrollTo(0, 0);
 
   if (cfg.onEnter) cfg.onEnter();
+  // onEnter 可因缺少療程而轉回首頁，不能把焦點送到已隱藏的舊頁。
+  if (currentPage === name && previous && previous !== name) {
+    const title = el.querySelector('h2');
+    if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
+  }
 }
 
 function goHome() {

@@ -27,14 +27,14 @@ registerPage('acu-detail', {
       }
       .ref-frame img { width: 100%; height: auto; display: block; border-radius: 2px; }
       .ref-frame .cap {
-        font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: .1em;
         color: #7a8580; text-align: center; padding: 3px 0 1px;
       }
       .ref-none {
         flex: none; width: 42%;
         border: 1px dashed var(--line); border-radius: var(--r);
         padding: 18px 8px; text-align: center;
-        font-size: 11.5px; color: var(--ink-soft);
+        font-size: 0.71875rem; color: var(--ink-soft);
       }
       /* ── 認穴倒數（2026-09-02）─────────────────────────────
          倒數到 0 就自己翻到定位頁，使用者不必點。但人可能還在讀定位說明，
@@ -45,15 +45,15 @@ registerPage('acu-detail', {
         background: var(--surface-2); padding: 9px 12px;
       }
       .readybar .num {
-        font-family: var(--font-mono); font-size: 22px; font-weight: 600;
+        font-family: var(--font-mono); font-size: 1.375rem; font-weight: 600;
         color: var(--brass); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: center;
       }
-      .readybar .txt { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+      .readybar .txt { font-size: 0.78125rem; color: var(--ink-soft); line-height: 1.5; }
       .readybar.held { border-color: var(--line); }
       .readybar.held .num { color: var(--ink-soft); }
       .readybar button {
         margin-left: auto; flex: none;
-        font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em;
+        font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .06em;
         color: var(--ink-soft); background: none;
         border: 1px solid var(--line); border-radius: var(--r);
         padding: 6px 10px; cursor: pointer;
@@ -69,11 +69,11 @@ registerPage('acu-detail', {
         display: flex; align-items: center; gap: 9px; width: 100%;
         border: 1px solid var(--brass); border-radius: var(--r);
         background: var(--surface-2); color: var(--brass);
-        font-family: inherit; font-size: 13px; text-align: left;
+        font-family: inherit; font-size: 0.8125rem; text-align: left;
         padding: 10px 12px; margin-bottom: 4px; cursor: pointer;
       }
       .vid-open .play {
-        font-size: 11px; line-height: 1;
+        font-size: 0.6875rem; line-height: 1;
         border: 1px solid var(--brass); border-radius: 50%;
         padding: 5px 5px 5px 7px;
       }
@@ -89,7 +89,7 @@ registerPage('acu-detail', {
       .vid-seek {
         position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;
         min-width: 52px; height: 44px;      /* 手指點得到 */
-        font-family: var(--font-mono); font-size: 13px;
+        font-family: var(--font-mono); font-size: 0.8125rem;
         color: #fff; background: rgba(0,0,0,.55);
         border: 1px solid rgba(255,255,255,.45); border-radius: 22px;
         cursor: pointer;
@@ -99,13 +99,13 @@ registerPage('acu-detail', {
       .vid-close {
         position: absolute; top: 10px; right: 10px; z-index: 1;
         width: 40px; height: 40px;          /* 手指點得到的大小 */
-        font-size: 18px; line-height: 1;
+        font-size: 1.125rem; line-height: 1;
         color: #fff; background: rgba(0,0,0,.55);
         border: 1px solid rgba(255,255,255,.45); border-radius: 50%;
         cursor: pointer;
       }
       #tutorial-box p {
-        font-size: 13px; color: var(--ink-soft);
+        font-size: 0.8125rem; color: var(--ink-soft);
         margin-top: 7px; padding-left: 12px;
         border-left: 1px solid var(--line);
       }
@@ -378,7 +378,7 @@ function fillTutorial(box, name, steps) {
 
 // 收起教學區塊並停掉影片。換穴、離頁都要叫，否則下一穴會看到上一穴的片還開著。
 function closeTutorial() {
-  closeTutorialVideo();          // 全螢幕播放器開著的話一起關掉
+  if (typeof closeTutorialVideo === 'function') closeTutorialVideo(); // 播放器腳本未載入時仍可安全離開
   const box = document.getElementById('tutorial-box');
   if (!box) return;
   box.innerHTML = '';

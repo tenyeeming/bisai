@@ -12,6 +12,7 @@
 //      這一頁只讀那個旗標，不必知道是誰算的。
 
 let massageRunning = false;
+let massageUserPaused = false;
 let massageRemainMs = 30000;
 let massageTickId = null;
 const TICK_MS = 100;
@@ -66,6 +67,7 @@ registerPage('massage', {
     syncDiscLabels();
     syncAdvanceLabels();
     resetMassageSession();
+    syncMassageControls();
     startMassageCamera();
   },
   onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
@@ -75,6 +77,7 @@ registerPage('massage', {
     syncAdvanceLabels();
     updateTimerDisplay();
     renderRound();
+    syncMassageControls();
   },
 
   html: `
@@ -90,11 +93,11 @@ registerPage('massage', {
         margin-bottom: 10px;
       }
       .roundbar .k {
-        font-family: var(--font-mono); font-size: 9.5px;
+        font-family: var(--font-mono); font-size: 0.59375rem;
         letter-spacing: .14em; text-transform: uppercase; color: var(--brass);
       }
       .roundbar .hand {
-        font-family: var(--font-ming); font-size: 19px; font-weight: 600;
+        font-family: var(--font-ming); font-size: 1.1875rem; font-weight: 600;
         color: var(--ink); line-height: 1.2;
       }
       .roundbar .pips { margin-left: auto; display: flex; gap: 5px; align-items: center; }
@@ -105,7 +108,7 @@ registerPage('massage', {
       .roundbar .pip.done { background: var(--brass); }
       .roundbar .pip.now  { box-shadow: 0 0 0 3px var(--warn-bg); background: var(--brass); }
       .roundbar .n {
-        font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft);
         font-variant-numeric: tabular-nums; margin-left: 4px;
       }
 
@@ -117,12 +120,12 @@ registerPage('massage', {
         background: var(--surface);
       }
       .meter .label {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
         text-transform: uppercase; color: var(--brass);
       }
       .timer-display {
         font-family: var(--font-mono);
-        font-size: 54px;
+        font-size: 3.375rem;
         font-weight: 600;
         line-height: 1;
         margin: 10px 0 4px;
@@ -133,7 +136,7 @@ registerPage('massage', {
       /* 指尖離開穴道時變灰：計時暫停這件事要看得出來 */
       .timer-display.paused { color: var(--ink-soft); }
       .timer-slider { width: 100%; margin: 12px 0 4px; accent-color: var(--brass); }
-      .hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-soft); letter-spacing: .04em; }
+      .hint { font-family: var(--font-mono); font-size: 0.65625rem; color: var(--ink-soft); letter-spacing: .04em; }
       #round-switch[hidden] { display: none; }
       #btn-massage-zoom { margin-top: 8px; }
       #btn-massage-zoom[hidden] { display: none; }
@@ -170,12 +173,12 @@ registerPage('massage', {
         background: linear-gradient(rgba(0,0,0,.55), transparent);
       }
       .fs-hand {
-        font-family: var(--font-ming); font-size: 17px; font-weight: 600;
+        font-family: var(--font-ming); font-size: 1.0625rem; font-weight: 600;
         color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.7);
       }
       .fs-btn {
         margin-left: auto; pointer-events: auto;
-        font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em;
+        font-family: var(--font-mono); font-size: 0.71875rem; letter-spacing: .08em;
         color: #fff; background: rgba(0,0,0,.45);
         border: 1px solid rgba(255,255,255,.45); border-radius: var(--r);
         padding: 7px 11px; cursor: pointer;
@@ -190,7 +193,7 @@ registerPage('massage', {
       }
       /* 搬進來的那兩個元件要改裝成「疊在影像上」的樣子 */
       .fs-bottom .timer-display {
-        flex: none; margin: 0; font-size: 52px; color: #fff;
+        flex: none; margin: 0; font-size: 3.25rem; color: #fff;
         text-shadow: 0 2px 14px rgba(0,0,0,.75);
       }
       .fs-bottom .timer-display.paused { color: rgba(255,255,255,.4); }
@@ -203,7 +206,7 @@ registerPage('massage', {
         <h2 id="massage-title" class="acu-title"></h2>
       </div>
 
-      <div>
+      <div class="massage-preview">
         <div class="roundbar">
           <div>
             <div class="k" data-i18n="round-label">本輪</div>
@@ -218,6 +221,7 @@ registerPage('massage', {
           <div class="fs-hud" id="massage-hud">
             <div class="fs-top">
               <span class="fs-hand" id="fs-hand"></span>
+              <button class="fs-btn fs-pause" id="fs-pause" onclick="toggleMassagePause()">暫停</button>
               <button class="fs-btn" onclick="exitMassageFullscreen()" data-i18n="btn-shrink">⤡ 縮小</button>
             </div>
             <div class="fs-bottom" id="massage-hud-slot"></div>
@@ -234,9 +238,10 @@ registerPage('massage', {
         <p class="label" data-i18n="massage-timer">按摩時間（每隻手）</p>
         <div class="timer-display" id="timer-display">30</div>
         <p class="hint" id="timer-label"></p>
+        <p class="timer-state" id="timer-state" role="status" aria-live="polite"></p>
         <input type="range" class="timer-slider" id="timer-input" min="5" max="120" step="5" value="30"
                oninput="onPressSecChange()">
-        <button class="btn wide" id="btn-massage-start" onclick="startMassage()" data-i18n="btn-massage-start">開始按摩</button>
+        <button class="btn wide" id="btn-massage-start" onclick="toggleMassagePause()">開始按摩</button>
         <!-- 只在「計時中但已經縮小」時出現，讓人能再放大回去 -->
         <button class="btn ghost wide" id="btn-massage-zoom" hidden
                 onclick="enterMassageFullscreen()" data-i18n="btn-zoom">⤢ 放大顯示</button>
@@ -471,10 +476,31 @@ function toggleMassageDisc() {
 
 function stopMassageTimer() {
   massageRunning = false;
+  massageUserPaused = false;
   if (massageTickId) { clearInterval(massageTickId); massageTickId = null; }
   // 一輪按完就要退回來 —— 換手提示、開始鈕都在小畫面上，蓋著就看不到
   exitMassageFullscreen();
   syncZoomBtn();
+}
+
+function syncMassageControls() {
+  const btn = document.getElementById('btn-massage-start');
+  const label = !massageRunning ? startLabel()
+    : massageUserPaused ? (isZh() ? '繼續' : 'Resume') : (isZh() ? '暫停' : 'Pause');
+  btn.textContent = label;
+  document.getElementById('fs-pause').textContent = label;
+  const status = document.getElementById('timer-state');
+  const text = !massageRunning ? (isZh() ? '準備好了就開始' : 'Start when ready')
+    : massageUserPaused ? (isZh() ? '已暫停，保留剩餘時間' : 'Paused — remaining time saved')
+    : !onTarget ? (isZh() ? '等待位置對準，計時暫停' : 'Waiting for alignment — timer paused')
+    : (isZh() ? '位置已對準，計時中' : 'Aligned — timer running');
+  if (status.textContent !== text) status.textContent = text;
+}
+
+function toggleMassagePause() {
+  if (!massageRunning) { stopSwitchCountdown(); startMassage(); return; }
+  massageUserPaused = !massageUserPaused;
+  syncMassageControls();
 }
 
 function startMassage() {
@@ -482,13 +508,16 @@ function startMassage() {
   document.getElementById('round-switch').hidden = true;
   massageRemainMs = parseInt(document.getElementById('timer-input').value, 10) * 1000;
   massageRunning = true;
-  document.getElementById('btn-massage-start').disabled = true;
+  massageUserPaused = false;
+  document.getElementById('btn-massage-start').disabled = false;
   document.getElementById('timer-input').disabled = true;
-  enterMassageFullscreen();      // 計時中只剩「圓盤 + 指尖」要看，把畫面讓出來
+  syncZoomBtn();
+  syncMassageControls(); // 放大由使用者自行選擇，不隨開始計時跳全螢幕。
 
   massageTickId = setInterval(() => {
     const disp = document.getElementById('timer-display');
-    if (!onTarget) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
+    syncMassageControls();
+    if (massageUserPaused || document.hidden || !onTarget) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
     disp.classList.remove('paused');
     massageRemainMs -= TICK_MS;
     acuElapsedMs += TICK_MS;                                   // 只算「真的對準」的時間

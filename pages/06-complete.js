@@ -21,7 +21,7 @@ registerPage('complete', {
       .badge .minion { width: 84%; height: auto; display: block; }
       .badge .lv {
         position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
-        font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+        font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700;
         color: #fff; padding: 2px 9px; border-radius: 999px;
         border: 1px solid rgba(255,255,255,.3);
       }
@@ -38,6 +38,7 @@ registerPage('complete', {
       </div>
       <div class="badge" id="minion-badge"></div>
       <p class="small" id="complete-level"></p>
+      <p class="small" id="complete-duration"></p>
       <p class="mono-sm" id="complete-streak"></p>
       <div class="btn-row">
         <button class="btn" id="btn-next-acu" onclick="goToNextAcu()" data-i18n="btn-next-acu">下一穴</button>
@@ -90,7 +91,7 @@ function renderComplete() {
   if (!lastCompleted) { goHome(); return; }
   const { name, level, times, streak } = lastCompleted;
 
-  document.getElementById('complete-acu').textContent = acuLabel(name);
+  document.getElementById('complete-acu').textContent = itemLabel(name);
 
   const badge = document.getElementById('minion-badge');
   badge.innerHTML = '';
@@ -99,17 +100,25 @@ function renderComplete() {
   lv.className = 'lv';
   lv.textContent = 'Lv.' + level;
   lv.style.background = acuColor(name);
-  badge.append(minionImg(name), lv);
+  const art = isFaceItem(name) ? castImage(0) : minionImg(name);
+  art.className = 'minion';
+  badge.append(art, lv);
 
   document.getElementById('complete-level').textContent = isZh()
-    ? `${acuLabel(name)}小人 Lv.${level}　累計 ${times} 次`
-    : `${acuLabel(name)} minion Lv.${level} · ${times} sessions`;
+    ? `${itemLabel(name)}小人 Lv.${level}　累計 ${times} 次`
+    : `${itemLabel(name)} minion Lv.${level} · ${times} sessions`;
   document.getElementById('complete-streak').textContent = isZh()
     ? `連續第 ${streak} 天` : `${streak}-DAY STREAK`;
 
   // 最後一穴就沒有「下一穴」可按
   const isLast = state.currentAcupointIndex >= state.selectedAcupoints.length - 1;
-  document.getElementById('btn-next-acu').style.display = isLast ? 'none' : '';
+  const next = document.getElementById('btn-next-acu');
+  next.style.display = '';
+  next.removeAttribute('data-i18n');
+  next.textContent = isLast ? (isZh() ? '查看本次總結' : 'View summary') : t('btn-next-acu');
+  const entry = sessionLog[sessionLog.length - 1];
+  document.getElementById('complete-duration').textContent = entry && entry.name === name
+    ? (isZh() ? `本次對準時間 ${fmtDuration(entry.ms)}` : `Aligned time ${fmtDuration(entry.ms)}`) : '';
 }
 
 function goToNextAcu() {

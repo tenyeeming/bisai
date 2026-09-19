@@ -32,11 +32,11 @@ registerPage('summary', {
         width: 9px; height: 9px; border-radius: 50%; flex: none;
       }
       #summary-list .nm {
-        font-family: var(--font-ming); font-size: 15px; letter-spacing: .04em;
+        font-family: var(--font-ming); font-size: 0.9375rem; letter-spacing: .04em;
       }
       #summary-list .sec {
         margin-left: auto;
-        font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.8125rem; color: var(--ink-soft);
         font-variant-numeric: tabular-nums;
       }
       .total {
@@ -45,12 +45,12 @@ registerPage('summary', {
         background: var(--surface-2); padding: 13px 14px;
       }
       .total .k {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
         text-transform: uppercase; color: var(--brass);
       }
       .total .v {
         margin-left: auto;
-        font-family: var(--font-mono); font-size: 30px; font-weight: 600;
+        font-family: var(--font-mono); font-size: 1.875rem; font-weight: 600;
         color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
       }
     </style>
@@ -61,11 +61,19 @@ registerPage('summary', {
         <h2 data-i18n="summary-title">今天按了這些</h2>
       </div>
 
+      <div id="summary-stage" class="reward-stage" aria-hidden="true"></div>
+      <div id="summary-rewards" class="reward-list"></div>
       <div id="summary-list"></div>
 
+      <div class="summary-stats">
       <div class="total">
         <span class="k" data-i18n="summary-total">總時長</span>
         <span class="v" id="summary-total">0:00</span>
+      </div>
+      <div class="total">
+        <span class="k" id="summary-streak-label"></span>
+        <span class="v" id="summary-streak"></span>
+      </div>
       </div>
 
       <p class="hint mono-sm" data-i18n="summary-note">時間只計「指尖真的對準穴道」的秒數，離開穴道時計時是停住的。</p>
@@ -84,6 +92,9 @@ function fmtDuration(ms) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
+let celebratedSession = null;
+let celebratedEntries = 0;
+
 function renderSummary() {
   const list = document.getElementById('summary-list');
   if (!list) return;
@@ -94,10 +105,28 @@ function renderSummary() {
   list.innerHTML = sessionLog.map(r => `
     <div class="row">
       <span class="dot" style="background:${acuColor(r.name)}"></span>
-      <span class="nm">${acuLabel(r.name)}</span>
+      <span class="nm">${itemLabel(r.name)}</span>
       <span class="sec">${fmtDuration(r.ms)}</span>
     </div>`).join('');
 
   document.getElementById('summary-total').textContent =
     fmtDuration(sessionLog.reduce((a, r) => a + r.ms, 0));
+
+  // 完成時才寫長期紀錄。回到這頁、切語言都只重繪，不發第二份獎勵。
+  const firstVisit = celebratedSession !== sessionLog || celebratedEntries !== sessionLog.length;
+  renderRewardStage('summary-stage', firstVisit);
+  celebratedSession = sessionLog;
+  celebratedEntries = sessionLog.length;
+  const rewards = document.getElementById('summary-rewards');
+  rewards.replaceChildren();
+  [...new Set(sessionLog.map(r => r.name))].forEach(name => {
+    const chip = document.createElement('span');
+    chip.className = 'reward-chip';
+    chip.textContent = `${itemLabel(name)} · Lv.${state.minions[name]?.level || 1}`;
+    rewards.appendChild(chip);
+  });
+  document.getElementById('summary-streak-label').textContent = isZh() ? '連續天數' : 'Daily streak';
+  const dayGap = state.streak.date ? daysBetween(state.streak.date, todayStr()) : null;
+  const streak = dayGap !== null && dayGap >= 0 && dayGap <= 1 ? state.streak.count : 0;
+  document.getElementById('summary-streak').textContent = isZh() ? `${streak} 天` : `${streak} days`;
 }

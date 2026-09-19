@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AcuNavi 理想版</title>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -22,6 +22,7 @@
 
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/responsive.css">
 
   <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
   <script src="js/mp-loader.js"></script>
@@ -98,6 +99,10 @@
 
     <!-- 步驟軌由 js/nav.js 依各頁註冊的 step 欄位自動生成 -->
     <ol class="steprail" id="steprail"></ol>
+    <div class="step-progress" id="step-progress" hidden>
+      <div class="step-heading"><strong id="step-title"></strong><span class="step-count" id="step-count"></span></div>
+      <div class="step-track" id="step-track" role="progressbar" aria-label="療程進度" aria-valuemin="0" aria-valuemax="4"><div class="step-fill" id="step-fill"></div></div>
+    </div>
 
     <!-- MediaPipe 的 Camera 需要真的 video 元素，不能餵 canvas -->
     <video id="hidden-video" playsinline muted></video>

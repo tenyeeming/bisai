@@ -1,0 +1,200 @@
+/* 2026-09-16：App 共用視覺與多端配置。頁面邏輯仍由各 pages/*.js 管理。 */
+:root { --tab-bg: #7198C1; --tab-on: #5C7D9E; --accent-text: #345e79; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --tab-bg: #1B2C3C; --tab-on: #2C4560; --accent-text: #B3D6EC; }
+}
+:root[data-theme="dark"] { --tab-bg: #1B2C3C; --tab-on: #2C4560; --accent-text: #B3D6EC; }
+html { font-size: 100%; }
+body { background: var(--surface-2); }
+body .device { max-width: 1120px; min-height: 100svh; border: 0; }
+.device header { padding: 16px clamp(16px, 3vw, 32px); }
+.device main { padding: 16px clamp(16px, 3vw, 32px) 24px; min-width: 0; }
+.device main > .page { min-width: 0; }
+.device main > .page > .stack { width: 100%; max-width: 760px; margin-inline: auto; }
+.device .backbar { padding-inline: clamp(16px, 3vw, 32px); }
+.device .tabbar {
+  display: flex; gap: 4px; width: calc(100% - 24px); max-width: 600px;
+  margin: 0 auto max(12px, env(safe-area-inset-bottom)); padding: 5px;
+  bottom: max(12px, env(safe-area-inset-bottom)); border: 0; border-radius: 32px;
+  background: var(--tab-bg); box-shadow: 0 6px 22px #162e4326;
+}
+.device .tabbar button {
+  flex: 1 1 0; min-width: 0; min-height: 48px; padding: 8px 4px;
+  font-size: .8125rem; line-height: 1.3; letter-spacing: 0; color: #fff;
+  border-radius: 26px; transition: flex-grow .25s ease, background .2s;
+}
+.device .tabbar button.on { flex-grow: 1.8; background: var(--tab-on); box-shadow: none; color: #fff; }
+.device .tabbar button:hover { color: #fff; background: var(--tab-on); }
+.device .tabbar button svg { width: 20px; height: 20px; }
+.step-progress { padding: 8px clamp(16px, 3vw, 32px) 14px; }
+.step-progress[hidden] { display: none; }
+.step-progress .step-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: .9375rem; }
+.step-progress .step-count { color: var(--ink-soft); font-family: var(--font-mono); }
+.step-track { height: 5px; background: var(--line-soft); border-radius: 9px; overflow: hidden; }
+.step-fill { height: 100%; background: var(--tab-bg); width: 0; transition: width .25s; }
+/* 保留語意化的完整步驟清單給輔助科技。視覺改為當前步驟與進度。 */
+.device .steprail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; border: 0; }
+.device .btn, .device .ghost, .device .seg button, .device .cover-chip { min-height: 44px; }
+.device .btn { font-size: .9375rem; white-space: normal; color: var(--ink); }
+.device .btn-row { flex-wrap: wrap; }
+.device .btn-row > button { min-width: 0; flex: 1 1 130px; }
+.device :is(.eyebrow, .meter .label, .sheet .field .k, .cover-chip .n) { color: var(--accent-text); }
+.device :is(.small, .lede, .notice, .readout, .hint, .mono-sm) { overflow-wrap: anywhere; }
+.device .notice, .device .small, .device .readout { font-size: .875rem; }
+.device .hint, .device .mono-sm { font-size: .8125rem; }
+.device .lede { font-size: .9375rem; max-width: none; }
+.device h2 { max-width: 100%; font-size: clamp(1.5rem, 3vw, 1.875rem); overflow-wrap: anywhere; word-break: break-word; }
+.device button:disabled { cursor: not-allowed; opacity: .45; }
+.device input[type="range"] { min-height: 44px; }
+
+/* ── 頁首深藍帶的下半段（2026-09-19 同步 App 的 HomeScreen HeroBand）────────
+   上半段是 header（底色在 shell.css）。這一塊把帶延伸到首頁的 lede 為止。
+
+   ⭐ 負 margin 出血：main 有 16px 直 / clamp(16px,3vw,32px) 橫的內距，
+      直接上底色會在左右和上方各留一條白邊、帶就接不上 header。
+      對應 App 用 drawBehind 把矩形畫到內距外面（HomeScreen.kt:137 那段註解）。
+   ⚠️ 這兩個數字跟上面 `.device main` 的內距綁死 —— 那邊改了這裡要跟。 */
+.hero-band {
+  margin: -16px calc(-1 * clamp(16px, 3vw, 32px)) 0;
+  padding: 16px clamp(16px, 3vw, 32px) 12px;
+  background: var(--hero);
+}
+/* 帶內的字色改成在深藍上讀得到的那組（外面那份 .eyebrow 吃 --accent-text，
+   在深藍底上對比不夠）。小人是去背 PNG，放在藍底上不用處理。
+
+   ⚠️ 選擇器**必須帶 #page-home**（2026-09-19 實測才發現）：上面那條
+   `.device :is(.eyebrow, .meter .label, .sheet .field .k, .cover-chip .n)` 的特異性
+   是 (0,4,0) —— `:is()` 取括號內**最高**的那一項（`.sheet .field .k` 有三個 class），
+   不是取 `.eyebrow` 那一項。只寫 `.device .hero-band .eyebrow` 是 (0,3,0)，會輸，
+   「主訴」兩字就留在深藍底上的暗藍色、幾乎看不見。加 id 變 (1,3,0) 才蓋得過。 */
+#page-home .hero-band .eyebrow { color: var(--hero-ink); }
+#page-home .hero-band h2 { color: var(--hero-ink); }
+#page-home .hero-band .lede { color: var(--hero-ink-soft); }
+
+/* ── 卡片微陰影補完（2026-09-19）────────────────────────────────────
+   App 只有四處吃 AcuCardElevation：首頁症狀格、選穴頁穴道格（這兩處本檔上面已有）、
+   圖冊格、個人頁統計卡。補後兩處。
+   ⚠️ 個人頁在 App 是一格一張獨立卡片，網頁是「1px 間隙當分隔」的連體表格 ——
+      這次只給整塊加圓角與陰影，**沒有拆成獨立卡片**（那是版面改動，不在本批）。 */
+#page-gallery .collection-item { box-shadow: var(--shadow); }
+#page-profile .stat-grid { border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+/* 深色不給陰影 —— 深底上的黑影看不見，只會讓邊緣糊掉（App 的 cardElevation 深色是 0dp） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #page-gallery .collection-item,
+  :root:not([data-theme="light"]) #page-profile .stat-grid { box-shadow: none; }
+}
+:root[data-theme="dark"] #page-gallery .collection-item,
+:root[data-theme="dark"] #page-profile .stat-grid { box-shadow: none; }
+
+/* 首頁：小人只代表選擇數，不擠壓標題；聲明與下一步留在底部。 */
+#page-home > .stack { gap: 16px; min-height: calc(100svh - 184px); }
+#page-home .home-top { display: flex; flex-direction: column; flex: 1; gap: 12px; background: var(--surface); }
+.home-heading { display: flex; align-items: end; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+/* 角色站位。2026-09-17 症狀上限 5→3 之後放大（與 App 的 SLOT_ART_H 同一組數字）：
+   整排 = 3 × 44 + 2 × 2 = 136px，比原本五隻的 158px 還窄 —— 標題的空間反而變多。 */
+.home-cast { display: flex; width: 136px; flex: 0 0 136px; gap: 2px; height: 54px; align-items: end; }
+.home-cast .cast-slot { width: 44px; height: 48px; flex: none; }
+.home-cast img { width: 44px; height: 48px; object-fit: contain; }
+#page-home .symptom-grid { display: grid; flex: 1; gap: 8px; grid-auto-rows: minmax(48px, 1fr); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; min-width: 0; overflow-wrap: anywhere; box-shadow: var(--shadow); border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
+#page-home .symptom-btn.selected { border-color: var(--brass); background: var(--surface-2); font-weight: 600; box-shadow: inset 3px 0 var(--brass), var(--shadow); }
+#page-home .symptom-btn[aria-disabled="true"] { opacity: .45; }
+#page-home .home-foot { position: relative; display: flex; flex-direction: column; margin: 0; padding: 12px 0 0; gap: 12px; overflow: hidden; }
+#page-home .home-foot .handmark { position: absolute; pointer-events: none; right: -22px; bottom: -6px; width: min(500px, 100%); opacity: .13; transform: rotate(-8deg); }
+#page-home .home-foot > :not(.handmark) { position: relative; }
+#home-selection { font-size: .8125rem; color: var(--ink-soft); min-height: 1.5em; }
+#home-selection.limit { color: var(--bad); }
+
+/* 選穴、詳情與認穴：觸控目標、換行、窄螢幕抽屜。 */
+#page-recommend .acupoint-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 10px; }
+#page-recommend .seg button { min-width: 0; overflow-wrap: anywhere; }
+#page-recommend .acu-item { min-width: 0; padding: 8px; gap: 5px; min-height: 64px; box-shadow: var(--shadow); }
+#page-recommend .acu-item > span:nth-child(2) { min-width: 0; flex: 1; overflow-wrap: anywhere; word-break: break-word; }
+#page-recommend .acu-item { overflow: hidden; }
+#page-recommend .acu-item .info { width: 40px; height: 44px; border: 0; font-size: 1.125rem; }
+#page-recommend .acu-item .secs { font-size: .75rem; }
+#page-recommend .acu-item .tick { margin-left: 0; }
+#page-recommend .acu-item.checked .secs:not(:empty) + .tick { display: none; }
+#page-recommend .start-warn .row { flex-wrap: wrap; }
+#page-recommend .start-warn .row button { flex: 1 1 120px; min-height: 44px; }
+/* 底部面板 ＝ App 的 shapes.large(28dp)（2026-09-19 對齊；原本吃全站的 --r） */
+#page-recommend .sheet { max-width: 600px; max-height: 85svh; overscroll-behavior: contain; border-radius: var(--r-sheet); }
+#page-recommend .sheet-head { flex-wrap: wrap; }
+#page-recommend .sheet-head .x { min-height: 44px; }
+#page-recommend .sheet .field .k { font-weight: 700; font-size: .8125rem; }
+#page-recommend .sheet .field .v { font-size: .9375rem; }
+#page-acu-detail .ref-row > p { flex: 1; min-width: 0; font-size: 1rem; }
+#page-acu-detail .readybar { flex-wrap: wrap; }
+#page-acu-detail .readybar .txt { flex: 1; min-width: 120px; }
+#page-acu-detail .readybar button { min-height: 44px; }
+
+/* 相機保持完整畫面；畫布像素與定位座標不變，只調 CSS 呈現。 */
+#page-camera canvas.cam, #page-massage canvas.cam, #page-face canvas.cam { width: 100%; object-fit: contain; }
+#page-massage .timer-display { display: table; margin: 12px auto; padding: 10px 16px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font-size: 3rem; }
+#page-massage .timer-display.paused { color: #594100; background: #ffe69b; }
+#page-massage .roundbar { flex-wrap: wrap; }
+#page-massage .meter { align-self: start; }
+#page-massage .timer-state { min-height: 1.5em; margin-bottom: 8px; font-size: .875rem; color: var(--ink-soft); }
+#page-massage .fs-bottom .timer-display { flex: none; margin: 0; color: #1c2522; background: #fff; text-shadow: none; }
+#page-massage .fs-bottom .timer-display.paused { background: #ffe69b; color: #594100; }
+#page-massage .fs-bottom { flex-wrap: wrap; }
+#page-massage .fs-bottom .readout { min-width: 130px; }
+#page-massage .fs-btn { min-height: 44px; font-size: .875rem; }
+#page-massage .fs-pause { margin-left: 0; }
+body.massage-fs #massage-viewport { width: 100vw; height: 100dvh; }
+body.massage-fs #massage-canvas { aspect-ratio: auto; }
+
+.reward-stage { display: flex; justify-content: center; align-items: end; gap: clamp(4px, 2vw, 20px); min-height: 140px; padding: 22px 12px 10px; border-radius: 20px; background: linear-gradient(180deg, var(--surface), var(--surface-2)); }
+.reward-stage img { width: min(16%, 80px); height: 100px; object-fit: contain; }
+.summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#page-summary .total { min-width: 0; flex-wrap: wrap; }
+#page-summary .total .k { color: var(--accent-text); font-size: .8125rem; }
+#page-summary .reward-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.reward-chip { border: 1px solid var(--line); border-radius: 20px; padding: 7px 12px; font-size: .875rem; background: var(--surface-2); }
+.device .page-enter { animation: page-arrive .22s ease-out; }
+@keyframes page-arrive { from { opacity: .35; translate: var(--enter-x, 0px) 8px; } to { opacity: 1; translate: 0 0; } }
+/* 含固定定位面板的頁面不套移動動畫，避免改變覆蓋層的定位基準。 */
+.device .page:has(.sheet-mask:not([hidden])), .device .page:has(#massage-viewport) { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .reward-stage.celebrate img { animation: reward-hop .65s ease-in-out 2 alternate; animation-delay: calc(var(--i) * 80ms); }
+  @keyframes reward-hop { to { translate: 0 -14px; rotate: 5deg; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .device *, .device *::before, .device *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media (max-width: 599px) {
+  #page-recommend .sheet-mask { padding: 0; align-items: end; }
+  #page-recommend .sheet { border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+}
+@media (min-width: 760px) {
+  .device .tabbar button { flex-direction: row; gap: 9px; font-size: .9375rem; }
+  /* 右欄寬與欄距抽成變數 —— 藍帶要靠它們算出血寬度，硬編兩次就會分岔 */
+  #page-home { --home-aside: 240px; --home-gap: 32px; }
+  #page-home > .stack { display: grid; grid-template-columns: minmax(0, 1fr) var(--home-aside); max-width: none; gap: var(--home-gap); min-height: calc(100svh - 210px); }
+  /* 🔴 2026-09-19 實測修正：兩欄版面下 .hero-band 只有左欄寬，藍帶會比上面的 header
+     短 272px（右欄 240 ＋ 欄距 32），畫面上是「一整條藍 → 下面只剩左邊 2/3 藍」的階梯。
+     右邊再多出血這兩段，帶才跟 header 一樣寬。右欄的 .home-foot 是 align-self:end
+     （貼在底部），所以帶延伸過去不會蓋到東西。 */
+  #page-home .hero-band { margin-right: calc(-1 * clamp(16px, 3vw, 32px) - var(--home-aside) - var(--home-gap)); }
+  /* 帶本身全寬，但**內容仍留在左欄寬度內** —— 不限制的話 .home-heading 的
+     space-between 會把小人一路推到畫面最右邊，離標題老遠（比改動前還遠）。 */
+  #page-home .hero-band > * { max-width: calc(100% - var(--home-aside) - var(--home-gap)); }
+  #page-home .home-foot { align-self: end; padding: 24px 0 0; }
+  #page-home .home-foot .handmark { width: 100%; }
+  #page-recommend .acupoint-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  #page-camera > .stack, #page-massage > .stack { max-width: none; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr); align-items: start; gap: 16px 24px; }
+  #page-camera > .stack > :first-child, #page-massage > .stack > :first-child { grid-column: 1 / -1; }
+  #page-camera .camera-preview, #page-massage .massage-preview { grid-column: 1; grid-row: 2 / span 4; }
+  #page-camera > .stack > :nth-child(n+3), #page-massage > .stack > :nth-child(n+3) { grid-column: 2; }
+}
+@media (max-width: 380px) {
+  .device .tabbar button { font-size: .75rem; }
+  #page-recommend .acupoint-list { grid-template-columns: minmax(0, 1fr); }
+  .summary-stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 540px) and (orientation: landscape) {
+  #page-home > .stack { min-height: 0; }
+  .device .tabbar { position: static; }
+  #page-massage .fs-bottom .timer-display { font-size: 2rem; padding: 6px 12px; }
+  #page-recommend .sheet { max-height: 90svh; }
+}

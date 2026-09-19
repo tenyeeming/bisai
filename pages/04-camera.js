@@ -28,7 +28,7 @@ registerPage('camera', {
         <p class="eyebrow" data-i18n="eyebrow-camera">步驟三 · 即時定位</p>
         <h2 id="camera-title" class="acu-title"></h2>
       </div>
-      <div>
+      <div class="camera-preview">
         <div class="viewport"><canvas id="video-canvas" class="cam"></canvas></div>
         <div class="readout gate-warn" id="camera-gate" data-i18n="camera-hint">請舉起手，手背朝上</div>
       </div>

@@ -22,9 +22,15 @@
   flex: none;
 }
 
+/* 標題列：2026-09-19 整條改深藍底（同步 App 2026-09-18 用戶指定的 #14487D）。
+   底線跟著改白 —— 原本 var(--line) 那條淡灰放在深藍上幾乎看不到
+   （App 的 Header 也是 HorizontalDivider(color = Color.White)）。
+   ⭐ 藍帶要一路接到首頁的 lede：下半段由 .hero-band 負責（見 responsive.css），
+      兩邊都在才不會斷帶。 */
 header {
   padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--line);
+  background: var(--hero);
+  border-bottom: 1px solid #fff;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -33,12 +39,14 @@ header {
 }
 .wordmark {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--hero-ink);
 }
+/* Navi 保留主色：淺藍 #A0C6D9 在深藍底上仍分得出來，
+   兩段字的對比是這個 wordmark 的識別點（與 App 同一個判斷） */
 .wordmark span { color: var(--brass); }
 
 /* ── 步驟軌：這是真的流程順序，所以編號帶有資訊 ── */
@@ -50,7 +58,7 @@ header {
 }
 .steprail li {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 0.59375rem;
   letter-spacing: .08em;
   text-align: center;
   padding: 7px 2px 6px;
@@ -59,7 +67,7 @@ header {
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
-.steprail li .n { display: block; font-size: 10px; color: var(--brass); }
+.steprail li .n { display: block; font-size: 0.625rem; color: var(--brass); }
 .steprail li.on { opacity: 1; border-bottom-color: var(--brass); color: var(--ink); }
 .steprail li.done { opacity: .85; }
 
@@ -87,7 +95,7 @@ header {
   padding: 9px 2px 8px;
   cursor: pointer;
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 0.65625rem;
   letter-spacing: .04em;
   line-height: 1;
 }
@@ -123,7 +131,7 @@ main { padding: 18px 18px 22px; flex: 1; display: flex; flex-direction: column; 
 /* ── 排版 ──────────────────────────────────────── */
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--brass);
@@ -131,19 +139,19 @@ main { padding: 18px 18px 22px; flex: 1; display: flex; flex-direction: column; 
 }
 h2 {
   font-family: var(--font-ming);
-  font-size: 25px;
+  font-size: 1.5625rem;
   font-weight: 600;
   line-height: 1.25;
   text-wrap: balance;
   letter-spacing: .01em;
 }
-.lede { color: var(--ink-soft); font-size: 13.5px; margin-top: 6px; max-width: 34em; }
+.lede { color: var(--ink-soft); font-size: 0.84375rem; margin-top: 6px; max-width: 34em; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .rule { height: 1px; background: var(--line); border: 0; }
 .center { text-align: center; }
-.small { font-size: 12.5px; color: var(--ink-soft); }
-.mono-sm { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); letter-spacing: .06em; }
-.acu-title { font-family: var(--font-ming); font-size: 30px; font-weight: 600; }
+.small { font-size: 0.78125rem; color: var(--ink-soft); }
+.mono-sm { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft); letter-spacing: .06em; }
+.acu-title { font-family: var(--font-ming); font-size: 1.875rem; font-weight: 600; }
 
 /* ── 按鈕 ──────────────────────────────────────── */
 button { font-family: inherit; }
@@ -153,9 +161,11 @@ button { font-family: inherit; }
   color: #fff;
   border: 1px solid var(--brass);
   padding: 11px 16px;
-  border-radius: var(--r);
+  /* 膠囊（2026-09-19 同步 App 的 AcuButtonShape = 22dp ＝ 按鈕高度的一半）。
+     ⚠️ .seg 那組刻意不跟 —— App 的 SegRow 走 shapes.small，不是膠囊。 */
+  border-radius: var(--r-pill);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: .02em;
   transition: background .15s, border-color .15s;
@@ -196,6 +206,7 @@ button { font-family: inherit; }
   color: var(--ink-soft);
   cursor: pointer;
 }
+.gear-btn { border-radius: var(--r-chip); }
 .gear-btn:hover { border-color: var(--brass); color: var(--brass); }
 .gear-btn svg {
   width: 17px; height: 17px;
@@ -214,7 +225,7 @@ button { font-family: inherit; }
 .gear-menu[hidden] { display: none; }
 .gear-menu button {
   display: block; width: 100%; text-align: left;
-  font-family: var(--font-sans); font-size: 13px;
+  font-family: var(--font-sans); font-size: 0.8125rem;
   background: none; border: 0; border-radius: var(--r);
   padding: 9px 10px; cursor: pointer; color: var(--ink);
 }
@@ -222,7 +233,7 @@ button { font-family: inherit; }
 .gear-menu hr { height: 1px; background: var(--line); border: 0; margin: 4px 2px; }
 .gear-menu .danger { color: var(--bad); }
 .gear-menu .danger small {
-  display: block; font-size: 10.5px; color: var(--ink-soft);
+  display: block; font-size: 0.65625rem; color: var(--ink-soft);
   font-weight: 400; margin-top: 2px;
 }
 /* 返回鈕（2026-09-04 放大，用戶提）。
@@ -237,9 +248,9 @@ button { font-family: inherit; }
   background: none; border: 0;
   padding: 10px 12px;
   margin-left: -12px;        /* 抵銷左內距，字仍對齊 18px 的版心 */
-  color: var(--ink-soft); font-size: 13.5px; letter-spacing: .08em;
+  color: var(--ink-soft); font-size: 0.84375rem; letter-spacing: .08em;
   cursor: pointer;
-  border-radius: var(--r);
+  border-radius: var(--r-chip);
 }
 .back:hover { color: var(--brass); background: var(--surface-2); }
 .back:active { background: var(--surface-2); }
@@ -257,7 +268,7 @@ button { font-family: inherit; }
   border-left: 0;
   padding: 9px 10px;
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.3;
   transition: color .15s, background .15s, border-color .15s;
 }
@@ -276,7 +287,7 @@ button { font-family: inherit; }
 .seg button .n {
   display: block;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: .06em;
   opacity: .8;
   margin-top: 2px;
@@ -302,7 +313,7 @@ button { font-family: inherit; }
   border: 0;
   border-top: 1px solid var(--line-soft);
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 0.84375rem;
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
@@ -311,7 +322,7 @@ button { font-family: inherit; }
 .optlist > *:hover:not(:disabled) { background: var(--surface-2); }
 .optlist > *:disabled { opacity: .45; cursor: not-allowed; }
 .optlist .grow { flex: 1; }
-.optlist .sub { display: block; font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+.optlist .sub { display: block; font-size: 0.71875rem; color: var(--ink-soft); margin-top: 2px; }
 .optlist input[type="checkbox"] { accent-color: var(--brass); width: 15px; height: 15px; }
 /* 打勾：位置永遠佔著，只切換可見度，免得選來選去整列在跳 */
 .optlist .tick { color: var(--brass); font-weight: 600; visibility: hidden; }
@@ -322,10 +333,10 @@ button { font-family: inherit; }
 .notice {
   border-left: 2px solid var(--line);
   padding: 9px 12px;
-  font-size: 12.5px;
+  font-size: 0.78125rem;
   color: var(--ink-soft);
   background: var(--surface-2);
-  border-radius: 0 var(--r) var(--r) 0;
+  border-radius: 0 var(--r-card) var(--r-card) 0;   /* 警語條 ＝ App 的 shapes.medium */
 }
 .notice.warn { border-left-color: var(--warn); background: var(--warn-bg); color: var(--ink); }
 .notice.bad  { border-left-color: var(--bad);  background: var(--bad-bg);  color: var(--ink); font-weight: 600; }
@@ -342,7 +353,7 @@ canvas.cam { width: 100%; display: block; aspect-ratio: 4 / 3; }
 /* 讀數條：直接黏在顯示窗下緣，像儀器面板 */
 .readout {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: .02em;
   padding: 9px 12px;
   border: 1px solid var(--line);

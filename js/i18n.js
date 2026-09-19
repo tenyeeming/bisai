@@ -24,7 +24,7 @@ const i18n = {
     // ── 01 症狀 ──
     'eyebrow-home': '主訴',
     'home-title': '選擇你的症狀',
-    'home-desc': '可複選多個症狀，系統會推薦相關穴道',
+    'home-desc': '最多選擇三個症狀，查看相關穴道',
     'disclaimer': '本系統為穴位定位輔助工具，內容依據傳統中醫文獻整理，不構成醫療診斷或治療建議。身體不適請就醫。',
 
     // ── 02 選穴 ──
@@ -225,7 +225,7 @@ const i18n = {
 
     'eyebrow-home': 'Complaint',
     'home-title': 'Select Your Symptoms',
-    'home-desc': 'Choose multiple symptoms; we\'ll recommend acupoints',
+    'home-desc': 'Choose up to three symptoms to see related acupoints',
     'disclaimer': 'This is an acupoint locating aid based on traditional Chinese medicine literature. It is NOT medical diagnosis or treatment advice. See a doctor if unwell.',
 
     'eyebrow-recommend': 'Step 1 · Point Selection',

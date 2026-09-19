@@ -33,3 +33,19 @@ function minionImg(name, className) {
   img.onerror = () => { img.style.display = 'none'; };
   return img;
 }
+
+// 與 App 首頁一致的五個角色，純顯示、不寫入收集紀錄。
+function castImage(index) {
+  const img = document.createElement('img');
+  img.src = `assets/cast/minion_${String(index % 5 + 1).padStart(2, '0')}.png`;
+  img.alt = '';
+  img.setAttribute('aria-hidden', 'true');
+  img.style.setProperty('--i', index);
+  return img;
+}
+
+function renderRewardStage(id, celebrate) {
+  const stage = document.getElementById(id);
+  stage.replaceChildren(...Array.from({ length: 5 }, (_, i) => castImage(i)));
+  stage.classList.toggle('celebrate', celebrate);
+}

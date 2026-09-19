@@ -293,14 +293,14 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
   const zh = isZh();
   if (g.state === 'far') {
     setFaceGate('warn', zh
-      ? '離鏡頭太遠　無法驗證有沒有按對　計時照走'
-      : 'Too far to verify contact · timer runs anyway');
+      ? '離鏡頭太遠，無法確認指尖位置；目前為寬鬆計時'
+      : 'Too far to verify fingertip position; relaxed timing is active');
   } else if (g.state === 'nohand') {
     setFaceGate('warn', zh ? '請把手放進畫面' : 'Bring your hand into frame');
   } else if (faceHeld) {
     setFaceGate('ok', zh
-      ? `按壓中　側傾 ${Math.round(pose.rollDeg)}°`
-      : `Pressing · roll ${Math.round(pose.rollDeg)}°`);
+      ? `位置已對準　側傾 ${Math.round(pose.rollDeg)}°`
+      : `Position aligned · roll ${Math.round(pose.rollDeg)}°`);
   } else {
     // 只看 2D 的時候，off 只有一個原因：指尖離穴位太遠。
     // （深度檢查開回來的話，這裡要多一句「手指還浮在前面」。）

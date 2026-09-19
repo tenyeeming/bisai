@@ -22,14 +22,14 @@ registerPage('recommend', {
         border-radius: var(--r);
         cursor: pointer;
         font-family: var(--font-ming);
-        font-size: 15px;
+        font-size: 0.9375rem;
         transition: border-color .15s, background .15s;
         user-select: none;
       }
       .acu-item:hover { border-color: var(--brass); }
       .acu-item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
       .acu-item .tick {
-        margin-left: auto; font-family: var(--font-mono); font-size: 12px;
+        margin-left: auto; font-family: var(--font-mono); font-size: 0.75rem;
         color: var(--brass); opacity: 0;
       }
       .acu-item.checked {
@@ -46,7 +46,7 @@ registerPage('recommend', {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
         background: none; color: var(--ink-soft);
-        font-family: var(--font-mono); font-size: 11px; line-height: 1;
+        font-family: var(--font-mono); font-size: 0.6875rem; line-height: 1;
         cursor: pointer; display: grid; place-items: center;
       }
       .acu-item .info:hover { border-color: var(--brass); color: var(--brass); }
@@ -61,7 +61,7 @@ registerPage('recommend', {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
         background: none; color: var(--ink-soft);
-        font-family: var(--font-mono); font-size: 10px; line-height: 1;
+        font-family: var(--font-mono); font-size: 0.625rem; line-height: 1;
         cursor: pointer; display: grid; place-items: center;
         transition: transform .15s, border-color .15s, color .15s;
       }
@@ -70,7 +70,7 @@ registerPage('recommend', {
       .acu-item .expand.open { transform: rotate(180deg); border-color: var(--brass); color: var(--brass); }
       /* 調過秒數的穴道，收合狀態下也要看得出來 —— 不然拉完一合上就沒有痕跡了 */
       .acu-item .secs {
-        font-family: var(--font-mono); font-size: 10.5px; color: var(--brass);
+        font-family: var(--font-mono); font-size: 0.65625rem; color: var(--brass);
         letter-spacing: .04em; flex: none;
       }
 
@@ -83,22 +83,22 @@ registerPage('recommend', {
       }
       .acu-time .top { display: flex; align-items: baseline; gap: 8px; }
       .acu-time .k {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft);
       }
       .acu-time .v {
-        margin-left: auto; font-family: var(--font-mono); font-size: 17px;
+        margin-left: auto; font-family: var(--font-mono); font-size: 1.0625rem;
         color: var(--ink); font-variant-numeric: tabular-nums;
       }
-      .acu-time .v span { font-size: 11px; color: var(--ink-soft); margin-left: 2px; }
+      .acu-time .v span { font-size: 0.6875rem; color: var(--ink-soft); margin-left: 2px; }
       .acu-time input[type="range"] { width: 100%; margin: 9px 0 2px; accent-color: var(--brass); }
       .acu-time .foot {
         display: flex; align-items: center; gap: 10px;
-        font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.65625rem; color: var(--ink-soft);
       }
       .acu-time .reset {
         margin-left: auto; padding: 3px 8px; cursor: pointer;
-        font-family: var(--font-mono); font-size: 10.5px;
+        font-family: var(--font-mono); font-size: 0.65625rem;
         border: 1px solid var(--line); border-radius: var(--r);
         background: none; color: var(--ink-soft);
       }
@@ -130,21 +130,21 @@ registerPage('recommend', {
         @keyframes sheet-in { from { transform: scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
       }
       .sheet-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 10px; }
-      .sheet-head .nm { font-family: var(--font-ming); font-size: 24px; font-weight: 600; }
-      .sheet-head .en { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); }
+      .sheet-head .nm { font-family: var(--font-ming); font-size: 1.5rem; font-weight: 600; }
+      .sheet-head .en { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft); }
       .sheet-head .x {
         margin-left: auto; flex: none;
         background: none; border: 1px solid var(--line); border-radius: var(--r);
-        color: var(--ink-soft); font-family: var(--font-mono); font-size: 11px;
+        color: var(--ink-soft); font-family: var(--font-mono); font-size: 0.6875rem;
         padding: 5px 10px; cursor: pointer;
       }
       .sheet-head .x:hover { border-color: var(--brass); color: var(--brass); }
       .sheet .field { margin-top: 11px; }
       .sheet .field .k {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
         text-transform: uppercase; color: var(--brass); margin-bottom: 3px;
       }
-      .sheet .field .v { font-size: 13.5px; color: var(--ink); line-height: 1.6; }
+      .sheet .field .v { font-size: 0.84375rem; color: var(--ink); line-height: 1.6; }
       .sheet .ref-row { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; }
       .sheet .ref-frame {
         flex: none; width: 42%;
@@ -153,14 +153,14 @@ registerPage('recommend', {
       }
       .sheet .ref-frame img { width: 100%; height: auto; display: block; border-radius: 2px; }
       .sheet .ref-frame .cap {
-        font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: .1em;
         color: #7a8580; text-align: center; padding: 3px 0 1px;
       }
       .sheet .ref-none {
         flex: none; width: 42%;
         border: 1px dashed var(--line); border-radius: var(--r);
         padding: 18px 8px; text-align: center;
-        font-size: 11.5px; color: var(--ink-soft);
+        font-size: 0.71875rem; color: var(--ink-soft);
       }
 
       /* ── 臉部詳情（2026-09-11）────────────────────────────────
@@ -176,12 +176,12 @@ registerPage('recommend', {
         background: color-mix(in srgb, var(--line) 12%, transparent);
       }
       .sheet .face-use-func {
-        font-size: 12.5px; font-weight: 600; color: var(--brass);
+        font-size: 0.78125rem; font-weight: 600; color: var(--brass);
         margin-bottom: 4px;
       }
-      .sheet .face-use-note { font-size: 13px; color: var(--ink); line-height: 1.6; }
+      .sheet .face-use-note { font-size: 0.8125rem; color: var(--ink); line-height: 1.6; }
       .sheet .face-use-press {
-        margin-top: 5px; font-size: 12px; color: var(--ink-soft); line-height: 1.55;
+        margin-top: 5px; font-size: 0.75rem; color: var(--ink-soft); line-height: 1.55;
       }
 
       /* ── 症狀覆蓋條（2026-09-14）─────────────────────────────
@@ -195,13 +195,13 @@ registerPage('recommend', {
         padding: 5px 10px;
         border: 1px solid var(--line); border-radius: 999px;
         background: var(--surface);
-        font-size: 12.5px; color: var(--ink-soft);
+        font-size: 0.78125rem; color: var(--ink-soft);
         cursor: pointer; user-select: none;
         transition: border-color .15s, color .15s, background .15s;
       }
       .cover-chip:hover { border-color: var(--brass); }
       .cover-chip .n {
-        font-family: var(--font-mono); font-size: 11px;
+        font-family: var(--font-mono); font-size: 0.6875rem;
         font-variant-numeric: tabular-nums; color: var(--brass);
       }
       /* 一穴都沒勾到 —— 這正是要提醒的那一種 */
@@ -222,12 +222,12 @@ registerPage('recommend', {
         background: color-mix(in srgb, var(--bad) 8%, transparent);
         padding: 11px 13px;
       }
-      .start-warn p { margin: 0 0 9px; font-size: 13px; line-height: 1.6; }
+      .start-warn p { margin: 0 0 9px; font-size: 0.8125rem; line-height: 1.6; }
       .start-warn .row { display: flex; gap: 7px; flex-wrap: wrap; }
       .start-warn button {
         padding: 6px 12px; cursor: pointer;
         border: 1px solid var(--line); border-radius: var(--r);
-        background: var(--surface); color: var(--ink); font-size: 12.5px;
+        background: var(--surface); color: var(--ink); font-size: 0.78125rem;
       }
       .start-warn button:hover { border-color: var(--brass); color: var(--brass); }
     </style>
@@ -530,12 +530,12 @@ function renderAcuList() {
     tick.textContent = '✓';
 
     item.append(dot, nm, secsBadge(acuName), tick,
-                infoButton(() => openAcuInfo(acuName)), expandButton(acuName, checked));
+                infoButton(() => openAcuInfo(acuName)));
     const toggle = () => toggleAcupoint(acuName, item);
     item.onclick = toggle;
     item.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } };
     list.appendChild(item);
-    if (checked && openTimeFor === acuName) list.appendChild(acuTimePanel(acuName));
+    // 秒數保留於按摩頁與我的流程，選穴階段不展開調整面板。
   });
 }
 
@@ -783,9 +783,13 @@ function openFaceInfo(code) {
   openInfoSheet();
 }
 
+let infoReturnFocus = null;
+
 function openInfoSheet() {
+  infoReturnFocus = document.activeElement;
   document.getElementById('info-sheet').hidden = false;
   document.addEventListener('keydown', onInfoSheetKey);
+  document.querySelector('#info-sheet .x').focus();
 }
 
 // 參數可有可無：點遮罩會帶 event 進來，點「關閉」鈕則沒有。
@@ -795,10 +799,18 @@ function closeInfoSheet(e) {
   const box = document.getElementById('info-sheet');
   if (box) box.hidden = true;
   document.removeEventListener('keydown', onInfoSheetKey);
+  if (infoReturnFocus && infoReturnFocus.isConnected) infoReturnFocus.focus({ preventScroll: true });
+  infoReturnFocus = null;
 }
 
 function onInfoSheetKey(e) {
   if (e.key === 'Escape') closeInfoSheet();
+  if (e.key === 'Tab') {
+    const items = [...document.querySelectorAll('#info-sheet button, #info-sheet [href], #info-sheet [tabindex="0"]')].filter(el => !el.disabled);
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 }
 
 /* ── 「開始療程」前的軟提醒（2026-09-14）───────────────────────────
@@ -838,7 +850,7 @@ function tryStartTreatment() {
 
   const look = document.createElement('button');
   look.type = 'button';
-  look.textContent = isZh() ? `看看「${names[0]}」有哪些` : `Show "${names[0]}" options`;
+  look.textContent = isZh() ? '看看有哪些' : 'See options';
   look.onclick = () => {
     // 篩到第一個漏掉的症狀。它的穴道不一定在現在這個部位，所以順便切過去。
     filterSymptom = missing[0].idx;

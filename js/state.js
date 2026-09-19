@@ -226,7 +226,7 @@ const acuSecOf = (id) => (id in state.acuSecs)
 function setAcuSec(id, v) {
   state.acuSecs[id] = intIn(v, PRESS_MIN, PRESS_MAX, flow.pressSec);
 }
-const clearAcuSec = (id) => { delete state.acuSecs[id]; };
+function clearAcuSec(id) { delete state.acuSecs[id]; }
 const acuSecIsCustom = (id) => (id in state.acuSecs);
 
 // 這一次療程按了什麼、各按多久（總結頁用）。關掉分頁就沒了，不進 localStorage。

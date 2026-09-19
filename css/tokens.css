@@ -31,6 +31,16 @@
   --brass:      #A0C6D9;
   --brass-lit:  #A5C6D7;
 
+  /* 頁首深藍帶（2026-09-18 用戶指定 #14487D，App 先做、2026-09-19 才同步回網頁）。
+     範圍：刻度條 → AcuNavi 標題列 → 首頁「最多選擇三個症狀…」那行為止。
+     ⭐ 刻意**不分亮暗**：它本來就是深色，放在深底上仍然讀得出來
+        （對應 App 的 HeroL == HeroD，見 ui/theme/Color.kt）。
+        所以下面三個主題區塊都不必重寫這三個值。
+     ⚠️ 沒有人在深色手機上看過，跟 App 那邊同一個但書。 */
+  --hero:          #14487D;
+  --hero-ink:      #FFFFFF;   /* 深藍底上的主文字 */
+  --hero-ink-soft: #C6D6E8;   /* 深藍底上的次要文字（lede） */
+
   /* 語意色：只做狀態塊，絕不當強調色用 */
   --good:       #2E7D5B;
   --warn:       #B4700F;
@@ -43,7 +53,19 @@
   --font-sans: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 
-  --r: 3px;              /* 儀器面板是方的，不是到處 rounded-lg */
+  /* 圓角 —— 2026-09-19 從「全站單一 3px」改成分級，同步 App 2026-09-13 那批
+     （ui/theme/Theme.kt 的 AcuShapes，來源是介面沙盒 App介面沙盒.html）。
+     原本單一值的問題是**按鈕、格子、卡片、對話框變成同一個視覺重量** ——
+     那是 09-12 列出的「介面不好看」原因之一。
+
+     ⭐ --r 直接改成 8px 而不是逐處分派：實查 App 的用法，shapes.small(8dp)
+        是主力（格子、框、面板、提示幾乎全吃它），medium 只有兩處。
+        改這一個值就對上絕大多數，剩下少數在 shell.css / responsive.css 單獨指定。 */
+  --r:        8px;       /* ＝ App shapes.small，全站預設 */
+  --r-chip:   4px;       /* ＝ extraSmall：小泡泡、讀數標籤、齒輪與返回鈕 */
+  --r-card:  12px;       /* ＝ medium：警語條、完成卡 */
+  --r-sheet: 28px;       /* ＝ large：底部面板 */
+  --r-pill: 999px;       /* 按鈕膠囊（App 是 22dp ＝ 按鈕高度 44dp 的一半） */
   --shadow: 0 1px 0 rgba(28,37,34,.06), 0 6px 20px -12px rgba(28,37,34,.35);
 }
 
