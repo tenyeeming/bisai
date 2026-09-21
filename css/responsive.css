@@ -479,9 +479,11 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
    單欄內容被拉成一條很寬的帶子，比兩欄還難看。 */
 @media (orientation: portrait) and (min-width: 600px) {
   body .device {
-    max-width: 560px;
-    /* 兩側露出的底色會讓人以為破版 —— 給一道細邊界，看起來像「一台裝置放在桌面上」 */
-    border-inline: 1px solid var(--line-soft);
+    /* 2026-09-21（批 54）：560px 在 820×1180 的平板上兩側各空 130px 灰底，
+       用戶反應「很多留白」。放寬到 900px：iPad 直式（820）滿寬、
+       iPad Pro（1024）還留一道窄邊。內文仍由 .stack 的 760px 控寬度，
+       所以只有藍帶、草地背景、分頁列變滿寬，段落不會被拉成一條帶子。 */
+    max-width: 900px;
   }
   /* 大直式螢幕上字可以大一點點，但不要照 vw 長 —— 那會在 iPad 上大到不像 App */
   .device header { padding: 16px 18px; }
