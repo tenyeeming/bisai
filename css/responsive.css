@@ -96,7 +96,16 @@ body .device { max-width: 1120px; min-height: 100svh; border: 0; }
 .home-heading { display: flex; align-items: end; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
 /* 角色站位。2026-09-17 症狀上限 5→3 之後放大（與 App 的 SLOT_ART_H 同一組數字）：
    整排 = 3 × 44 + 2 × 2 = 136px，比原本五隻的 158px 還窄 —— 標題的空間反而變多。 */
-.home-cast { display: flex; width: 136px; flex: 0 0 136px; gap: 2px; height: 54px; align-items: end; }
+/* 🔴 2026-09-21 用戶：「主訴那裏，那一大塊高度太高了，主訴和選擇你的症狀中間不要有空格」。
+   實測：`.home-heading` 這一行 54px 高，但 h2 只有 30px —— 多出來的 **24px 全是這一排
+   小人站位撐的**（站位 54px + align-items:end ⇒ 標題被壓到行底，上方空 24px）。
+   一個症狀都沒選時那 24px 是**全空的**，看起來就是「主訴」和標題中間硬插一條空白。
+   → 站位改成**不佔行高**（height:0 + overflow:visible）：行高由 h2 決定，
+     小人仍靠 align-items:end 把底邊對齊標題底邊，往上長、溢出到行外。
+   ⚠️ 小人往上長 48px（到標題底邊上方），eyebrow 底邊還有 12px 餘裕，不會疊字。
+      這個餘裕跟 .eyebrow 的 margin-bottom(6px) 與 h2 的 line-height 綁著，動那兩個要回來看。
+   ⚠️ 不要改回給高度然後縮小圖 —— 09-17 症狀上限 5→3 時才特地把小人放大的。 */
+.home-cast { display: flex; width: 136px; flex: 0 0 136px; gap: 2px; height: 0; align-items: end; overflow: visible; }
 .home-cast .cast-slot { width: 44px; height: 48px; flex: none; }
 .home-cast img { width: 44px; height: 48px; object-fit: contain; }
 /* 兩欄症狀格：**看得到七列，其餘往下捲**（2026-09-21 用戶：「病症選項要和 app
