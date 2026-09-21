@@ -488,4 +488,13 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
   /* 大直式螢幕上字可以大一點點，但不要照 vw 長 —— 那會在 iPad 上大到不像 App */
   .device header { padding: 16px 18px; }
   .device main { padding: 16px 18px 24px; }
+  /* 🔴 2026-09-21（批 55）：藍帶下半段比 header 窄，中間出現一道白縫。
+     兩個原因疊加：
+     ① `.hero-band` 的負 margin 出血寫死 `clamp(16px, 3vw, 32px)`，
+        跟這個斷點改成 18px 的內距對不上（批 50 改了內距卻沒跟這邊）；
+     ② `#page-home > .stack` 還吃著 760px 上限，820 寬的平板上左右各再縮 30px。
+     實測：tablet 帶 809 vs header 820；iPad Pro 帶 821 vs header 900。
+     ↓ 兩條一起改，帶才恰好齊 header。只改一條都還是會差。 */
+  #page-home > .stack { max-width: none; }
+  #page-home .hero-band { margin-inline: -18px; padding-inline: 18px; }
 }
