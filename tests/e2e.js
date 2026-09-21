@@ -52,6 +52,17 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(d.querySelectorAll('#steprail li').length === 4, '步驟軌自動長出 4 格（首頁是進入點，不上軌）');
   ok([...d.querySelectorAll('#steprail li')].map(l => l.getAttribute('data-step')).join() === 'recommend,acu-detail,camera,massage', '步驟軌順序正確');
   ok($('symptom-grid').children.length > 0, '症狀格已渲染');
+  // ── 手臉病症合併（2026-09-20）：資料庫「病症分類_手臉合併」16 項全部在 ──
+  ok(w.eval('SYMPTOM_MAP.length') === 16, `症狀表 16 項（實得 ${w.eval('SYMPTOM_MAP.length')}）`);
+  ok($('symptom-grid').children.length === 16, '首頁把 16 項全畫出來');
+  ['美容', '鼻子不適', '顏面神經麻痺', '口腔衛生'].forEach(n => {
+    const i = w.eval(`SYMPTOM_MAP.findIndex(s=>s.name===${JSON.stringify(n)})`);
+    ok(i >= 0, `臉部專屬症狀「${n}」在症狀表裡`);
+    ok(w.eval(`SYMPTOM_MAP[${i}].acupoints.length`) === 0, `「${n}」手部沒有穴道（空陣列）`);
+    ok(w.eval(`(FACE_SYMPTOM_MAP[${JSON.stringify(n)}]||[]).length`) > 0, `「${n}」掛得到臉部穴道`);
+  });
+  // 資料庫沒給臉部穴道的症狀，不准自己長出來
+  ok(!w.eval("FACE_SYMPTOM_MAP['緩解感冒症狀']"), '感冒症狀的臉部對應已移除（資料庫該欄是空的）');
   ok($('backbar').style.display === 'none', '首頁不顯示返回列');
   ok(!/class="back"/.test(d.getElementById('pages').innerHTML), '各頁內容裡已沒有自己的返回鈕');
 
@@ -71,7 +82,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goToRecommendation();
   ok(active().join() === 'recommend', '進到選穴頁');
   ok($('recommend-list').children.length > 0, `推薦了 ${$('recommend-list').children.length} 個穴道`);
-  ok($('emergency-warn').children.length === 0, '非急症不顯示紅框');
+  ok(!$('emergency-warn'), '急症紅框已整塊移除（2026-09-20）');
   ok(activeTab().join() === 'home', '選穴頁仍歸首頁分頁');
   ok($('backbar').style.display === '' && $('back-btn').textContent === '← 返回', '選穴頁顯示返回列');
   ok([...d.querySelector('.device').children].map(e => e.id || e.className).join(' ').indexOf('backbar')
@@ -109,15 +120,15 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // 頭痛對應 5 個臉部穴道（太陽/印堂/陽白/攢竹/上關）。
   // 2026-08-23 補完眉區後 3 可勾、2 準備中（太陽/上關）。
-  // 2026-09-15 側臉 6 穴補進來後，這 5 個**全部**可定位。
+  // 2026-09-20 依資料庫重建後，頭痛的臉部只剩 3 穴（絲竹空／印堂／太陽）。
   // ⚠️ 太陽/上關的公式是 n=1 人、每側 1 筆挑出來的，沒有 GT ——
   //    「可定位」在這裡只代表算得出座標，不代表準（見 FACE_NO_GT）。
   segBtns()[2].click();
   ok(segBtns()[2].classList.contains('on'), '切到臉部');
-  ok(segBtns()[2].querySelector('.n').textContent === '5',
-     '頭痛：臉部 5 個穴道全部可定位（太陽/印堂/陽白/攢竹/上關）');
+  ok(segBtns()[2].querySelector('.n').textContent === '3',
+     '頭痛：臉部 3 穴全部可定位（絲竹空／印堂／太陽）');
   const faceItems = [...$('recommend-list').querySelectorAll('.acu-item')];
-  ok(faceItems.length === 5, `頭痛列出 5 個臉部穴道（實得 ${faceItems.length}）`);
+  ok(faceItems.length === 3, `頭痛列出 3 個臉部穴道（實得 ${faceItems.length}）`);
   const faceSoon = faceItems.filter(e => e.getAttribute('aria-disabled') === 'true');
   ok(faceSoon.length === 0, `已經沒有「準備中」的臉部穴道了（實得 ${faceSoon.length}）`);
   ok(w.eval('state.selectedAcupoints.length') === 2, '換部位不會清掉已勾的穴道');
@@ -417,23 +428,68 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(/^\d+:\d\d$/.test($('summary-total').textContent), '總時長是 mm:ss：' + $('summary-total').textContent);
   ok($('summary-total').textContent !== '0:00', '總時長不是 0');
 
+  // ── 開場動畫（2026-09-20）────────────────────────
+  // 這一層是動態建的，boot() 最後才叫。測試環境裡 boot 已經跑過，
+  // 所以這裡自己叫一次來驗 —— 重點是「它一定收得掉」。
+  w.endSplash();              // boot() 那一次先收掉，下面重新開一層來驗
+  await wait(520);
+  w.showSplash();
+  const splash = d.getElementById('splash');
+  ok(!!splash, '開場層建得出來');
+  ok(splash.querySelector('img').getAttribute('src') === 'assets/splash/opening.webp',
+     '用的是轉檔後的 animated WebP（不是 5MB 的原始 GIF）');
+  ok(/跳過|skip/i.test(splash.textContent), '有「點一下跳過」提示：' + splash.textContent.trim());
+  // 點一下要馬上開始收 —— 開場動畫永遠不可以擋住人進 App
+  splash.click();
+  ok(splash.classList.contains('out'), '點一下就淡出');
+  await wait(520);
+  ok(d.getElementById('splash') === null, '淡出完成後真的移除（不是只透明擋著）');
+  // 重複呼叫不能爆
+  w.endSplash();
+  ok(true, 'endSplash() 重複呼叫安全');
+  // 圖載不出來 → 退靜態圖；靜態圖也不行 → 直接結束
+  w.showSplash();
+  const img2 = d.getElementById('splash').querySelector('img');
+  img2.onerror();
+  ok(img2.getAttribute('src') === 'assets/splash/opening-still.webp', '載不出來就退靜態圖');
+  img2.onerror();
+  ok(d.getElementById('splash').classList.contains('out'), '靜態圖也失敗 → 直接收掉，不讓人對著破圖等');
+  await wait(520);
+  w.endSplash();              // 退場：後面的測試不該被這一層擋到
+
   // ── 圖冊 ──
   w.showPage('gallery');
   ok($('backbar').style.display === 'none', '圖冊分頁不顯示返回列');
-  ok(/2 \/ 26 已解鎖/.test($('gallery-progress').textContent), '圖冊 2/26 已解鎖（實得 ' + $('gallery-progress').textContent + '）');
+  // ⭐ 2026-09-20：圖冊納入臉部 23 穴，分母從 26 變 49。
+  //    寫死 49 而不是算出來的值 —— 不然資料表掉了穴道測試還是綠的。
+  const totalTiles = 26 + 23;
+  ok(/2 \/ 49 已解鎖/.test($('gallery-progress').textContent), '圖冊 2/49 已解鎖（實得 ' + $('gallery-progress').textContent + '）');
+  const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
+  ok(dataTotal === totalTiles, '兩張資料表加起來還是 49 穴（實得 ' + dataTotal + '）');
 
-  // ── 小人圖 ──
-  const tiles = [...$('collection-grid').children];
-  ok(tiles.length === 26, '圖冊有 26 格');
-  ok(tiles.every(t => t.querySelector('img.minion')), '每一格都有小人圖');
-  const srcs = tiles.map(t => t.querySelector('img.minion').getAttribute('src'));
+  // ── 小人圖（手部）與代號圓標（臉部）──
+  const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
+  const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
+  ok(cells.length === totalTiles, '圖冊有 49 格（實得 ' + cells.length + '）');
+  ok(groups.length >= 2, '手部與臉部各有一個分組標題');
+  const handTiles = cells.filter(t => t.querySelector('img.minion'));
+  const faceTiles = cells.filter(t => t.querySelector('.code-badge'));
+  ok(handTiles.length === 26, '手部 26 格都有小人圖（實得 ' + handTiles.length + '）');
+  ok(faceTiles.length === 23, '臉部 23 格用代號圓標（實得 ' + faceTiles.length + '）');
+  // 臉部沒有小人，**也不該借手部的** —— 借了就會有兩格長一樣
+  ok(faceTiles.every(t => !t.querySelector('img.minion')), '臉部格不得挑手部的小人圖來用');
+  const srcs = handTiles.map(t => t.querySelector('img.minion').getAttribute('src'));
   ok(new Set(srcs).size === 26, '26 隻小人各自不同檔（沒有共用同一張）');
   ok(srcs.every(s => /^assets\/minions\/[a-z]+\.svg$/.test(s)), '圖片路徑格式正確：' + srcs[0]);
-  ok(tiles.filter(t => t.classList.contains('locked')).length === 24, '24 格未解鎖（顯示剪影）');
-  ok(tiles.filter(t => t.querySelector('.lv')).length === 2, '只有已解鎖那兩格有 Lv 標籤');
+  ok(cells.filter(t => t.classList.contains('locked')).length === totalTiles - 2,
+     '其餘 47 格未解鎖（顯示剪影）');
+  ok(cells.filter(t => t.querySelector('.lv')).length === 2, '只有已解鎖那兩格有 Lv 標籤');
+  // 臉部的顏色不可以全部一樣（候的直接借 acuColor() 就會全是土黃色）
+  const faceHues = new Set(w.eval('FACE_ACUPOINTS.map(a => faceColor(a.code))'));
+  ok(faceHues.size > 1, '臉部代表色不是全部同一個（實得 ' + faceHues.size + ' 種）');
 
   // ── 圖冊 → 單穴介紹 ──
-  const lockedTile = tiles.find(t => t.classList.contains('locked'));
+  const lockedTile = handTiles.find(t => t.classList.contains('locked'));
   lockedTile.click();
   ok(active().join() === 'acu-info', '點圖冊任一格 → 介紹頁');
   ok(activeTab().join() === 'gallery', '介紹頁仍歸圖冊分頁');
@@ -480,6 +536,43 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval("JSON.stringify(state.selectedAcupoints)") === '["合谷穴"]', '療程只有這一穴');
   ok($('acu-progress').textContent === '1 / 1', '進度顯示 1 / 1');
 
+  // ── 臉部穴道的圖冊介紹（2026-09-20）──────────────────
+  // 跟手部同一頁、同一組 DOM，只是填不同的東西。
+  w.showPage('gallery');
+  const faceTile = [...$('collection-grid').children]
+    .filter(e => !e.classList.contains('grp'))
+    .find(t => t.querySelector('.code-badge'));
+  faceTile.click();
+  ok(active().join() === 'acu-info', '點臉部那一格 → 同一個介紹頁');
+  ok(w.eval('isFaceItem(infoAcuName)'), '介紹頁認得出這是臉部項目');
+
+  w.eval("infoAcuName='ST1'"); w.showPage('acu-info');
+  ok($('info-code').textContent === 'ST1', '代號顆在標題上方');
+  ok($('info-name').textContent === '承泣', '穴名是承泣（實得 ' + $('info-name').textContent + '）');
+  ok(!!$('info-portrait').querySelector('.code-badge-lg'), '臉部頭像是代號圓標（臉部沒有小人）');
+  ok(!$('info-portrait').querySelector('img.minion'), '臉部不得借手部的小人圖');
+  ok($('info-locate').textContent.length > 8, '有定位說明（白話或 WHO 原文）');
+  ok(/臉部/.test($('info-meta').textContent), '部位標臉部：' + $('info-meta').textContent);
+  // 誠實聲明要跟著穴道走，不能只寫在定位頁
+  ok($('info-note').textContent.length > 0, '臉部介紹頁有誠實聲明');
+  ok($('info-video').hidden, '臉部目前一支教學片都沒有 → 整塊不畫');
+  const faceTags = [...$('info-symptoms').querySelectorAll('.tag')].map(e => e.textContent);
+  ok(faceTags.length >= 2, `承泣的主治標籤 ${faceTags.length} 個：` + faceTags.join('、'));
+  ok($('btn-practice').disabled === false, '承泣有定位公式 → 可以練');
+
+  // 「練這一穴」走同一條路：療程清單本來就是混裝的
+  w.practiceThisAcu();
+  ok(active().join() === 'acu-detail', '臉部按「練這一穴」也是進認穴頁');
+  ok(w.eval("JSON.stringify(state.selectedAcupoints)") === '["ST1"]', '療程只有這一穴（臉部代號）');
+  ok(w.eval("JSON.stringify(state.selectedFace)") === '["ST1"]', 'selectedFace 也跟著設好（相機頁要用）');
+
+  // 準備中的臉部穴道不能練
+  const notReady = w.eval("FACE_ACUPOINTS.map(a=>a.code).find(c=>!FACE_IMPLEMENTED.has(c)) || ''");
+  if (notReady) {
+    w.eval(`infoAcuName=${JSON.stringify(notReady)}`); w.showPage('acu-info');
+    ok($('btn-practice').disabled === true, notReady + ' 尚未支援定位 → 按鈕停用');
+  }
+
   // ── 主治標籤 → 開療程（2026-09-04：補上 App 早就有、網頁還沒有的互動）──
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
   const tagBtns = [...$('info-symptoms').querySelectorAll('button.tag')];
@@ -495,13 +588,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('recommend-list').children.length > 0, '選穴頁確實有推薦穴道');
   ok(w.eval('state.selectedAcupoints.length') === 0, '新療程沒有殘留上一次勾好的穴道');
 
-  // 急症走標籤進來一樣要擋話（中衝穴掛在「昏迷急救」下）
+  // 反向守門（2026-09-20）：「昏迷急救」已整項刪除，不准回來
   w.eval("infoAcuName='中衝穴'"); w.showPage('acu-info');
-  const emerTag = [...$('info-symptoms').querySelectorAll('button.tag')]
-    .find(b => b.textContent.includes('昏迷急救'));
-  ok(!!emerTag, '中衝穴的主治裡有「昏迷急救」');
-  emerTag.click();
-  ok($('emergency-warn').children.length === 1, '從標籤進急症也會顯示 119 紅框');
+  const tagNames = [...$('info-symptoms').querySelectorAll('button.tag')].map(b => b.textContent);
+  ok(!tagNames.some(x => x.includes('昏迷急救')), '中衝穴的主治裡沒有「昏迷急救」');
+  const heatTag = [...$('info-symptoms').querySelectorAll('button.tag')]
+    .find(b => b.textContent.includes('中暑'));
+  ok(!!heatTag, '中暑仍在，且是一般症狀');
+  heatTag.click();
 
   // 防呆：症狀／穴名認不得就不要把人丟到空白頁
   w.showPage('gallery');
@@ -560,12 +654,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval("PAGES['settings-lang'].backTo") === 'settings' && w.eval("PAGES['settings-lang'].tab") === 'settings',
      '子頁退回設定目錄、且仍歸設定分頁');
 
-  // ── 急症擋話 ──
+  // ── 急症擋話已移除（2026-09-20）：中暑走一般流程，畫面上不准再出現 119 ──
   w.goHome();
+  ok(w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='昏迷急救')") === -1, '症狀表裡沒有「昏迷急救」');
   const emIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='中暑')");
   $('symptom-grid').children[emIdx].click();
   w.goToRecommendation();
-  ok($('emergency-warn').querySelector('.notice.bad') && /119/.test($('emergency-warn').textContent), '急症顯示 119 紅框');
+  ok($('recommend-list').children.length > 0, '中暑照樣推薦得出穴道');
+  ok(!/119/.test(d.querySelector('.device').textContent), '選穴頁沒有 119 字樣');
 
   // ── 設定目錄：一個功能一列，點進去才調整 ──
   w.showPage('settings');
@@ -695,12 +791,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('notify-plan-body').innerHTML === '', '預設「不指定」時不列任何清單');
   w.setNotifyMode('symptom');
   const syms = () => [...$('notify-plan-body').querySelectorAll('input')];
-  ok(syms().length === w.eval('SYMPTOM_MAP.length') - 2,
-     `依症狀列出 ${syms().length} 個症狀（13 個扣掉 2 個急症）`);
-  // 只看清單本身：底下那段說明文字本來就會提到急症，不能拿它當判準
-  ok(!/中暑|昏迷/.test($('notify-plan-body').querySelector('.optlist').textContent),
-     '急症不列入每日提醒的清單');
-  ok(/119/.test($('notify-plan-body').textContent), '並且說明為什麼不列（要打 119）');
+  // 2026-09-20：急症排除拿掉之後，清單就是整張症狀表，一個都不扣
+  ok(syms().length === w.eval('SYMPTOM_MAP.length'),
+     `依症狀列出全部 ${syms().length} 個症狀（不再扣急症）`);
+  ok(/中暑/.test($('notify-plan-body').querySelector('.optlist').textContent),
+     '中暑是一般症狀，照樣列進每日提醒');
+  ok(!/119|昏迷/.test($('notify-plan-body').textContent), '提醒頁沒有 119 也沒有昏迷急救');
   const hIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='緩解頭痛')");
   w.toggleNotifySymptom(hIdx);
   ok(w.eval('notifyPlan().symptoms').join() === '緩解頭痛', '勾的症狀存的是名字不是索引');
@@ -729,7 +825,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.showPage('profile');
   ok(/累計次數\s*0/.test($('profile-stats').textContent), '清除後個人頁歸零');
   w.showPage('gallery');
-  ok(/0 \/ 26/.test($('gallery-progress').textContent), '清除後圖冊歸零');
+  ok(/0 \/ 49/.test($('gallery-progress').textContent), '清除後圖冊歸零（分母含臉部 23 穴）');
+
+  // ── 臉部專屬症狀（2026-09-20）：手部 0 穴時要自動落在臉部分頁 ──
+  w.goHome();
+  const beautyIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='美容')");
+  $('symptom-grid').children[beautyIdx].click();
+  w.goToRecommendation();
+  const bSegs = () => [...d.querySelectorAll('#region-seg button')];
+  ok(bSegs()[0].querySelector('.n').textContent === '0', '美容：手部分頁 0 穴');
+  ok(bSegs()[2].querySelector('.n').textContent === '10', '美容：臉部分頁 10 穴');
+  ok(bSegs()[2].classList.contains('on'), '手部沒穴時自動切到臉部分頁，不停在空清單上');
+  ok($('recommend-list').querySelectorAll('.acu-item').length === 10, '美容列出 10 個臉部穴道');
 
   // ── 臉部流程（另一套資料與相機）──
   w.goHome();
@@ -741,12 +848,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-08-23：眼周 4 穴 + 眉區 5 穴 → 目痛這 10 個裡有 7 個可定位。
   // 2026-09-14：球後(EX-HN7) 補上用戶指定的 CS 公式 → 變 8 個。
   // 2026-09-15：瞳子髎(GB1) 與太陽(EX-HN5) 補上 → **10 個全部可定位**。
-  ok(segs()[2].querySelector('.n').textContent === '10',
-     '目痛：臉部 10 個穴道全部可定位');
+  ok(segs()[2].querySelector('.n').textContent === '7',
+     '目痛：臉部 7 穴全部可定位');
   const items = [...$('recommend-list').querySelectorAll('.acu-item')];
-  ok(items.length === 10, `目痛列出 10 個臉部穴道（實得 ${items.length}）`);
+  ok(items.length === 7, `目痛列出 7 個臉部穴道（實得 ${items.length}）`);
   const ready = items.filter(e => e.getAttribute('aria-disabled') === 'false');
-  ok(ready.length === 10, `其中 10 個可勾選（實得 ${ready.length}）`);
+  ok(ready.length === 7, `其中 7 個可勾選（實得 ${ready.length}）`);
   ready[0].click(); ready[1].click();
   ok(w.eval('state.selectedFace.length') === 2, '勾了 2 個臉部穴道');
   ok(w.eval("state.selectedAcupoints.length") === 0, '臉部勾選不會混進手部清單');

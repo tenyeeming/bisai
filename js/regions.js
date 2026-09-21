@@ -77,3 +77,12 @@ const itemGated = (id) => true;
 
 /** 這一項要用哪一套偵測（'hand' | 'face'）。相機頁據此決定開哪個模型 */
 const itemDetector = (id) => isFaceItem(id) ? 'face' : 'hand';
+
+/**
+ * 這一項的代表色。手部走 `acuColor()`（依指尖／腕／掌分群），
+ * 臉部走 `faceColor()`（依眼／眉／鼻／口／側臉分群）。
+ *
+ * 2026-09-20 圖冊納入臉部時加。在這之前所有色點都直接呼叫 `acuColor()` ——
+ * 那支對臉部代碼會回同一個土黃色，所以凡是「可能拿到臉部代碼」的地方都改走這裡。
+ */
+const itemColor = (id) => isFaceItem(id) ? faceColor(id) : acuColor(id);

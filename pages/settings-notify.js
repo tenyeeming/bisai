@@ -9,7 +9,6 @@
 //
 // ⚠️ 誠實邊界：這一版沒有背景排程（沒有 Service Worker，也不是原生 App），
 //    提醒只在網頁開著時會響。畫面上直接寫明，不做成看起來像系統提醒的樣子。
-//    急症（昏迷急救／中暑）刻意不列進來 —— 那種情況要打 119，不是排程按摩。
 
 registerPage('settings-notify', {
   tab: 'settings',
@@ -92,19 +91,18 @@ function renderNotifyPage() {
   : '';
 }
 
-// 急症不列：排程「明天晚上八點來按中暑」本身就是錯的訊息
+// 2026-09-20：急症排除邏輯拿掉（對齊 App 09-17 那批）——「昏迷急救」已從症狀表刪除，
+// 中暑是一般症狀，沒有理由把它排除在提醒之外。
 function notifySymptomList(p) {
   const rows = SYMPTOM_MAP
     .map((s, idx) => ({ s, idx }))
-    .filter(({ s }) => !EMERGENCY_SYMPTOMS.has(s.name))
     .map(({ s, idx }) => `
       <label>
         <input type="checkbox" ${p.symptoms.includes(s.name) ? 'checked' : ''}
                onchange="toggleNotifySymptom(${idx})">
         <span class="grow">${symptomLabel(s.name)}</span>
       </label>`).join('');
-  return `<div class="optlist">${rows}</div>
-          <p class="small">${t('settings-notify-emergency')}</p>`;
+  return `<div class="optlist">${rows}</div>`;
 }
 
 // 只列已經算得出位置的穴道 —— 排一個按下去定位不了的穴，等於自己排一個失敗

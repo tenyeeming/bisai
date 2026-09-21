@@ -126,6 +126,41 @@ function setGate(kind, msg) {
   if (!el) return;
   el.textContent = msg;
   el.className = 'readout gate-' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : 'warn');
+  // 提示列每一幀都會更新，順路把數據面板也刷新 —— 迴圈裡有七、八個 return 點，
+  // 在每一個後面補一次 render 遲早會漏掉一個（漏掉的症狀是「數字卡在上一幀」）。
+  renderLiveStats();
+}
+
+// ── 即時數據面板（2026-09-20，桌面版型才顯示）──────────────────────
+// 用戶：「電腦屏幕太大沒辦法適配」。結論是不追著填滿跑，把大螢幕多出來的空間
+// 拿去顯示**系統本來就在算、但手機上沒地方放**的數字 —— 那正是評審要看的技術證據。
+//
+// ⚠️ 這裡**一個數字都不是新算的**，全部取自同一幀既有的判定結果：
+//    conf/tilt/angle 來自閘門那三段，距離來自按摩模式的 minD。
+//    所以面板與畫面必然一致，不會出現「圈說對準了、數字說差 5mm」。
+// ⚠️ `null` 一律顯示 —— 代表「這一幀沒得算」，不要拿 0 充數。
+const liveStats = { conf: null, tilt: null, angle: null, limit: null, distMm: null, on: false };
+
+function resetLiveStats() {
+  liveStats.conf = liveStats.tilt = liveStats.angle = liveStats.limit = liveStats.distMm = null;
+  liveStats.on = false;
+}
+
+function renderLiveStats() {
+  const box = document.getElementById(renderMode === 'massage' ? 'massage-stats' : 'camera-stats');
+  if (!box) return;
+  const put = (k, txt, cls) => {
+    const el = box.querySelector('[data-k="' + k + '"]');
+    if (!el) return;
+    el.textContent = txt;
+    if (cls !== undefined) el.className = 'v' + (cls ? ' ' + cls : '');
+  };
+  put('conf', liveStats.conf == null ? '—' : Math.round(liveStats.conf * 100) + '%');
+  put('tilt', liveStats.tilt == null ? '—' : Math.round(liveStats.tilt) + '°');
+  put('angle', liveStats.angle == null ? '—'
+    : Math.round(liveStats.angle) + '°' + (liveStats.limit == null ? '' : ' / ' + liveStats.limit + '°'));
+  put('dist', liveStats.distMm == null ? '—' : liveStats.distMm.toFixed(1) + ' mm',
+    liveStats.distMm == null ? '' : (liveStats.on ? 'ok' : 'warn'));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -188,6 +223,7 @@ function onHandsResults(results) {
   const allHands = results.multiHandLandmarks || [];
   const allSides = results.multiHandedness || [];
   if (allHands.length === 0) {
+    resetLiveStats();
     setGate('warn', isZh() ? '請將手放入畫面中' : 'Put your hand in frame');
     onTarget = false;
     return;
@@ -240,7 +276,10 @@ function onHandsResults(results) {
   //   只會覺得「指尖明明對著鏡頭了，圓盤卻沒有變成正對」。
   const gateKind = best.gate ? best.gate.kind : 'palm';
   const skipPalmTilt = gateKind === 'side' || gateKind === 'tip';
+  // 數據面板：信心度與整手傾角都是這一幀既有的判定值，不是另外算的
+  liveStats.conf = best.info ? best.info.conf : null;
   const tiltDeg = computeHandTiltDeg(best.lm);
+  liveStats.tilt = tiltDeg;
   const tiltBad = tiltDeg > TILT_MAX_DEG && !skipPalmTilt;
   if (tiltBad && strictGate) {
     setGate('bad', isZh()
@@ -321,6 +360,8 @@ function onHandsResults(results) {
   if (renderMode === 'locate') {
     const pct = Math.round((best.info ? best.info.conf : 0) * 100);
     const g = best.gate;
+    // 數據面板：這一穴這一幀的皮膚偏角與它自己的上限
+    if (best.gate) { liveStats.angle = best.gate.angleDeg; liveStats.limit = best.gate.limitDeg; }
     if (g && (g.level !== 'ok' || g.blocked)) {
       // ── 閘門三：這個穴道自己的角度（2026-08-12 建立，08-18 改成兩層）──
       // 講的是「**這塊皮膚**偏離鏡頭幾度」，不是「手歪幾度」——對側緣穴這兩件事差約 90°。
@@ -382,6 +423,9 @@ function onHandsResults(results) {
   const tol = Math.max(discR, 18);
   const touching = minD <= tol;
   onTarget = touching;
+  // 數據面板：距離用同一幀的 minD 換算成 mm（CUN_MM 是 acu-data.js 的換算常數）
+  liveStats.distMm = cunPx > 0 ? (minD / cunPx) * CUN_MM : null;
+  liveStats.on = touching;
 
   // 指尖標記與引導箭頭：距離已經在原始座標算完了，這裡只是把畫的位置翻過去
   if (hitTip) {

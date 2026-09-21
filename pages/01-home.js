@@ -30,8 +30,18 @@ registerPage('home', {
         </div>
         <div class="symptom-grid" id="symptom-grid"></div>
       </div>
+      <!-- 系統簡介卡（2026-09-20）：只在桌面（≥1024px）看得見。
+           用戶：「電腦屏幕太大沒辦法適配」—— 首頁右欄在大螢幕上原本是一片空白，
+           拿來講清楚「這是什麼、技術在哪」。評審是用電腦開的，這是他們第一眼看到的地方。
+           ⚠️ 數字要跟 README／交件文件對得起來，改了這裡就要一起改。 -->
+      <div class="live-stats intro-card">
+        <div class="ls-title" data-i18n="intro-title">系統概要</div>
+        <div class="ls-row"><span class="k" data-i18n="intro-acu">手部穴道</span><span class="v">20</span></div>
+        <div class="ls-row"><span class="k" data-i18n="intro-face">臉部穴道</span><span class="v">23</span></div>
+        <div class="ls-row"><span class="k" data-i18n="intro-err">測試閾值</span><span class="v">2 mm</span></div>
+        <div class="ls-note" data-i18n="intro-note">MediaPipe 即時手部辨識 ＋ 同身寸定位公式 v35，全部在你的裝置上運算，影像不上傳。</div>
+      </div>
       <div class="home-foot">
-        <img class="handmark" src="assets/hand.png" alt="" aria-hidden="true">
         <p class="notice" data-i18n="disclaimer">本系統為穴位定位輔助工具，內容依據傳統中醫文獻整理，不構成醫療診斷或治療建議。身體不適請就醫。</p>
         <button class="btn wide" id="home-next" onclick="goToRecommendation()" data-i18n="btn-next" disabled>下一步</button>
       </div>

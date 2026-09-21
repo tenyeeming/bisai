@@ -117,8 +117,13 @@ function updateTabbar(page) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-current', on ? 'page' : 'false');
   });
-  document.getElementById('tabbar').style.display =
-    (PAGES[page] && PAGES[page].hideTabbar) ? 'none' : '';
+  const hide = !!(PAGES[page] && PAGES[page].hideTabbar);
+  document.getElementById('tabbar').style.display = hide ? 'none' : '';
+  // 2026-09-20：桌面版型（≥1024px）把分頁列改成**左側導覽欄**。療程流程中分頁列是藏起來的，
+  // 左欄就會變成一條空白 —— 所以這裡把狀態掛到外殼上，CSS 才收得掉那一欄（見 responsive.css）。
+  // ⚠️ 用 class 而不是讓 CSS 去嗅 inline style（`[style*="none"]`）：那種寫法綁死字串序列化，
+  //    哪天有人改成 hidden 屬性或 class 就會靜靜失效。
+  document.querySelector('.device').classList.toggle('in-flow', hide);
 }
 
 // 點分頁列的「首頁」＝回到療程起點，跟 LINE 點回同一分頁會回到頂端一樣
@@ -150,6 +155,11 @@ function showPage(name) {
   if (previous !== name) el.classList.add('page-enter');
   el.classList.add('active');
   currentPage = name;
+  // ⭐ 2026-09-20：把目前頁面標在 <body> 上，讓 CSS 能「只在某一頁」做事。
+  //    第一個用途是首頁的草地背景（css/shell.css 的 .device::before）——
+  //    背景要鋪到**整個殼的最底**（含分頁列後面），
+  //    畫在 #page-home 裡面只能鋪到內容區，四周還是一圈白邊。
+  document.body.dataset.page = name;
 
   updateBackbar(name);
   updateStepRail(name);
@@ -202,6 +212,11 @@ function boot() {
   buildStepRail();
   updateLanguage();
   showPage('home');
+
+  // 開場動畫（2026-09-20）。**放在最後**：下面的頁面已經組好了，
+  // 開場只是蓋在上面 —— 收掉的瞬間首頁是完整的，不會先閃一下空白。
+  // 見 js/splash.js（使用者要求減少動態時這一層根本不會建出來）。
+  if (typeof showSplash === 'function') showSplash();
 }
 
 // 所有 pages/*.js 都是一般 <script>，會在 DOMContentLoaded 之前跑完，

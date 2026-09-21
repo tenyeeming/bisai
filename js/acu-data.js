@@ -702,7 +702,8 @@ const SYMPTOM_MAP = [
     icon: "move",
     acupoints: ["陽池穴", "陽溪穴", "陽谷穴", "腕谷穴"],
   },
-  { name: "昏迷急救", icon: "shield", acupoints: ["中衝穴"] },
+  // 🔴 2026-09-20：「昏迷急救」整項刪除（對齊 App 09-17 那批）。中暑保留，但它現在是
+  //    一般症狀，不再走急症擋話 —— 本系統定位為日常自我保健，不作為急救、診斷或治療工具。
   { name: "中暑", icon: "sun", acupoints: ["中衝穴"] },
   { name: "放鬆手指", icon: "hand", acupoints: ["八邪穴"] },
   {
@@ -710,6 +711,18 @@ const SYMPTOM_MAP = [
     icon: "mic-off",
     acupoints: ["二間穴", "三間穴"],
   },
+
+  // ── 臉部專屬（2026-09-20 併入）──────────────────────────────────
+  // 來源：`D:\穴道按摩\資料存放區\穴道資料庫_手臉合併_20260917_修訂版.xlsx`
+  //       的「病症分類_手臉合併」分頁。這四項在手部**沒有任何穴道**，
+  //       acupoints 是空陣列 —— 選穴頁的部位分頁會自動切到臉部
+  //       （見 02-recommend.js 的 currentRegion）。
+  // ⚠️ 症狀名照資料庫原文，沒有改寫成保健向措辭（2026-09-20 用戶拍板；
+  //    延續 09-16「病症紅線有醫師認證，留著就好」那條）。
+  { name: "美容", icon: "sparkles", acupoints: [] },
+  { name: "鼻子不適", icon: "wind", acupoints: [] },
+  { name: "顏面神經麻痺", icon: "smile", acupoints: [] },
+  { name: "口腔衛生", icon: "droplet", acupoints: [] },
 ];
 
 const ACUPOINT_DETAIL = {

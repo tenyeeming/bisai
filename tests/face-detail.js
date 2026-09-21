@@ -38,7 +38,9 @@ for (const [code, d] of Object.entries(T.FACE_DETAIL)) {
   if (!d.locate || !d.locate.trim()) bad.push(code + '(無定位)');
   if (!Array.isArray(d.uses) || !d.uses.length) { bad.push(code + '(無用法)'); continue; }
   d.uses.forEach((u, i) => {
-    if (!u.func || !u.func.trim()) bad.push(`${code}.uses[${i}](無功效)`);
+    // GV26（水溝）是唯一例外：「昏迷急救」2026-09-20 整項刪除後它沒有症狀歸屬，
+    // func 刻意留空，UI 會跳過標題。不要自行補一個適應症回來。
+    if (code !== 'GV26' && (!u.func || !u.func.trim())) bad.push(`${code}.uses[${i}](無功效)`);
     if (!u.press || !u.press.trim()) bad.push(`${code}.uses[${i}](無按法)`);
   });
 }

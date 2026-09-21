@@ -238,7 +238,6 @@ registerPage('recommend', {
         <h2 data-i18n="recommend-title">推薦穴道</h2>
         <p class="lede" data-i18n="recommend-desc">系統推薦了下列穴道，請勾選你要按摩的穴道</p>
       </div>
-      <div id="emergency-warn"></div>
       <div class="cover-row" id="coverage-row"></div>
       <div class="seg" id="region-seg"></div>
       <div class="acupoint-list" id="recommend-list"></div>
@@ -408,16 +407,31 @@ function filterHandNames() {
   return s ? s.acupoints : [];
 }
 
+/**
+ * 進頁時要落在哪個部位分頁。
+ *
+ * 2026-09-20：臉部專屬症狀（美容／鼻子不適／顏面神經麻痺／口腔衛生）在手部
+ * **一個穴道都沒有**，原本寫死 `'hand'` 會讓人進來就看到一片空清單，
+ * 還得自己發現要去點臉部。→ 手部推薦不到任何穴、而臉部有可定位的，就直接落在臉部。
+ * 兩邊都有（或兩邊都沒有）維持舊行為落在手部，不改既有觀感。
+ */
+function defaultRegion() {
+  const hand = state.recommendedAcupoints.filter(n => acuRegion(n) === 'hand').length;
+  if (hand > 0) return 'hand';
+  const names = state.selectedSymptoms.map(i => SYMPTOM_MAP[i]).filter(Boolean).map(s => s.name);
+  const face = faceRecommend(names).filter(c => FACE_IMPLEMENTED.has(c)).length;
+  return face > 0 ? 'face' : 'hand';
+}
+
 // 進頁：整個重來
 function initRecommendList() {
-  currentRegion = 'hand';
+  currentRegion = defaultRegion();
   state.selectedAcupoints = [];
   state.selectedFace = [];
   state.acuSecs = {};        // 逐穴秒數跟著新療程重來
   openTimeFor = null;
   filterSymptom = null;      // 症狀篩選不要跨療程留著
   closeInfoSheet();          // 上次留在畫面上的詳情面板不要跟著新療程進來
-  renderEmergencyWarning();
   renderRegionSeg();
   renderAcuList();
 }
@@ -745,10 +759,13 @@ function openFaceInfo(code) {
     det.uses.forEach(u => {
       const wrap = document.createElement('div');
       wrap.className = 'face-use';
-      const h = document.createElement('div');
-      h.className = 'face-use-func';
-      h.textContent = u.func;
-      wrap.appendChild(h);
+      // func 可以是空字串（GV26 水溝穴沒有症狀歸屬）—— 空的就不要畫出一條空標題
+      if (u.func && u.func.trim()) {
+        const h = document.createElement('div');
+        h.className = 'face-use-func';
+        h.textContent = u.func;
+        wrap.appendChild(h);
+      }
       if (u.note) {
         const n = document.createElement('div');
         n.className = 'face-use-note';
@@ -882,21 +899,9 @@ function notice(cls, text) {
   return p;
 }
 
-// 急症警示：中衝穴掛在「昏迷急救 / 中暑」下，這裡必須擋話，不能讓人以為按穴道就夠了
-function renderEmergencyWarning() {
-  const emer = state.selectedSymptoms.map(i => SYMPTOM_MAP[i].name)
-    .filter(n => EMERGENCY_SYMPTOMS.has(n));
-  const warnBox = document.getElementById('emergency-warn');
-  warnBox.innerHTML = '';
-  if (!emer.length) return;
-
-  const d = document.createElement('p');
-  d.className = 'notice bad';
-  d.textContent = isZh()
-    ? `你選了「${emer.map(symptomLabel).join('、')}」。這是急症 — 請立即撥打 119 或就近就醫。穴位按壓不能取代急救。`
-    : `You selected "${emer.map(symptomLabel).join(', ')}". This is a medical emergency — call emergency services immediately. Acupressure is not a substitute for emergency care.`;
-  warnBox.appendChild(d);
-}
+// 2026-09-20：急症擋話（119 紅框）整塊拿掉，對齊 App 09-17 那批。
+// 「暈迷急救」已從症狀表刪除；中暑保留為一般症狀。
+// 本系統定位為日常自我保健，不作為急救、診斷或治療工具。
 
 function toggleAcupoint(name, item) {
   const on = !state.selectedAcupoints.includes(name);

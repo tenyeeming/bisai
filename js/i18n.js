@@ -56,6 +56,18 @@ const i18n = {
     // ── 04 定位 ──
     'eyebrow-camera': '步驟三 · 即時定位',
     'camera-hint': '請舉起手，手背朝上',
+    // 即時數據面板（2026-09-20，桌面版型）
+    'intro-title': '系統概要',
+    'intro-acu': '手部穴道',
+    'intro-face': '臉部穴道',
+    'intro-err': '測試閾值',
+    'intro-note': 'MediaPipe 即時手部辨識 ＋ 同身寸定位公式 v35，全部在你的裝置上運算，影像不上傳。',
+    'stats-title': '即時判定',
+    'stats-dist': '指尖離穴道',
+    'stats-conf': '定位信心',
+    'stats-tilt': '整手傾角',
+    'stats-angle': '皮膚偏角 / 上限',
+    'stats-note': '數值每幀更新，全部在本機運算',
     'btn-flip': '切換鏡頭',
     'btn-disc-hide': '隱藏信心圓盤',
     'btn-disc-show': '顯示信心圓盤',
@@ -107,8 +119,13 @@ const i18n = {
     'face-side-hint': '請正面對著鏡頭，不要低頭或側頭。',
 
     // ── 圖冊 ──
+    'splash-skip': '點一下跳過',
     'eyebrow-gallery': '收集',
     'gallery-title': '穴道圖冊',
+    // 分組標題（2026-09-20 圖冊納入臉部）。%n 換成這一組有幾穴
+    'gallery-group-hand': '手部穴道 · %n',
+    'gallery-group-face': '臉部穴道 · %n',
+    'gallery-face-nominion': '臉部穴道還沒有小人，先用代號顯示。',
     'info-locate': '定位',
     'info-symptoms': '主治',
     'info-level': '等級',
@@ -147,7 +164,6 @@ const i18n = {
     'settings-notify-desc-none': '時間到了只提醒你來按，不指定按什麼。',
     'settings-notify-desc-symptom': '選幾個症狀。點提醒進來時會幫你把這些症狀勾好，直接落在推薦穴道那一頁。',
     'settings-notify-desc-acupoint': '直接指定要按的穴道。點提醒進來時會排成今天的療程，直接落在認穴頁。只列得出算得出位置的穴道。',
-    'settings-notify-emergency': '昏迷急救與中暑是急症，不列入每日提醒——那種情況要打 119，不是排按摩。',
     'settings-notify-limit': '提醒只在這個網頁開著的時候會響。瀏覽器關掉之後系統不會叫你——這一版沒有背景排程，我們不假裝有。',
     // 療程節奏
     'settings-flow': '療程節奏',
@@ -252,6 +268,18 @@ const i18n = {
 
     'eyebrow-camera': 'Step 3 · Live Locating',
     'camera-hint': 'Raise your hand, back of hand facing the camera',
+    // Live readout panel (2026-09-20, desktop layout)
+    'intro-title': 'At a glance',
+    'intro-acu': 'Hand points',
+    'intro-face': 'Face points',
+    'intro-err': 'Test threshold',
+    'intro-note': 'MediaPipe hand tracking + cun-based formula v35. Everything runs on your device; no video leaves it.',
+    'stats-title': 'Live readout',
+    'stats-dist': 'Fingertip to point',
+    'stats-conf': 'Confidence',
+    'stats-tilt': 'Hand tilt',
+    'stats-angle': 'Surface angle / limit',
+    'stats-note': 'Updated every frame, all on-device',
     'btn-flip': 'Switch Camera',
     'btn-disc-hide': 'Hide Confidence Disc',
     'btn-disc-show': 'Show Confidence Disc',
@@ -298,8 +326,12 @@ const i18n = {
     'face-ref-none': 'No reference drawing for facial acupoints yet.',
     'face-side-hint': 'Look straight at the camera; do not tilt or turn your head.',
 
+    'splash-skip': 'Tap to skip',
     'eyebrow-gallery': 'Collection',
     'gallery-title': 'Acupoint Collection',
+    'gallery-group-hand': 'Hand · %n',
+    'gallery-group-face': 'Face · %n',
+    'gallery-face-nominion': 'Facial points have no collectible figure yet; the code is shown instead.',
     'info-locate': 'Location',
     'info-symptoms': 'Used For',
     'info-level': 'Level',
@@ -335,7 +367,6 @@ const i18n = {
     'settings-notify-desc-none': 'Just remind you to practise, without naming anything.',
     'settings-notify-desc-symptom': 'Pick a few symptoms. Opening the reminder pre-selects them and drops you straight on the recommended acupoints page.',
     'settings-notify-desc-acupoint': 'Name the acupoints directly. Opening the reminder queues them as today\'s session and drops you on the anatomy page. Only acupoints we can actually locate are listed.',
-    'settings-notify-emergency': 'Fainting and heatstroke are emergencies and are deliberately left out of daily reminders — those call for 119, not a scheduled massage.',
     'settings-notify-limit': 'The reminder only fires while this page is open. Once you close the browser nothing will call you — this version has no background scheduling, and we are not going to pretend otherwise.',
     'settings-flow': 'Session Pacing',
     'settings-ready': 'Anatomy Dwell',
@@ -398,9 +429,11 @@ const i18n = {
 const SYMPTOM_EN = {
   '緩解目痛': 'Eye Pain', '緩解感冒症狀': 'Cold Symptoms', '腸胃不適': 'Digestive Upset',
   '緩解牙痛': 'Toothache', '緩解頭痛': 'Headache', '改善失眠': 'Insomnia',
-  '緩解胸痛': 'Chest Discomfort', '緩解耳鳴': 'Tinnitus', '緩解腕痛': 'Wrist Pain',
-  '昏迷急救': 'Fainting (Emergency)', '中暑': 'Heatstroke (Emergency)',
+  '緩解胸痛': 'Chest Discomfort', '緩解耳鳴': 'Tinnitus', '緩解腕痛': 'Wrist Pain', '中暑': 'Heatstroke',
   '放鬆手指': 'Finger Relaxation', '緩解喉嚨痛': 'Sore Throat',
+  // 臉部專屬四項（2026-09-20 併入，名稱照資料庫原文）
+  '美容': 'Facial Beauty', '鼻子不適': 'Nasal Discomfort',
+  '顏面神經麻痺': 'Facial Paralysis', '口腔衛生': 'Oral Hygiene',
 };
 
 let currentLanguage = localStorage.getItem('language') || 'zh';

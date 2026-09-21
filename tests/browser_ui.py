@@ -82,6 +82,16 @@ try:
             check(page.locator('#info-sheet').is_hidden(), name + ': Escape closes detail')
             check(page.evaluate("document.activeElement.classList.contains('info')"), name + ': detail restores focus')
             page.screenshot(path=str(args.output / f'{name}-recommend.png'), full_page=True)
+            # Gallery deserves its own shot since 2026-09-20: it now holds two groups
+            # (26 hand + 23 face) and the face cells use a code badge, not a minion.
+            # The overflow check alone never told us whether the grid *looks* right.
+            page.evaluate("showPage('gallery')")
+            no_overflow(page, name + '/gallery')
+            page.screenshot(path=str(args.output / f'{name}-gallery.png'), full_page=True)
+            page.evaluate("infoAcuName='ST1'; showPage('acu-info')")
+            no_overflow(page, name + '/acu-info-face')
+            page.screenshot(path=str(args.output / f'{name}-gallery-face.png'), full_page=True)
+            page.evaluate("showPage('recommend')")
             page.evaluate("state.selectedAcupoints=['合谷穴']; state.selectedFace=[]; state.currentAcupointIndex=0; flow.readySec=120; showPage('acu-detail'); stopReadyCountdown()")
             no_overflow(page, name + '/detail')
             page.evaluate("showPage('camera')")
@@ -120,6 +130,38 @@ try:
             page.evaluate('goHome()')
             page.screenshot(path=str(args.output / f'{name}-dark.png'), full_page=True)
             check(page.evaluate("getComputedStyle(document.querySelector('.tabbar')).backgroundColor") == 'rgb(27, 44, 60)', name + ': dark theme navigation')
+            context.close()
+
+        # Opening animation (2026-09-20). Every context above runs with
+        # reduced_motion='reduce', so the splash never appears there -- which is
+        # exactly the accessibility behaviour we want, but it also means nothing
+        # above ever exercises the splash. This block is the only place it runs.
+        for name, width, height, motion in [('phone', 390, 844, 'no-preference'),
+                                            ('desktop', 1440, 900, 'no-preference'),
+                                            ('phone-reduced', 390, 844, 'reduce')]:
+            context = browser.new_context(viewport={'width': width, 'height': height},
+                                          reduced_motion=motion)
+            page = context.new_page()
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            page.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))
+            page.add_init_script(stub)
+            page.goto(url, wait_until='networkidle')
+            shown = page.locator('#splash').count() > 0
+            if motion == 'reduce':
+                check(not shown, name + ': reduced motion skips the opening entirely')
+            else:
+                check(shown, name + ': opening layer is shown')
+                page.wait_for_timeout(300)
+                page.screenshot(path=str(args.output / f'{name}-splash.png'))
+                # The hard rule: the opening must never block entry to the app.
+                page.wait_for_selector('#splash', state='detached', timeout=6000)
+                check(page.locator('#splash').count() == 0, name + ': opening clears itself')
+                check(page.locator('#home-next').is_visible(), name + ': home is ready underneath')
+                # And a tap must cut it short rather than waiting the full run.
+                page.reload(wait_until='networkidle')
+                page.locator('#splash').click()
+                page.wait_for_selector('#splash', state='detached', timeout=2000)
+                check(page.locator('#splash').count() == 0, name + ': tapping skips the opening')
             context.close()
         browser.close()
 finally:

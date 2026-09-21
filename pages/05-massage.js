@@ -229,6 +229,17 @@ registerPage('massage', {
         </div>
         <div class="readout gate-warn" id="massage-gate">用另一隻手的指尖對準穴道圓盤</div>
       </div>
+      <!-- 即時數據面板（2026-09-20）：只在桌面（≥1024px）看得見。
+           數字全部來自 js/vision.js 同一幀的既有判定（liveStats），**沒有任何新計算** ——
+           所以面板與畫面必然一致，不會出現「圈說對準了、數字說差 5mm」。 -->
+      <div class="live-stats" id="massage-stats" aria-live="off">
+        <div class="ls-title" data-i18n="stats-title">即時判定</div>
+        <div class="ls-row big"><span class="k" data-i18n="stats-dist">指尖離穴道</span><span class="v" data-k="dist">—</span></div>
+        <div class="ls-row"><span class="k" data-i18n="stats-conf">定位信心</span><span class="v" data-k="conf">—</span></div>
+        <div class="ls-row"><span class="k" data-i18n="stats-tilt">整手傾角</span><span class="v" data-k="tilt">—</span></div>
+        <div class="ls-row"><span class="k" data-i18n="stats-angle">皮膚偏角 / 上限</span><span class="v" data-k="angle">—</span></div>
+        <div class="ls-note" data-i18n="stats-note">數值每幀更新，全部在本機運算</div>
+      </div>
 
       <p class="notice warn" id="round-switch" hidden></p>
       <button class="btn ghost wide" id="btn-switch-now" hidden

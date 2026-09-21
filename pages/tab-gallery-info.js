@@ -69,6 +69,15 @@ registerPage('acu-info', {
       button.tag:hover { border-color: var(--brass); color: var(--ink); background: var(--surface-2); }
       button.tag:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 
+      /* 臉部的「頭像」（2026-09-20）：臉部沒有小人，用代號圓標。
+         字從 13px 起跳、太長的代號（EX-HN7）縮到 11px —— 用 clamp 而不是寫死，
+         不然 92px 的圓圈裝不下七個字，在手機上會溢出。 */
+      .info-portrait .code-badge-lg {
+        font-family: var(--font-mono); font-weight: 700; color: #fff;
+        font-size: clamp(11px, 3.4vw, 15px); letter-spacing: .02em;
+      }
+      .info-portrait.locked .code-badge-lg { opacity: .45; }
+
       /* 這頁的參考圖給整塊寬度，比認穴頁那張大 */
       #info-ref .ref-frame, #info-ref .ref-none { width: 100%; }
       #info-ref .ref-frame img { max-height: 340px; object-fit: contain; }
@@ -105,18 +114,19 @@ registerPage('acu-info', {
   </div>`,
 });
 
-// 從圖冊點某一格
-function showAcuInfo(name) {
-  // 防呆：認不得的穴名（舊連結、資料表改過）就退回圖冊，
+// 從圖冊點某一格。id 可以是手部穴名或臉部代號（2026-09-20）
+function showAcuInfo(id) {
+  // 防呆：認不得的 id（舊連結、資料表改過）就退回圖冊，
   // 不要進到一頁全部空白的介紹頁
-  if (!ACUPOINTS.some(a => a.name === name)) { showPage('gallery'); return; }
-  infoAcuName = name;
+  if (!ACUPOINTS.some(a => a.name === id) && !isFaceItem(id)) { showPage('gallery'); return; }
+  infoAcuName = id;
   showPage('acu-info');
 }
 
 function renderAcuInfo() {
   const name = infoAcuName;
   if (!name) { showPage('gallery'); return; }
+  if (isFaceItem(name)) { renderFaceAcuInfo(name); return; }
 
   const acu = ACUPOINTS.find(a => a.name === name) || {};
   const detail = ACUPOINT_DETAIL[name] || {};
@@ -210,11 +220,112 @@ function renderAcuInfo() {
 }
 
 // 從圖冊直接練單穴：跳過症狀與選穴，直接進認穴
+//
+// ⭐ 臉部走**同一條路**（2026-09-20）—— 療程清單本來就是混裝的
+//    （js/regions.js 的「療程項目」那組 helper），認穴頁、相機頁都已經會分辨，
+//    所以這裡不必為臉部另開一條分支。只有「能不能練」的判斷要換成 itemImplemented()。
 function practiceThisAcu() {
-  if (!infoAcuName || !IMPLEMENTED.has(infoAcuName)) return;
+  if (!infoAcuName || !itemImplemented(infoAcuName)) return;
   state.selectedSymptoms = [];
-  state.recommendedAcupoints = [infoAcuName];
+  state.recommendedAcupoints = isFaceItem(infoAcuName) ? [] : [infoAcuName];
+  state.selectedFace = isFaceItem(infoAcuName) ? [infoAcuName] : [];
   state.selectedAcupoints = [infoAcuName];
   state.currentAcupointIndex = 0;
   showPage('acu-detail');
+}
+
+/**
+ * 臉部穴道的圖冊介紹（2026-09-20 圖冊納入臉部時加）。
+ *
+ * 跟手部**同一頁、同一組 DOM**，只是填不同的東西 —— 這是網頁這邊一貫的做法
+ * （認穴頁 `renderFaceAcuDetail()` 也是這樣），不另開一頁：
+ * 兩頁會各自長歪，改一邊忘了另一邊。
+ *
+ * 四處刻意不同：
+ *   頭像  — 臉部**沒有小人**（那組 SVG 只畫了手部 26 穴）→ 代號圓標，同圖冊小格
+ *   定位  — 白話（FACE_DETAIL）優先，沒有才退 WHO 原文
+ *   影片  — 臉部一支片都沒有（ACU_VIDEO 沒有臉部條目），整塊不畫
+ *   主治  — 查 FACE_SYMPTOM_MAP，不是手部那張表
+ */
+function renderFaceAcuInfo(code) {
+  const acu = faceAcu(code) || {};
+  const detail = faceDetail(code);
+  const m = state.minions[code];
+  const hist = state.history[code];
+  const implemented = FACE_IMPLEMENTED.has(code);
+
+  // ── 頭像：代號圓標 ──
+  const portrait = document.getElementById('info-portrait');
+  portrait.innerHTML = '';
+  portrait.className = 'info-portrait' + (m ? '' : ' locked');
+  portrait.style.background = faceColor(code);
+  const badge = document.createElement('div');
+  badge.className = 'code-badge-lg';
+  badge.textContent = code;
+  portrait.appendChild(badge);
+
+  document.getElementById('info-code').textContent = code;
+  document.getElementById('info-name').textContent = faceLabel(code);
+
+  // 臉部沒有「手背／手心」，改標經外奇穴與定位狀態 —— 那兩件才是這條線要講的
+  document.getElementById('info-meta').textContent =
+    [
+      t('region-face'),
+      acu.inWHO ? 'WHO' : (isZh() ? '經外奇穴' : 'Extra point'),
+      implemented ? null : t('info-nolocate'),
+    ].filter(Boolean).join('　·　');
+
+  document.getElementById('info-stat').innerHTML = [
+    [t('info-level'), m ? 'Lv.' + m.level : '—'],
+    [t('info-times'), hist ? hist.times : 0],
+    [t('info-last'),  hist && hist.lastDate ? hist.lastDate.slice(5) : '—'],
+  ].map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  // 誠實聲明取代手部的安全警語：這條線的參數只建立在極少數照片上
+  const noteBox = document.getElementById('info-note');
+  noteBox.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'notice';
+  p.textContent = t('face-honest-short');
+  noteBox.appendChild(p);
+
+  document.getElementById('info-locate').textContent =
+    (detail && detail.locate) || faceWho(code) ||
+    (isZh() ? '（尚無定位描述）' : '(no description yet)');
+
+  const refSec = document.getElementById('info-ref');
+  refSec.innerHTML = `<h3>${t('ref-title')}</h3>`;
+  refSec.appendChild(faceRefBlock(code));
+
+  // 臉部目前一支教學片都沒有 —— 整塊不畫，不要留一個空標題
+  const vidSec = document.getElementById('info-video');
+  vidSec.innerHTML = '';
+  vidSec.hidden = true;
+
+  // ── 主治：查臉部那張表 ──
+  const names = Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code));
+  const symBox = document.getElementById('info-symptoms');
+  symBox.innerHTML = '';
+  if (!names.length) {
+    symBox.innerHTML = `<span class="tag">${t('info-nosymptom')}</span>`;
+  } else {
+    names.forEach(n => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'tag';
+      const hash = document.createElement('span');
+      hash.className = 'hash';
+      hash.textContent = '#';
+      hash.setAttribute('aria-hidden', 'true');
+      el.append(hash, document.createTextNode(symptomLabel(n)));
+      el.title = t('info-symptom-go');
+      el.setAttribute('aria-label', `${symptomLabel(n)} — ${t('info-symptom-go')}`);
+      el.onclick = () => startFromSymptom(n);
+      symBox.appendChild(el);
+    });
+  }
+
+  const btn = document.getElementById('btn-practice');
+  btn.disabled = !implemented;
+  btn.textContent = implemented ? t('btn-practice') : t('info-nolocate');
 }

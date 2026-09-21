@@ -258,5 +258,6 @@ function acuColor(name) {
   return `hsl(${(hue + (idx % 5) * 9) % 360}, 46%, 44%)`;
 }
 
-// 這兩個症狀是急症：App 不能取代 119，選到就要擋話（見 02-recommend.js）
-const EMERGENCY_SYMPTOMS = new Set(['昏迷急救', '中暑']);
+// 🔴 2026-09-20：EMERGENCY_SYMPTOMS 整個常數刪除（對齊 App 09-17 那批）。
+//    「昏迷急救」已從症狀表移除，中暑降為一般症狀 ——
+//    本系統定位為日常自我保健，不作為急救、診斷或治療工具，不再做急症擋話。

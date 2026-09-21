@@ -32,6 +32,16 @@ registerPage('camera', {
         <div class="viewport"><canvas id="video-canvas" class="cam"></canvas></div>
         <div class="readout gate-warn" id="camera-gate" data-i18n="camera-hint">請舉起手，手背朝上</div>
       </div>
+      <!-- 即時數據面板（2026-09-20）：只在桌面（≥1024px）看得見，手機上 display:none。
+           數字全部來自 js/vision.js 同一幀的既有判定（liveStats），**沒有任何新計算**。
+           目的：大螢幕多出來的空間拿來顯示系統真正在做的事 —— 這是比賽評審要看的證據。 -->
+      <div class="live-stats" id="camera-stats" aria-live="off">
+        <div class="ls-title" data-i18n="stats-title">即時判定</div>
+        <div class="ls-row"><span class="k" data-i18n="stats-conf">定位信心</span><span class="v" data-k="conf">—</span></div>
+        <div class="ls-row"><span class="k" data-i18n="stats-tilt">整手傾角</span><span class="v" data-k="tilt">—</span></div>
+        <div class="ls-row"><span class="k" data-i18n="stats-angle">皮膚偏角 / 上限</span><span class="v" data-k="angle">—</span></div>
+        <div class="ls-note" data-i18n="stats-note">數值每幀更新，全部在本機運算</div>
+      </div>
       <div class="btn-row">
         <button class="btn ghost" id="toggle-facing" onclick="flipLocateCamera()" data-i18n="btn-flip">切換鏡頭</button>
         <button class="btn ghost" id="toggle-disc" data-disc-label onclick="toggleLocateDisc()">隱藏信心圓盤</button>

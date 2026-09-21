@@ -389,3 +389,83 @@ canvas.cam { width: 100%; display: block; aspect-ratio: 4 / 3; }
   pointer-events: none;
   z-index: -1;
 }
+
+/* ── 開場動畫（2026-09-20）──────────────────────────────────────
+   用戶：「把這個當作進入 app 后的開場動畫」。邏輯在 js/splash.js。
+
+   ⭐ 蓋在**整個視窗**之上（不是蓋在 .device 裡面）：桌面版的 .device 只佔中間一條，
+      開場若跟著它縮成一條，兩側會露出底色，看起來像貼了一張圖而不是開場。
+   ⭐ 圖用 object-fit: cover：素材是 9:16 直式，在寬螢幕上一定要裁切而不是變形。
+      背景色跟素材的天空接近，萬一裁切露邊也不突兀。 */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;                 /* 高於全螢幕播放器以外的一切；播放器是使用者主動開的 */
+  background: #7ec8f0;           /* 素材天空的近似色，圖載入前就是這個底 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity .42s ease;
+}
+#splash.out { opacity: 0; pointer-events: none; }
+#splash img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  /* 桌面上不要把 468px 寬的素材拉到 1440 —— 放大後糊得很明顯。
+     限高之後兩側留白由上面的底色接手。 */
+  max-width: min(100%, 520px);
+  object-position: center;
+}
+#splash .splash-hint {
+  position: absolute;
+  bottom: max(26px, env(safe-area-inset-bottom));
+  font-size: 12px; letter-spacing: .04em;
+  color: #0e3f5c; opacity: .72;
+  background: #ffffffa8; border-radius: 999px; padding: 5px 13px;
+}
+
+/* 使用者要求減少動態時，js/splash.js 根本不會建出這一層；
+   這條只是雙保險（例如有人手動塞了一個 #splash 進來測試）。 */
+@media (prefers-reduced-motion: reduce) {
+  #splash { display: none; }
+}
+
+/* ── 首頁草地背景（2026-09-20，同步 App 批 46–48）─────────────────
+   用戶：「把白色的部分都換成這張照片」→「一直延伸到最下面，不要有留白」
+        →「透明度拉低點背景，症狀選擇的部分透明度拉高點，有點玻璃感」
+
+   素材：比賽專區 / 素材 / 界面設計 / exec-776ded82-….png（941×1672、1.5 MB）
+         → assets/home-bg.webp（73 KB，與 App 的 res/drawable-nodpi/home_bg.webp 同一份）
+
+   🚨 為什麼畫在 .device 而不是 #page-home：頁面只佔 main 那一塊，
+      上面有 header、下面有分頁列、左右有內距 —— 畫在頁面裡四周仍是一圈白邊
+      （App 端批 46 就是這樣，批 47 才搬到外層）。
+
+   ⭐ 只有首頁出現：body[data-page="home"]（js/nav.js 的 showPage 標的）。
+   ⭐ 濃度 .55 與 App 的 HOME_BG_ALPHA 是同一個數字，兩端要一起改。 */
+.device { position: relative; }
+.device::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: none;
+  background: url(../assets/home-bg.webp) center / cover no-repeat;
+  opacity: .55;
+  pointer-events: none;
+}
+body[data-page="home"] .device::before { display: block; }
+
+/* 背景是 absolute，殼裡的東西要自己站上來才不會被蓋住。
+   ⚠️ 不要改成給 .device 一個 z-index —— 那會建立新的堆疊脈絡，
+   全螢幕播放器（#vid-overlay）與詳情面板就跑到殼底下去了。 */
+.device > * { position: relative; z-index: 1; }
+
+/* 深色模式：這張圖是大晴天，直接放在深色介面上太刺眼 —— 壓到 .3 當氛圍就好 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .device::before { opacity: .3; }
+}
+:root[data-theme="dark"] .device::before { opacity: .3; }
