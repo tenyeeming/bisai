@@ -46,7 +46,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ── 載入 ──
   const n = d.querySelectorAll('#pages .page').length;
-  ok(n === 18, `18 頁全部載入（實得 ${n}）`);
+  ok(n === 19, `19 頁全部載入（實得 ${n}）`);   // 2026-09-21 +settings-display
   ok(active().join() === 'home', '起始在首頁');
   ok(activeTab().join() === 'home', '起始分頁 = 首頁');
   ok(d.querySelectorAll('#steprail li').length === 4, '步驟軌自動長出 4 格（首頁是進入點，不上軌）');
@@ -666,15 +666,34 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // ── 設定目錄：一個功能一列，點進去才調整 ──
   w.showPage('settings');
   const menuRows = () => [...d.querySelectorAll("#settings-menu button")];
+  // 2026-09-21 對齊 App 的 SettingsScreen.kt：
+  //   +「顯示」（字體大小）、「每日提醒」從一般組搬到療程組、「定位精度」入口移除
+  //   （App 2026-09-09 就刪了，行為固定嚴格）
   ok(menuRows().length === 6, `設定目錄列出 6 個功能（實得 ${menuRows().length}）`);
-  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,每日提醒,我的流程,療程節奏,定位精度,資料與紀錄',
-     '目錄六列：語言／每日提醒／我的流程／療程節奏／定位精度／資料與紀錄');
+  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,我的流程,每日提醒,資料與紀錄',
+     '目錄六列：語言／顯示／療程節奏／我的流程／每日提醒／資料與紀錄');
+  ok(!menuRows().some(b => b.querySelector('.label').textContent === '定位精度'),
+     '目錄裡沒有「定位精度」（同 App）');
   ok(!$('page-settings').querySelector('input'), '設定首頁本身沒有任何開關（全都搬進子頁）');
   ok(menuRows()[0].querySelector('.value').textContent === '中文', '目錄右邊直接顯示現在設成什麼');
   menuRows()[0].click();
   ok(active().join() === 'settings-lang' && activeTab().join() === 'settings', '點「語言」進子頁，分頁仍停在設定');
   w.goBack();
   ok(active().join() === 'settings', '返回列退回設定目錄');
+
+  // ── 設定 › 顯示（字體大小，2026-09-21 對齊 App）──
+  ok(menuRows()[1].querySelector('.value').textContent === '中', '目錄「顯示」那列預設顯示「中」');
+  w.showPage('settings-display');
+  ok([...d.querySelectorAll('#font-seg button')].length === 3, '字級三個選項');
+  ok(d.querySelector('#font-seg button[data-font="medium"]').classList.contains('on'), '預設勾在「中」');
+  w.setFontScale('large');
+  w.updateFontSeg();
+  ok(w.eval('fontScale') === 'large' && w.localStorage.getItem('fontScale') === 'large', '選「大」會存檔');
+  ok(d.documentElement.style.fontSize === '115%', '字級直接套在 <html> 上（rem 跟著縮放）');
+  ok(d.querySelector('#font-seg button[data-font="large"]').classList.contains('on'), '勾勾跟著跳到「大」');
+  w.setFontScale('medium');
+  ok(d.documentElement.style.fontSize === '', '回到「中」就把 inline style 清掉');
+  w.showPage('settings');
 
   // ── 設定 › 療程節奏（2026-09-02 補：換穴與單手秒數多開一個入口）──
   // 重點是「兩處調的是同一份設定」—— 按摩頁的齒輪／滑桿與這裡都寫 flow，
@@ -781,9 +800,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('strict-gate').checked === w.eval('strictGate'), '嚴格模式勾選狀態同步');
   w.onStrictChange(false);
   ok(w.eval('strictGate') === false && w.localStorage.getItem('strictGate') === 'false', '關閉嚴格模式會存檔');
-  w.showPage('settings');
-  ok(menuRows()[4].querySelector('.value').textContent === '寬鬆', '關掉之後目錄那列跟著顯示「寬鬆」');
   w.onStrictChange(true);
+  // ⚠️ 目錄已經沒有這一列了，所以不再驗「目錄跟著顯示寬鬆／嚴格」——
+  //    頁面本身仍在（直接 showPage 進得去），只是沒有入口。
 
   // ── 設定 › 每日提醒 ──
   w.showPage('settings-notify');
@@ -802,7 +821,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval('notifyPlan().symptoms').join() === '緩解頭痛', '勾的症狀存的是名字不是索引');
   w.onNotifyChange(true);
   w.showPage('settings');
-  ok(menuRows()[1].querySelector('.value').textContent === '20:00 · 緩解頭痛', '目錄那列顯示「幾點 · 按什麼」');
+  ok(menuRows()[4].querySelector('.value').textContent === '20:00 · 緩解頭痛', '目錄那列顯示「幾點 · 按什麼」');
 
   w.showPage('settings-notify');
   w.setNotifyMode('acupoint');

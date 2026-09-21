@@ -16,6 +16,7 @@ const LS = {
   strict:  'strictGate',
   flow:    'flowSettings', // 療程節奏（見下）
   presets: 'acuPresets',   // 預設流程：一組穴道＋一套節奏（見下）
+  fontScale: 'fontScale',  // 'small' | 'medium' | 'large'（見下）
 };
 
 // localStorage 讀 JSON，壞掉就回預設值（不要讓一筆爛資料炸掉整頁）
@@ -104,6 +105,39 @@ let state = {
 
 // 嚴格模式：角度不佳時要不要乾脆不畫穴位（設定頁可關）
 let strictGate = jget(LS.strict, true);
+
+// ── 字級（2026-09-21 補上，對齊 App 的「設定 › 顯示」）──────────────
+// 倍率與 App 的 `FontScale`（data/Progress.kt）是同一組數字，兩端要一起改。
+// ⭐ 做法是改 <html> 的 font-size，全站的 rem 跟著縮放 ——
+//    所以**只有字在變**，邊框、間距這些寫 px 的維持原樣（跟 App 一樣）。
+//    這也是為什麼 css 裡的字級一律用 rem：寫 px 的字不會跟著這個設定跑。
+// ⚠️ 不要改成縮放 body：<html> 的 font-size 才是 rem 的基準，
+//    改 body 只會讓 em 動、rem 不動，畫面會只縮一半。
+const FONT_SCALES = { small: 0.85, medium: 1, large: 1.15 };
+let fontScale = (() => {
+  const v = localStorage.getItem(LS.fontScale);
+  return FONT_SCALES[v] ? v : 'medium';
+})();
+
+/** 把目前的字級套到整頁。中等就把 inline style 清掉，不留 100% 這種噪音 */
+function applyFontScale() {
+  const s = FONT_SCALES[fontScale] || 1;
+  // 整數百分比：0.85 → 85%、1.15 → 115%。
+  // ⚠️ 不要寫 toFixed(1)（115.0%）—— 瀏覽器與 jsdom 會各自正規化，讀回來的字串對不上。
+  document.documentElement.style.fontSize = s === 1 ? '' : `${Math.round(s * 100)}%`;
+}
+
+function setFontScale(key) {
+  if (!FONT_SCALES[key]) return;
+  fontScale = key;
+  localStorage.setItem(LS.fontScale, key);
+  applyFontScale();
+}
+
+// ⭐ 立刻套用，不等 boot()：這支是 <head> 裡的一般 script，
+//    這時候 <html> 已經在了但畫面還沒畫 —— 等到 DOMContentLoaded 才套，
+//    設「大」的人每次開站都會先看到一眼中等字再跳大。
+applyFontScale();
 
 // ── 療程節奏（2026-09-02）────────────────────────────────────────
 // 原本每換一次手、每換一個穴道都要手動點一下。手還舉在鏡頭前的時候，

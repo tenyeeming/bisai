@@ -3,10 +3,14 @@
 // 這一頁只是「目錄」：一個功能一列，點進去才調整（LINE 的設定就是這樣）。
 // 實際的開關都在子頁：
 //   settings-lang      語言
-//   settings-notify    每日提醒（含每天要按什麼）
+//   settings-display   顯示（字體大小）
+//   settings-flow      療程節奏
 //   settings-presets   我的流程（一組穴道＋一套節奏，點一下直接開始）
-//   settings-accuracy  定位精度（嚴格模式）
+//   settings-notify    每日提醒（含每天要按什麼）
 //   settings-data      資料與紀錄（清除）
+//
+// ⚠️ settings-accuracy（定位精度）**不在目錄裡** —— App 2026-09-09 刪了這個選項，
+//    行為固定為嚴格。頁面檔還在，但沒有入口。
 //
 // 每列右邊那個灰字是「現在設成什麼」，不用點進去就看得到。
 
@@ -52,16 +56,22 @@ registerPage('settings', {
 
 // 目錄是渲染出來的，因為右邊的「現在設成什麼」要跟著設定跑
 function renderSettingsMenu() {
+  // 分組、順序、每組的內容都照 App 的 `SettingsScreen.kt` 排（2026-09-21 對齊）。
+  // 用戶：「設定那些好像還沒有同步到」。三處差異，一次補齊：
+  //   ① 一般組少了「顯示」（字體大小）—— 補上，見 pages/settings-display.js
+  //   ② 「每日提醒」原本掛在一般組，App 放在療程組 —— 搬過去
+  //   ③ 「定位精度」網頁還留著入口，**App 2026-09-09 就刪了**（行為固定嚴格，
+  //      用戶指定）—— 入口拿掉。頁面檔 pages/settings-accuracy.js 與
+  //      strictGate 的程式碼都留著沒動，只是目錄不再進得去（同 App 的處理）。
   const groups = [
     { title: t('settings-group-general'), rows: [
-      { page: 'settings-lang',   label: t('settings-lang'),   value: isZh() ? '中文' : 'English' },
-      { page: 'settings-notify', label: t('settings-notify'), value: notifySummary() },
+      { page: 'settings-lang',    label: t('settings-lang'),    value: isZh() ? '中文' : 'English' },
+      { page: 'settings-display', label: t('settings-display'), value: t('font-' + fontScale) },
     ]},
-    { title: t('settings-group-locate'), rows: [
+    { title: t('settings-group-flow'), rows: [
+      { page: 'settings-flow',    label: t('settings-flow'),    value: flowSummary() },
       { page: 'settings-presets', label: t('settings-presets'), value: presetsSummary() },
-      { page: 'settings-flow', label: t('settings-flow'), value: flowSummary() },
-      { page: 'settings-accuracy', label: t('settings-accuracy'),
-        value: t(strictGate ? 'settings-strict-on' : 'settings-strict-off') },
+      { page: 'settings-notify',  label: t('settings-notify'),  value: notifySummary() },
     ]},
     { title: t('settings-group-data'), rows: [
       { page: 'settings-data', label: t('settings-data'), value: '' },

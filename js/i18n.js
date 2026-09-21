@@ -147,8 +147,19 @@ const i18n = {
     'eyebrow-settings': '校正',
     'settings-title': '設定',
     'settings-group-general': '一般',
-    'settings-group-locate': '定位',
+    // 2026-09-21：組名對齊 App 的 settings_group_flow（「療程」）。
+    // 舊 key 'settings-group-locate'（「定位」）已停用 —— App 的設定目錄沒有這一組。
+    'settings-group-flow': '療程',
     'settings-group-data': '資料',
+    // 顯示（字體大小）。對齊 App 的 settings_display 那一組字串
+    'settings-display': '顯示',
+    'settings-fontsize': '字體大小',
+    'settings-fontsize-desc': '只改字的大小，邊框與間距不變。改完立刻套用到整個網站。',
+    'settings-fontsize-preview': '這一行是最小的內文字級，選「小」之後看得清楚嗎？',
+    'settings-fontsize-sys': '這個設定是乘在瀏覽器字體大小上的。若還是不夠大，可再到瀏覽器或手機的字體設定一起調。',
+    'font-small': '小',
+    'font-medium': '中',
+    'font-large': '大',
     // 語言
     'settings-lang': '語言',
     'settings-lang-desc': '穴道名稱與症狀名在英文模式下會顯示英文對照，沒有對照的仍顯示中文。',
@@ -203,10 +214,10 @@ const i18n = {
     'preset-delete-confirm': '刪除這組流程？按摩紀錄與圖冊收集不受影響。',
     'preset-need-acu': '至少要選一個穴道。',
     'preset-full': '流程數量已達上限。',
-    // 定位精度
+    // 定位精度。⚠️ 設定目錄 2026-09-21 起不再有這個入口（對齊 App，行為固定嚴格），
+    //    頁面本身還在，所以這幾個 key 留著。'settings-strict-on/off' 那兩個
+    //    只有目錄的摘要欄用得到，入口拿掉後沒人用，已刪。
     'settings-accuracy': '定位精度',
-    'settings-strict-on': '嚴格',
-    'settings-strict-off': '寬鬆',
     'settings-strict': '嚴格模式：角度不佳時不顯示穴位',
     'settings-strict-desc': '關閉後，即使手掌傾斜過大也會畫出穴位，但位置誤差可能很大。',
     'settings-strict-why': '系統寧可少標一個點，也不給一個看起來很篤定、其實是猜的紅點。關掉這個開關不會讓定位變準，只會讓系統不再把不確定的結果擋下來。',
@@ -352,8 +363,16 @@ const i18n = {
     'eyebrow-settings': 'Calibration',
     'settings-title': 'Settings',
     'settings-group-general': 'General',
-    'settings-group-locate': 'Locating',
+    'settings-group-flow': 'Treatment',
     'settings-group-data': 'Data',
+    'settings-display': 'Display',
+    'settings-fontsize': 'Text Size',
+    'settings-fontsize-desc': 'Only the text size changes; borders and spacing stay the same. Applies to the whole site immediately.',
+    'settings-fontsize-preview': 'This line uses the smallest body size — is it still readable on "Small"?',
+    'settings-fontsize-sys': 'This setting multiplies your browser text size. If it is still too small, adjust your browser or phone text size as well.',
+    'font-small': 'Small',
+    'font-medium': 'Medium',
+    'font-large': 'Large',
     'settings-lang': 'Language',
     'settings-lang-desc': 'In English mode, acupoint and symptom names show their English equivalents; those without one stay in Chinese.',
     'settings-notify': 'Daily Reminder',
@@ -404,8 +423,6 @@ const i18n = {
     'preset-need-acu': 'Pick at least one acupoint.',
     'preset-full': 'You have reached the maximum number of routines.',
     'settings-accuracy': 'Locating Accuracy',
-    'settings-strict-on': 'Strict',
-    'settings-strict-off': 'Lenient',
     'settings-strict': 'Strict mode: hide acupoint when angle is poor',
     'settings-strict-desc': 'When off, acupoints are drawn even at large tilt, but positional error may be large.',
     'settings-strict-why': 'We would rather skip a point than draw a confident-looking red dot that is really a guess. Turning this off does not make locating more accurate — it only stops the system from holding back uncertain results.',

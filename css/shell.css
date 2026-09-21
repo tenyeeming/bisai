@@ -461,8 +461,16 @@ body[data-page="home"] .device::before { display: block; }
 
 /* 背景是 absolute，殼裡的東西要自己站上來才不會被蓋住。
    ⚠️ 不要改成給 .device 一個 z-index —— 那會建立新的堆疊脈絡，
-   全螢幕播放器（#vid-overlay）與詳情面板就跑到殼底下去了。 */
-.device > * { position: relative; z-index: 1; }
+   全螢幕播放器（#vid-overlay）與詳情面板就跑到殼底下去了。
+
+   🚨 2026-09-21 回歸修正：這條原本寫成 `.device > *`，特異性與上面的
+      `.tabbar { position: sticky }` 相同 (0,1,0)，但寫在後面 ——
+      **底部分頁列被這裡改成了 relative**，手機上要往下捲 90px 才看得到，
+      用戶回報「下面的首頁圖冊那些欄位要下滑才可以選」。沒有任何錯誤訊息，
+      是 09-20 加草地背景那批帶進來的。
+      → 排除 .tabbar。它自己有 z-index:20，且 sticky 本來就會建立堆疊脈絡，
+        站在背景之上不靠這條。桌面版（≥1024px）另有明確的 position:static，不受影響。 */
+.device > *:not(.tabbar) { position: relative; z-index: 1; }
 
 /* 深色模式：這張圖是大晴天，直接放在深色介面上太刺眼 —— 壓到 .3 當氛圍就好 */
 @media (prefers-color-scheme: dark) {

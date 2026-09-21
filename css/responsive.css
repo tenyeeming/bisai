@@ -99,7 +99,36 @@ body .device { max-width: 1120px; min-height: 100svh; border: 0; }
 .home-cast { display: flex; width: 136px; flex: 0 0 136px; gap: 2px; height: 54px; align-items: end; }
 .home-cast .cast-slot { width: 44px; height: 48px; flex: none; }
 .home-cast img { width: 44px; height: 48px; object-fit: contain; }
-#page-home .symptom-grid { display: grid; flex: 1; gap: 8px; grid-auto-rows: minmax(48px, 1fr); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 兩欄症狀格：**看得到七列，其餘往下捲**（2026-09-21 用戶：「病症選項要和 app
+   一樣給我可以下滑，七行就好，剩下的就下滑找」）。
+   對應 App `HomeScreen.kt` 的 SymptomGrid —— 那邊 BASELINE_ROWS 決定列高、
+   超出就 verticalScroll，這裡是同一個意思的 CSS 版。
+   ⚠️ 列高是**算出來的**不是固定值：(容器高 − 6 個 8px 格距) / 7，
+      所以畫面越高格子越高、永遠七列，跟 App 的 weight(1f) 同一個道理。
+      min 48px 保底 —— 極矮螢幕寧可捲，也不要把字壓到讀不動。
+   ⚠️ 這裡的 7 與 --sym-rows 綁死；要改可見列數改變數就好，別去動 calc。
+   ⚠️ min-height:0 不能拿掉：flex item 預設 min-height:auto 會「不縮到比內容小」，
+      那樣 overflow 永遠不觸發，整塊還是把頁面撐長。 */
+#page-home .symptom-grid {
+  --sym-rows: 7;
+  --sym-gap: 8px;
+  /* 列高保底。🔴 實測值，不要隨手調回 48px：
+     iPhone 尺寸（390×844）的症狀區只分到 343px，(343 − 6×8) / 7 = 42.1px ——
+     保底寫 48px 的話 7 列算出來是 48px，總高 384px > 343px，
+     **第七列就被擠到捲動區外，畫面上只剩六列**（2026-09-21 第一版就是這樣）。 */
+  --sym-row-min: 42px;
+  display: grid;
+  flex: 1 1 0;
+  /* 至少留四列的高度：320×568 這種小螢幕上，上面的標題區吃完之後
+     flex 只剩 29px 給症狀區 —— 壓成一列，整頁看不到東西可選。
+     撐不下就讓整頁變長、往下捲（分頁列是 sticky，捲了也還在）。 */
+  min-height: calc(var(--sym-row-min) * 4 + var(--sym-gap) * 3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--sym-gap);
+  grid-auto-rows: max(var(--sym-row-min), calc((100% - var(--sym-gap) * (var(--sym-rows) - 1)) / var(--sym-rows)));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 /* 玻璃格（2026-09-20，同步 App 批 47/48）：用戶「透明度拉高點點，有點玻璃感」。
    半透明白 + 亮白邊框 + **不上陰影**（陰影是「浮在白紙上」的語言，
    透明底上只會畫出一圈灰霧）。.44 / .66 與 App 的 GLASS_IDLE / GLASS_ON 同一組數字。

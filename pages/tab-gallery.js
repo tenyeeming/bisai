@@ -9,7 +9,12 @@ registerPage('gallery', {
   html: `
   <div id="page-gallery" class="page">
     <style>
-      .collection-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+      /* 三欄 —— 與 App 的 GalleryScreen.kt 一致（GridCells.Fixed(3)）。
+         ⚠ 這段註解在 template literal 裡面，**不要用反引號**（會把字串切斷）。
+         2026-09-21 從四欄改過來：用戶「圖冊那些還是原來的樣子」。
+         欄少一欄 = 每格寬約多三成，小人與穴名跟著放大（下面兩個字級也是這次一起調的）。
+         ⚠️ 桌面（≥1024px）另有 auto-fill 的規則在 css/responsive.css:332，不受這行影響。 */
+      .collection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
       .collection-item {
         position: relative;
         aspect-ratio: 1;
@@ -27,8 +32,8 @@ registerPage('gallery', {
       .collection-item:hover { border-color: var(--brass); }
       .collection-item .minion { width: 78%; height: auto; display: block; }
       .collection-item .nm {
-        font-family: var(--font-ming); font-size: 9.5px; line-height: 1.15;
-        margin-top: 1px; color: var(--ink);
+        font-family: var(--font-ming); font-size: 11.5px; line-height: 1.15;
+        margin-top: 2px; color: var(--ink);
       }
       .collection-item .lv {
         position: absolute; top: 2px; right: 3px;
@@ -70,7 +75,7 @@ registerPage('gallery', {
         padding: 0 5px; border-radius: 999px;
         display: flex; align-items: center; justify-content: center;
         white-space: nowrap;
-        font-family: var(--font-mono); font-size: 8.5px; font-weight: 700;
+        font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
         color: #fff; letter-spacing: .01em;
       }
       /* 未解鎖：跟手部小人剪影同一個意思，但**不能淡到讀不出代號** ——
