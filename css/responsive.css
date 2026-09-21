@@ -14,8 +14,13 @@ body .device { max-width: 1120px; min-height: 100svh; border: 0; }
 .device .backbar { padding-inline: clamp(16px, 3vw, 32px); }
 .device .tabbar {
   display: flex; gap: 4px; width: calc(100% - 24px); max-width: 600px;
-  margin: 0 auto max(12px, env(safe-area-inset-bottom)); padding: 5px;
-  bottom: max(12px, env(safe-area-inset-bottom)); border: 0; border-radius: 32px;
+  /* 2026-09-21 用戶「下面首頁那些選擇欄位幫我拉低一點點」：離底邊的留白 12px → 6px。
+     ⚠️ margin-bottom 與 bottom **兩個都要改，而且要同一個值**：
+        bottom 決定 sticky 貼在視窗底多高，margin-bottom 決定文件流底部留多少白。
+        只改一個 → 捲到底時膠囊會自己跳一下。
+     ⚠️ env(safe-area-inset-bottom) 那層不要拿掉：iPhone 的home indicator 會壓到膠囊。 */
+  margin: 0 auto max(6px, env(safe-area-inset-bottom)); padding: 5px;
+  bottom: max(6px, env(safe-area-inset-bottom)); border: 0; border-radius: 32px;
   background: var(--tab-bg); box-shadow: 0 6px 22px #162e4326;
 }
 .device .tabbar button {
@@ -108,24 +113,27 @@ body .device { max-width: 1120px; min-height: 100svh; border: 0; }
 .home-cast { display: flex; width: 136px; flex: 0 0 136px; gap: 2px; height: 0; align-items: end; overflow: visible; }
 .home-cast .cast-slot { width: 44px; height: 48px; flex: none; }
 .home-cast img { width: 44px; height: 48px; object-fit: contain; }
-/* 兩欄症狀格：**看得到七列，其餘往下捲**（2026-09-21 用戶：「病症選項要和 app
-   一樣給我可以下滑，七行就好，剩下的就下滑找」）。
-   對應 App `HomeScreen.kt` 的 SymptomGrid —— 那邊 BASELINE_ROWS 決定列高、
+/* 兩欄症狀格：**看得到六列，其餘往下捲**（2026-09-21 用戶：「病症選項要和 app
+   一樣給我可以下滑」「病症選擇的格子拉高些，如果有必要甚至可以變成病症先顯示六行」）。
+   對應 App `HomeScreen.kt` 的 SymptomGrid —— 那邊 BASELINE_ROWS 也是 6、
    超出就 verticalScroll，這裡是同一個意思的 CSS 版。
-   ⚠️ 列高是**算出來的**不是固定值：(容器高 − 6 個 8px 格距) / 7，
-      所以畫面越高格子越高、永遠七列，跟 App 的 weight(1f) 同一個道理。
-      min 48px 保底 —— 極矮螢幕寧可捲，也不要把字壓到讀不動。
-   ⚠️ 這裡的 7 與 --sym-rows 綁死；要改可見列數改變數就好，別去動 calc。
+   ⚠️ 列高是**算出來的**不是固定值：(容器高 − 5 個 8px 格距) / 6，
+      所以畫面越高格子越高、永遠六列，跟 App 的 weight(1f) 同一個道理。
+   ⚠️ 可見列數只改 --sym-rows，別去動 calc。
+   ⭐ 2026-09-21 用戶「病症選擇的格子拉高些，如果有必要甚至可以變成病症先顯示六行」
+      → 七列改六列。這同時**跟 App 的 BASELINE_ROWS 對上了**（那邊本來就是 6）。
+      列高跟著從 42px 變約 55px，保底值也回到 48px（觸控目標的下限）。
    ⚠️ min-height:0 不能拿掉：flex item 預設 min-height:auto 會「不縮到比內容小」，
       那樣 overflow 永遠不觸發，整塊還是把頁面撐長。 */
 #page-home .symptom-grid {
-  --sym-rows: 7;
+  --sym-rows: 6;
   --sym-gap: 8px;
-  /* 列高保底。🔴 實測值，不要隨手調回 48px：
-     iPhone 尺寸（390×844）的症狀區只分到 343px，(343 − 6×8) / 7 = 42.1px ——
-     保底寫 48px 的話 7 列算出來是 48px，總高 384px > 343px，
-     **第七列就被擠到捲動區外，畫面上只剩六列**（2026-09-21 第一版就是這樣）。 */
-  --sym-row-min: 42px;
+  /* 列高保底 ＝ 觸控目標下限。
+     🔴 歷史（同一天走過的彎路，別再走一次）：先做七列時這個值必須壓到 42px ——
+        iPhone 390×844 的症狀區只有 343px，(343 − 6×8)/7 = 42.1px，
+        保底寫 48px 的話七列算出來共 384px > 343px，**第七列被擠出捲動區、只剩六列**。
+        改成六列之後高度夠了（約 55px/列），保底才回得到 48px。 */
+  --sym-row-min: 48px;
   display: grid;
   flex: 1 1 0;
   /* 至少留四列的高度：320×568 這種小螢幕上，上面的標題區吃完之後
