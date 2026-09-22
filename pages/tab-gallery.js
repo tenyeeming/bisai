@@ -85,13 +85,7 @@ function initCollectionGrid() {
   // 三組一律使用 App 的手掌小人卡，不再讓臉部單獨顯示代號膠囊。
   const hand = ACUPOINTS.map(a => a.name);
   const face = FACE_ACUPOINTS.map(a => a.code);
-  const forearm = [
-    ['少海穴', 'HT3'], ['小海穴', 'SI8'], ['曲澤穴', 'PC3'],
-    ['郄門穴', 'PC4'], ['間使穴', 'PC5'], ['內關穴', 'PC6'],
-    ['大陵穴', 'PC7'], ['靈道穴', 'HT4'], ['通里穴', 'HT5'],
-    ['陰郄穴', 'HT6'], ['外關穴', 'SJ5'], ['支溝穴', 'SJ6'],
-    ['三陽絡穴', 'SJ8'], ['四瀆穴', 'SJ9'], ['支正穴', 'SI7'],
-  ];
+  const forearm = FOREARM_ACUPOINTS;
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));
   let unlocked = hand.filter(id => renderCell(grid, id, acuLabel(id), acuColor(id), true)).length;
@@ -99,11 +93,8 @@ function initCollectionGrid() {
   grid.appendChild(groupHeader(t('gallery-group-face').replace('%n', face.length)));
   unlocked += face.filter(id => renderCell(grid, id, faceLabel(id), faceColor(id), true)).length;
 
-  grid.appendChild(groupHeader(isZh() ? `前臂 · ${forearm.length} 穴（尚未開放定位）`
-                                      : `Forearm · ${forearm.length} points (no locating yet)`));
-  forearm.forEach(([name], index) => renderCell(
-    grid, name, name, `hsl(${280 + (index % 5) * 7} 46% 44%)`, false,
-  ));
+  grid.appendChild(groupHeader(t('gallery-group-forearm').replace('%n', forearm.length)));
+  forearm.forEach(a => renderCell(grid, a.name, itemLabel(a.name), forearmColor(a.name), true));
 
   document.getElementById('gallery-progress').textContent =
     `${unlocked} / ${hand.length + face.length + forearm.length} ${isZh() ? '已解鎖' : 'UNLOCKED'}`;

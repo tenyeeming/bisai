@@ -82,8 +82,8 @@ try:
             check(page.locator('#info-sheet').is_hidden(), name + ': Escape closes detail')
             check(page.evaluate("document.activeElement.classList.contains('info')"), name + ': detail restores focus')
             page.screenshot(path=str(args.output / f'{name}-recommend.png'), full_page=True)
-            # Gallery deserves its own shot since 2026-09-20: it now holds two groups
-            # (26 hand + 23 face) and the face cells use a code badge, not a minion.
+            # Gallery deserves its own shot: it now holds hand + face + forearm (64 cells),
+            # all using the same App minion card.
             # The overflow check alone never told us whether the grid *looks* right.
             page.evaluate("showPage('gallery')")
             no_overflow(page, name + '/gallery')
@@ -91,6 +91,11 @@ try:
             page.evaluate("infoAcuName='ST1'; showPage('acu-info')")
             no_overflow(page, name + '/acu-info-face')
             page.screenshot(path=str(args.output / f'{name}-gallery-face.png'), full_page=True)
+            page.evaluate("infoAcuName='內關穴'; renderAcuInfo()")
+            no_overflow(page, name + '/acu-info-forearm')
+            check(page.locator('#info-locate').inner_text().strip() != '', name + ': forearm detail has location')
+            check(page.locator('#btn-practice').is_disabled(), name + ': forearm locating stays disabled')
+            page.screenshot(path=str(args.output / f'{name}-gallery-forearm.png'), full_page=True)
             page.evaluate("showPage('recommend')")
             page.evaluate("state.selectedAcupoints=['合谷穴']; state.selectedFace=[]; state.currentAcupointIndex=0; flow.readySec=120; showPage('acu-detail'); stopReadyCountdown()")
             no_overflow(page, name + '/detail')

@@ -184,6 +184,21 @@ registerPage('recommend', {
         margin-top: 5px; font-size: 0.75rem; color: var(--ink-soft); line-height: 1.55;
       }
 
+      /* 手機版跟 App 一樣從底部拉出；桌面仍保留原本的置中視窗。 */
+      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
+        .sheet-mask { align-items: flex-end; padding: 0; }
+        .sheet {
+          max-width: none; max-height: 90dvh;
+          border-left: 0; border-right: 0; border-bottom: 0;
+          border-radius: 14px 14px 0 0;
+          padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+        }
+        @media (prefers-reduced-motion: no-preference) {
+          .sheet { animation: sheet-up .2s ease-out; }
+          @keyframes sheet-up { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+        }
+      }
+
       /* ── 症狀覆蓋條（2026-09-14）─────────────────────────────
          用戶提的問題：「選了 a 和 b 兩個症狀，穴道全列在一起，
          萬一我不小心只勾到治 a 的怎麼辦」。
@@ -420,7 +435,8 @@ function defaultRegion() {
   if (hand > 0) return 'hand';
   const names = state.selectedSymptoms.map(i => SYMPTOM_MAP[i]).filter(Boolean).map(s => s.name);
   const face = faceRecommend(names).filter(c => FACE_IMPLEMENTED.has(c)).length;
-  return face > 0 ? 'face' : 'hand';
+  if (face > 0) return 'face';
+  return forearmRecommend(names).length > 0 ? 'elbow' : 'hand';
 }
 
 // 進頁：整個重來
@@ -463,6 +479,9 @@ function renderRegionSeg() {
       // 這症狀有臉部穴道、但一個都還沒實作定位 → 標「準備中」而不是 0，
       // 0 會被讀成「這症狀根本沒有臉部穴道」，那是兩件不同的事
       badge = count > 0 ? String(count) : (codes.length ? (isZh() ? '準備中' : 'SOON') : '0');
+    } else if (r.key === 'elbow') {
+      // 前臂資料已可閱讀，但定位尚未開放；跟 App 一樣以省略號表示不可選入療程。
+      badge = '…';
     } else {
       const only = filterHandNames();          // 同上：篩選中徽章要跟著縮
       count = state.recommendedAcupoints
@@ -504,6 +523,7 @@ function renderAcuList() {
 
   // 臉部走另一套資料與公式（見 js/regions.js 的說明），清單也另外畫
   if (currentRegion === 'face') { renderFaceList(list); return; }
+  if (currentRegion === 'elbow') { renderForearmList(list); return; }
 
   let names = state.recommendedAcupoints.filter(n => acuRegion(n) === currentRegion);
   // 症狀膠囊篩選中：只留治那個症狀的
@@ -550,6 +570,56 @@ function renderAcuList() {
     item.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } };
     list.appendChild(item);
     // 秒數保留於按摩頁與我的流程，選穴階段不展開調整面板。
+  });
+}
+
+function filterForearmNames() {
+  if (filterSymptom === null) return null;
+  const s = SYMPTOM_MAP[filterSymptom];
+  return s ? (FOREARM_SYMPTOM_MAP[s.name] || []) : [];
+}
+
+function renderForearmList(list) {
+  const selectedNames = state.selectedSymptoms.map(i => SYMPTOM_MAP[i]).filter(Boolean).map(s => s.name);
+  let names = forearmRecommend(selectedNames);
+  const only = filterForearmNames();
+  if (only) names = names.filter(n => only.includes(n));
+
+  list.appendChild(notice('notice', isZh()
+    ? '前臂穴道目前可查看資料，但尚未開放相機定位。'
+    : 'Forearm point information is available, but camera locating is not yet supported.'));
+
+  if (!names.length) {
+    list.appendChild(notice('small', isZh()
+      ? '你選的症狀在前臂沒有對應穴道。'
+      : 'No matching forearm points for the selected symptom.'));
+    return;
+  }
+
+  names.forEach(name => {
+    const acu = forearmAcu(name);
+    const item = document.createElement('div');
+    item.className = 'acu-item';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', `${itemLabel(name)} — ${t('a11y-info')}`);
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = forearmColor(name);
+    const nm = document.createElement('span');
+    nm.textContent = itemLabel(name);
+    const soon = document.createElement('span');
+    soon.className = 'secs';
+    soon.textContent = isZh() ? '準備中' : 'SOON';
+    item.append(dot, nm, soon, infoButton(() => openForearmInfo(name)));
+
+    const open = () => openForearmInfo(name);
+    item.onclick = open;
+    item.onkeydown = e => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); open(); }
+    };
+    list.appendChild(item);
   });
 }
 
@@ -797,6 +867,37 @@ function openFaceInfo(code) {
     body.appendChild(d);
   }
 
+  openInfoSheet();
+}
+
+function openForearmInfo(name) {
+  const acu = forearmAcu(name);
+  if (!acu) return;
+  const body = document.getElementById('info-sheet-body');
+  document.getElementById('info-sheet-name').textContent = itemLabel(name);
+  document.getElementById('info-sheet-en').textContent = `${acu.code} · ${acu.en}`;
+  body.innerHTML = '';
+
+  if (acu.caution) {
+    const warning = document.createElement('p');
+    warning.className = 'notice warn';
+    warning.textContent = acu.caution;
+    body.appendChild(warning);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'ref-row';
+  row.append(forearmRefBlock(name), infoField(t('info-locate'), acu.locate));
+  body.appendChild(row);
+  body.appendChild(infoField(isZh() ? '用途' : 'Uses', acu.note));
+  body.appendChild(infoField(isZh() ? '按法' : 'How to press', FOREARM_PRESS));
+
+  const noticeBox = document.createElement('p');
+  noticeBox.className = 'notice';
+  noticeBox.textContent = isZh()
+    ? '這個穴道目前可查看資料，但尚未開放相機定位。'
+    : 'Information is available, but camera locating is not yet supported.';
+  body.appendChild(noticeBox);
   openInfoSheet();
 }
 

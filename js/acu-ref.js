@@ -88,3 +88,20 @@ function faceRefBlock(code) {
   frame.append(img, cap);
   return frame;
 }
+
+function forearmRefBlock(name) {
+  const acu = forearmAcu(name);
+  const frame = document.createElement('div');
+  if (!acu) { frame.className = 'ref-none'; frame.textContent = t('ref-none'); return frame; }
+  frame.className = 'ref-frame forearm-ref';
+  const img = document.createElement('img');
+  img.src = `assets/forearm-ref/${acu.ref}`;
+  img.alt = `${name}${isZh() ? '參考圖' : ' reference'}`;
+  img.loading = 'lazy';
+  img.onerror = () => { frame.className = 'ref-none'; frame.textContent = t('ref-none'); };
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.textContent = isZh() ? '示意圖 · 學長繪製' : 'Illustration by project alumnus';
+  frame.append(img, cap);
+  return frame;
+}

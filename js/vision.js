@@ -17,6 +17,93 @@ let activeCanvas = null;
 let renderMode = 'locate';          // 'locate' | 'massage'
 let onTarget = false;               // 指尖是否對準（按摩頁計時用）
 
+// 手機版與 App 共用的顯示層穩定化。判定仍吃原始 pts，只有畫面上的點／圓盤吃平滑值。
+const isMobileWeb = () => typeof matchMedia === 'function' &&
+  matchMedia('(max-width: 599px), ((max-height: 599px) and (pointer: coarse))').matches;
+class OneEuroFilter {
+  constructor(minCutoff = 1, beta = 0.1, dCutoff = 1) {
+    this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff; this.started = false;
+  }
+  filter(x, dt) {
+    if (!this.started || dt <= 0) {
+      this.started = true; this.xHat = this.xPrev = x; this.dxHat = 0; return x;
+    }
+    const alpha = cutoff => 1 / (1 + (1 / (2 * Math.PI * cutoff)) / dt);
+    const dx = (x - this.xPrev) / dt;
+    this.dxHat = alpha(this.dCutoff) * dx + (1 - alpha(this.dCutoff)) * this.dxHat;
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dxHat);
+    this.xHat = alpha(cutoff) * x + (1 - alpha(cutoff)) * this.xHat;
+    this.xPrev = x;
+    return this.xHat;
+  }
+}
+class AcuPointSmoother {
+  constructor() { this.reset(); }
+  reset() { this.filters = []; this.lastAt = 0; }
+  smooth(pts, at) {
+    if (!pts.length) { this.reset(); return pts; }
+    const dt = this.lastAt ? (at - this.lastAt) / 1000 : 0;
+    this.lastAt = at;
+    if (this.filters.length !== pts.length || dt > .5) {
+      this.filters = pts.map(() => [new OneEuroFilter(), new OneEuroFilter()]);
+    }
+    return pts.map((p, i) => ({
+      x: this.filters[i][0].filter(p.x, dt),
+      y: this.filters[i][1].filter(p.y, dt),
+    }));
+  }
+}
+const acuPointSmoother = new AcuPointSmoother();
+
+const median = values => {
+  const sorted = [...values].sort((a, b) => a - b), m = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
+};
+class TwistTracker {
+  constructor() { this.reset(); }
+  reset() { this.baseline = []; this.recent = []; this.active = false; }
+  update(tb, tilt, blocked) {
+    if (tb == null) { this.recent = []; return null; }
+    this.recent.push(tb); if (this.recent.length > 5) this.recent.shift();
+    const smooth = median(this.recent);
+    if (!blocked && tilt <= 15) {
+      this.baseline.push(tb); if (this.baseline.length > 40) this.baseline.shift();
+    }
+    if (this.baseline.length < 8) return null;
+    const delta = smooth - median(this.baseline);
+    this.active = this.active ? Math.abs(delta) > .14 : Math.abs(delta) > .20;
+    return this.active ? (delta > 0 ? 'pinky' : 'index') : null;
+  }
+}
+const twistTracker = new TwistTracker();
+
+function computeTwistTb(lm, W, H) {
+  if (!lm || lm.length < 21) return null;
+  const ax = lm[0].x * W, ay = lm[0].y * H;
+  const ux = lm[9].x * W - ax, uy = lm[9].y * H - ay;
+  const len = Math.hypot(ux, uy); if (len < 1e-6) return null;
+  const dist = p => Math.abs(ux * (p.y * H - ay) - uy * (p.x * W - ax)) / len;
+  const d5 = dist(lm[5]), d17 = dist(lm[17]), sum = d5 + d17;
+  return sum < 1e-6 ? null : (d5 - d17) / sum;
+}
+
+function drawTwistArrow(ctx, W, H, side, lm, mx) {
+  if (!side || !isMobileWeb()) return;
+  const indexX = mx(lm[5].x * W), pinkyX = mx(lm[17].x * W);
+  const towardPinky = side === 'pinky';
+  const dir = ((towardPinky ? pinkyX - indexX : indexX - pinkyX) >= 0) ? 1 : -1;
+  const len = W * .30, cx = W / 2, cy = H / 2, x0 = cx - dir * len / 2;
+  const tip = x0 + dir * len, neck = tip - dir * len * .36;
+  const headHalf = len * .26, shaftHalf = len * .137;
+  ctx.save(); ctx.globalAlpha = .35; ctx.beginPath();
+  ctx.moveTo(x0, cy - shaftHalf); ctx.lineTo(neck, cy - shaftHalf);
+  ctx.lineTo(neck, cy - headHalf); ctx.lineTo(tip, cy);
+  ctx.lineTo(neck, cy + headHalf); ctx.lineTo(neck, cy + shaftHalf);
+  ctx.lineTo(x0, cy + shaftHalf); ctx.closePath();
+  ctx.fillStyle = '#4ADE80'; ctx.fill();
+  ctx.strokeStyle = '#06101F'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
+}
+
 // 單一共用實例：每次進頁重建會重載 wasm，又慢又漏
 function getHands() {
   if (hands) return hands;
@@ -105,6 +192,8 @@ async function startCamera(canvasId, mode) {
 function stopCamera() {
   camRunning = false;
   onTarget = false;
+  acuPointSmoother.reset();
+  twistTracker.reset();
   if (camera) { try { camera.stop(); } catch (e) {} camera = null; }
   if (video && video.srcObject) {
     video.srcObject.getTracks().forEach(tr => tr.stop());
@@ -223,6 +312,7 @@ function onHandsResults(results) {
   const allHands = results.multiHandLandmarks || [];
   const allSides = results.multiHandedness || [];
   if (allHands.length === 0) {
+    acuPointSmoother.reset();
     resetLiveStats();
     setGate('warn', isZh() ? '請將手放入畫面中' : 'Put your hand in frame');
     onTarget = false;
@@ -291,6 +381,7 @@ function onHandsResults(results) {
 
   const pts = computeAcupoint(name, best.lm, W, H, best.handedness);
   if (!pts || !pts.length) {
+    acuPointSmoother.reset();
     setGate('warn', isZh() ? '無法計算此穴位置' : 'Cannot compute this acupoint');
     onTarget = false;
     return;
@@ -309,6 +400,9 @@ function onHandsResults(results) {
   //    根本不知道自己離「轉對」還有多遠。擋下時改用降級樣式（虛線、幾乎不填色），
   //    語意是「這塊皮膚朝哪」而不是「穴道就在這裡」。
   const gateBlocked = !!(best.gate && best.gate.blocked);
+  const twistSide = twistTracker.update(computeTwistTb(best.lm, W, H), tiltDeg, gateBlocked);
+  const drawPts = isMobileWeb() ? acuPointSmoother.smooth(pts, performance.now()) : pts;
+  if (gateBlocked) drawTwistArrow(ctx, W, H, twistSide, best.lm, mx);
 
   // ⭐ tip 類把圓盤沿骨軸往指尖外推（見 TIP_DISC_OFFSET_CUN）。
   //    法向量的 (x, y) 分量本來就是「骨軸投影在畫面上」的方向與長度（_cv 已經把
@@ -327,7 +421,7 @@ function onHandsResults(results) {
   if (showDisc && best.info) {
     ctx.save();
     flip();
-    pts.forEach(p => {
+    drawPts.forEach(p => {
       drawConfidenceDisc(ctx, p.x + discDX, p.y + discDY, discR, best.info,
         { degraded: gateBlocked, centerAt: { x: p.x, y: p.y } });
     });
@@ -345,7 +439,7 @@ function onHandsResults(results) {
   //    位置與可信度分開表達，斜角時就不會因為可信度低而連位置一起丟掉。
   const dotColor = best.gate ? best.gate.color : '#00e5a0';
   const showingDisc = showDisc && best.info;
-  pts.forEach((p, i) => {
+  drawPts.forEach((p, i) => {
     const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
     if (showingDisc) {
       // 圓盤已經把白點畫在正確位置上了，這裡只補標籤 ——

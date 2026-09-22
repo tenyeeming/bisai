@@ -81,6 +81,28 @@ registerPage('acu-info', {
       /* 這頁的參考圖給整塊寬度，比認穴頁那張大 */
       #info-ref .ref-frame, #info-ref .ref-none { width: 100%; }
       #info-ref .ref-frame img { max-height: 340px; object-fit: contain; }
+      .info-use {
+        border: 1px solid var(--line-soft); border-radius: var(--r-cell);
+        padding: 9px 11px; display: grid; gap: 4px;
+      }
+      .info-use strong { color: var(--brass); font-size: 13px; }
+      .info-use p { font-size: 12.5px; color: var(--ink-soft); }
+      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
+        #page-acu-info {
+          position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+          max-height: 90dvh; overflow-y: auto;
+          padding: 18px 16px calc(22px + env(safe-area-inset-bottom));
+          border-radius: 22px 22px 0 0; background: var(--bg);
+          box-shadow: 0 -18px 60px rgba(10,28,42,.28);
+        }
+        #page-acu-info::before {
+          content: ''; display: block; width: 42px; height: 4px; margin: -7px auto 14px;
+          border-radius: 999px; background: var(--line);
+        }
+        #page-acu-info .info-head { align-items: flex-end; }
+        #page-acu-info .info-portrait { display: none; }
+        #page-acu-info .stack { gap: 13px; }
+      }
     </style>
 
     <div class="stack">
@@ -101,6 +123,7 @@ registerPage('acu-info', {
           <h3 data-i18n="info-locate">定位</h3>
           <p id="info-locate"></p>
         </div>
+        <div class="info-sec" id="info-uses"></div>
         <div class="info-sec" id="info-ref"></div>
         <div class="info-sec" id="info-video"></div>
         <div class="info-sec">
@@ -118,7 +141,7 @@ registerPage('acu-info', {
 function showAcuInfo(id) {
   // 防呆：認不得的 id（舊連結、資料表改過）就退回圖冊，
   // 不要進到一頁全部空白的介紹頁
-  if (!ACUPOINTS.some(a => a.name === id) && !isFaceItem(id)) { showPage('gallery'); return; }
+  if (!ACUPOINTS.some(a => a.name === id) && !isFaceItem(id) && !isForearmItem(id)) { showPage('gallery'); return; }
   infoAcuName = id;
   showPage('acu-info');
 }
@@ -127,6 +150,7 @@ function renderAcuInfo() {
   const name = infoAcuName;
   if (!name) { showPage('gallery'); return; }
   if (isFaceItem(name)) { renderFaceAcuInfo(name); return; }
+  if (isForearmItem(name)) { renderForearmAcuInfo(name); return; }
 
   const acu = ACUPOINTS.find(a => a.name === name) || {};
   const detail = ACUPOINT_DETAIL[name] || {};
@@ -170,6 +194,7 @@ function renderAcuInfo() {
 
   document.getElementById('info-locate').textContent =
     acu.locate || (isZh() ? '（尚無定位描述）' : '(no description yet)');
+  document.getElementById('info-uses').innerHTML = '';
 
   // ── 參考圖 ──
   const refSec = document.getElementById('info-ref');
@@ -293,6 +318,17 @@ function renderFaceAcuInfo(code) {
     (detail && detail.locate) || faceWho(code) ||
     (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
+  const uses = document.getElementById('info-uses');
+  uses.innerHTML = '';
+  if (detail && Array.isArray(detail.uses)) detail.uses.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'info-use';
+    if (u.func) { const h = document.createElement('strong'); h.textContent = u.func; card.appendChild(h); }
+    if (u.note) { const p = document.createElement('p'); p.textContent = u.note; card.appendChild(p); }
+    if (u.press) { const p = document.createElement('p'); p.textContent = (isZh() ? '按法：' : 'Method: ') + u.press; card.appendChild(p); }
+    uses.appendChild(card);
+  });
+
   const refSec = document.getElementById('info-ref');
   refSec.innerHTML = `<h3>${t('ref-title')}</h3>`;
   refSec.appendChild(faceRefBlock(code));
@@ -328,4 +364,30 @@ function renderFaceAcuInfo(code) {
   const btn = document.getElementById('btn-practice');
   btn.disabled = !implemented;
   btn.textContent = implemented ? t('btn-practice') : t('info-nolocate');
+}
+
+function renderForearmAcuInfo(name) {
+  const acu = forearmAcu(name);
+  if (!acu) { showPage('gallery'); return; }
+  const portrait = document.getElementById('info-portrait');
+  portrait.innerHTML = ''; portrait.className = 'info-portrait locked';
+  portrait.style.background = forearmColor(name);
+  portrait.appendChild(galleryMinionImg(name));
+  document.getElementById('info-code').textContent = acu.code;
+  document.getElementById('info-name').textContent = acu.name;
+  document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　${t('info-nolocate')}`;
+  document.getElementById('info-stat').innerHTML = [
+    [t('info-times'), 0], [t('info-last'), '—'],
+  ].map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const note = document.getElementById('info-note'); note.innerHTML = '';
+  if (acu.caution) { const p=document.createElement('p'); p.className='notice warn'; p.textContent=acu.caution; note.appendChild(p); }
+  document.getElementById('info-locate').textContent = acu.locate;
+  const uses = document.getElementById('info-uses');
+  uses.innerHTML = `<div class="info-use"><strong>${isZh() ? '說明' : 'About'}</strong><p>${acu.note}</p><p>${isZh() ? '按法：' : 'Method: '}${FOREARM_PRESS}</p></div>`;
+  const ref = document.getElementById('info-ref'); ref.innerHTML = `<h3>${t('ref-title')}</h3>`; ref.appendChild(forearmRefBlock(name));
+  const vid = document.getElementById('info-video'); vid.innerHTML=''; vid.hidden=true;
+  const sym = Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name));
+  const box = document.getElementById('info-symptoms'); box.innerHTML='';
+  sym.forEach(n => { const b=document.createElement('button'); b.type='button'; b.className='tag'; b.innerHTML='<span class="hash">#</span>'; b.appendChild(document.createTextNode(symptomLabel(n))); b.onclick=()=>startFromSymptom(n); box.appendChild(b); });
+  const btn = document.getElementById('btn-practice'); btn.disabled=true; btn.textContent=t('info-nolocate');
 }

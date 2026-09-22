@@ -125,6 +125,7 @@ const i18n = {
     // 分組標題（2026-09-20 圖冊納入臉部）。%n 換成這一組有幾穴
     'gallery-group-hand': '手部穴道 · %n',
     'gallery-group-face': '臉部穴道 · %n',
+    'gallery-group-forearm': '前臂穴道 · %n（尚未開放定位）',
     'info-locate': '定位',
     'info-symptoms': '主治',
     'info-level': '等級',
@@ -341,6 +342,7 @@ const i18n = {
     'gallery-title': 'Acupoint Collection',
     'gallery-group-hand': 'Hand · %n',
     'gallery-group-face': 'Face · %n',
+    'gallery-group-forearm': 'Forearm · %n (no locating yet)',
     'info-locate': 'Location',
     'info-symptoms': 'Used For',
     'info-level': 'Level',
@@ -449,6 +451,8 @@ const SYMPTOM_EN = {
   // 臉部專屬四項（2026-09-20 併入，名稱照資料庫原文）
   '美容': 'Facial Beauty', '鼻子不適': 'Nasal Discomfort',
   '顏面神經麻痺': 'Facial Paralysis', '口腔衛生': 'Oral Hygiene',
+  '肘臂痠痛': 'Arm / Elbow Soreness', '聲音沙啞': 'Hoarseness',
+  '便祕': 'Constipation', '肩頸痠痛': 'Neck / Shoulder Soreness',
 };
 
 let currentLanguage = localStorage.getItem('language') || 'zh';

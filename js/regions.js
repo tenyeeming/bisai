@@ -12,7 +12,7 @@
 
 const REGIONS = [
   { key: 'hand',  label: 'region-hand',  ready: true  },
-  { key: 'elbow', label: 'region-elbow', ready: false },
+  { key: 'elbow', label: 'region-elbow', ready: true  },
   { key: 'face',  label: 'region-face',  ready: true  },
 ];
 
@@ -36,21 +36,22 @@ const regionOf = (key) => REGIONS.find(r => r.key === key);
 const isFaceItem = (id) => !!faceAcu(id);
 
 /** 這一項屬於哪個部位（給步驟提示、相機切換用） */
-const itemRegion = (id) => isFaceItem(id) ? 'face' : acuRegion(id);
+const itemRegion = (id) => isFaceItem(id) ? 'face' : isForearmItem(id) ? 'elbow' : acuRegion(id);
 
 /** 顯示名。兩邊都會跟著語言切換 */
-const itemLabel = (id) => isFaceItem(id) ? faceLabel(id) : acuLabel(id);
+const itemLabel = (id) => isFaceItem(id) ? faceLabel(id) : isForearmItem(id) ? id : acuLabel(id);
 
 /** 定位說明。臉部用 WHO 原文（沒有自己的白話版，也刻意不編） */
 const itemLocate = (id) => {
   if (isFaceItem(id)) return faceWho(id);
+  if (isForearmItem(id)) return forearmAcu(id).locate;
   const a = ACUPOINTS.find(x => x.name === id);
   return a && a.locate ? a.locate : '';
 };
 
 /** 這一項的定位公式做出來了沒 */
 const itemImplemented = (id) =>
-  isFaceItem(id) ? FACE_IMPLEMENTED.has(id) : IMPLEMENTED.has(id);
+  isFaceItem(id) ? FACE_IMPLEMENTED.has(id) : isForearmItem(id) ? false : IMPLEMENTED.has(id);
 
 /**
  * 按摩要跑幾輪。
@@ -85,4 +86,4 @@ const itemDetector = (id) => isFaceItem(id) ? 'face' : 'hand';
  * 2026-09-20 圖冊納入臉部時加。在這之前所有色點都直接呼叫 `acuColor()` ——
  * 那支對臉部代碼會回同一個土黃色，所以凡是「可能拿到臉部代碼」的地方都改走這裡。
  */
-const itemColor = (id) => isFaceItem(id) ? faceColor(id) : acuColor(id);
+const itemColor = (id) => isFaceItem(id) ? faceColor(id) : isForearmItem(id) ? forearmColor(id) : acuColor(id);

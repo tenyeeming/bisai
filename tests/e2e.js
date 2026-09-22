@@ -52,9 +52,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(d.querySelectorAll('#steprail li').length === 4, '步驟軌自動長出 4 格（首頁是進入點，不上軌）');
   ok([...d.querySelectorAll('#steprail li')].map(l => l.getAttribute('data-step')).join() === 'recommend,acu-detail,camera,massage', '步驟軌順序正確');
   ok($('symptom-grid').children.length > 0, '症狀格已渲染');
-  // ── 手臉病症合併（2026-09-20）：資料庫「病症分類_手臉合併」16 項全部在 ──
-  ok(w.eval('SYMPTOM_MAP.length') === 16, `症狀表 16 項（實得 ${w.eval('SYMPTOM_MAP.length')}）`);
-  ok($('symptom-grid').children.length === 16, '首頁把 16 項全畫出來');
+  // ── App 症狀同步（2026-09-22）：手部、臉部、前臂共 20 項 ──
+  ok(w.eval('SYMPTOM_MAP.length') === 20, `症狀表 20 項（實得 ${w.eval('SYMPTOM_MAP.length')}）`);
+  ok($('symptom-grid').children.length === 20, '首頁把 20 項全畫出來');
   ['美容', '鼻子不適', '顏面神經麻痺', '口腔衛生'].forEach(n => {
     const i = w.eval(`SYMPTOM_MAP.findIndex(s=>s.name===${JSON.stringify(n)})`);
     ok(i >= 0, `臉部專屬症狀「${n}」在症狀表裡`);
@@ -95,8 +95,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '部位有三格：' + segBtns().map(b => b.querySelector('span').textContent).join('/'));
   ok(segBtns()[0].classList.contains('on'), '預設停在手部');
   ok(segBtns()[0].querySelector('.n').textContent === '7', '手部標了 7 穴');
-  ok(segBtns()[1].querySelector('.n').textContent === '準備中' && segBtns()[1].classList.contains('soon'),
-     '手肘標「準備中」而不是 0');
+  ok(segBtns()[1].querySelector('.n').textContent === '…' && !segBtns()[1].classList.contains('soon'),
+     '手肘已可查看資料，以省略號標示不可定位');
 
   // ── ⓘ 詳情（2026-09-02）──
   // 重點不是面板長什麼樣，是「點 ⓘ 不可以順手把穴道勾起來」——
@@ -568,6 +568,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok($('btn-practice').disabled === true, notReady + ' 尚未支援定位 → 按鈕停用');
   }
 
+  // ── 前臂穴道介紹：資料可讀、定位不可誤開 ──
+  w.eval("infoAcuName='內關穴'"); w.showPage('acu-info');
+  ok(w.eval('isForearmItem(infoAcuName)'), '介紹頁認得出前臂穴道');
+  ok($('info-code').textContent === 'PC6', '前臂穴道顯示代號 PC6');
+  ok($('info-locate').textContent.length > 8, '前臂穴道有定位文字');
+  ok(!!$('info-ref').querySelector('img'), '前臂穴道有學長繪製參考圖');
+  ok($('btn-practice').disabled === true, '前臂尚未實作定位 → 練習按鈕停用');
+
   // ── 主治標籤 → 開療程（2026-09-04：補上 App 早就有、網頁還沒有的互動）──
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
   const tagBtns = [...$('info-symptoms').querySelectorAll('button.tag')];
@@ -852,6 +860,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(bSegs()[2].classList.contains('on'), '手部沒穴時自動切到臉部分頁，不停在空清單上');
   ok($('recommend-list').querySelectorAll('.acu-item').length === 10, '美容列出 10 個臉部穴道');
 
+  // 前臂專屬症狀：手、臉皆無可定位穴時，自動落在可閱讀資料的手肘分頁。
+  w.goHome();
+  const armIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='肘臂痠痛')");
+  $('symptom-grid').children[armIdx].click();
+  w.goToRecommendation();
+  ok(bSegs()[1].classList.contains('on'), '肘臂痠痛自動切到手肘分頁');
+  ok($('recommend-list').querySelectorAll('.acu-item').length === 7, '肘臂痠痛列出 7 個前臂穴道');
+  ok([...$('recommend-list').querySelectorAll('.acu-item')].every(e => e.getAttribute('role') === 'button'),
+     '前臂卡片只能查看資料，不會被勾進療程');
+
   // ── 臉部流程（另一套資料與相機）──
   w.goHome();
   const eyeIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='緩解目痛')");
@@ -950,6 +968,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '提醒內容：模式不認得回 none、清單不是陣列回空、陣列裡非字串濾掉');
 
   ok(/^hsl[(]\d+/.test(w.eval("acuColor('沒有這個穴')")), '未知穴名的顏色仍是合法 hsl（不會變負角度）');
+
+  // 手機顯示層對齊 App：One Euro 只平滑畫面，TwistTracker 保留遲滯方向。
+  const filterProbe = w.eval(`(()=>{const f=new OneEuroFilter();return [f.filter(100,0),f.filter(110,1/30)]})()`);
+  ok(filterProbe[0] === 100 && filterProbe[1] > 100 && filterProbe[1] < 110,
+     'One Euro 第一幀不漂移、下一幀平滑追上');
+  const twistProbe = w.eval(`(()=>{const t=new TwistTracker();for(let i=0;i<8;i++)t.update(0,5,false);let r;for(let i=0;i<5;i++)r=t.update(.5,40,true);return r})()`);
+  ok(twistProbe === 'pinky', '扭轉基準完成後能指出小指側回正方向');
 
   ['minions', 'acuHistory', 'acuStreak', 'flowSettings', 'notifyPlan']
     .forEach(k => w.localStorage.removeItem(k));

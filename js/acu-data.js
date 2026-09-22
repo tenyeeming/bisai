@@ -723,6 +723,11 @@ const SYMPTOM_MAP = [
   { name: "鼻子不適", icon: "wind", acupoints: [] },
   { name: "顏面神經麻痺", icon: "smile", acupoints: [] },
   { name: "口腔衛生", icon: "droplet", acupoints: [] },
+  // 前臂新增四類；手部清單為空，實際對應見 forearm-data.js。
+  { name: "肘臂痠痛", icon: "activity", acupoints: [] },
+  { name: "聲音沙啞", icon: "mic-off", acupoints: [] },
+  { name: "便祕", icon: "menu", acupoints: [] },
+  { name: "肩頸痠痛", icon: "move", acupoints: [] },
 ];
 
 const ACUPOINT_DETAIL = {
