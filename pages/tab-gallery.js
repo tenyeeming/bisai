@@ -17,29 +17,28 @@ registerPage('gallery', {
       .collection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
       .collection-item {
         position: relative;
-        aspect-ratio: 1;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         border-radius: var(--r);
         border: 1px solid var(--line);
         background: var(--surface);
         text-align: center;
-        padding: 3px;
+        min-height: 116px;
+        padding: 12px 6px;
+        gap: 6px;
         overflow: hidden;
         font-family: inherit;
         cursor: pointer;
       }
       .collection-item:hover { border-color: var(--brass); }
-      .collection-item .minion { width: 78%; height: auto; display: block; }
+      .collection-item .minion { width: auto; height: 56px; display: block; }
       .collection-item .nm {
-        font-family: var(--font-ming); font-size: 11.5px; line-height: 1.15;
-        margin-top: 2px; color: var(--ink);
+        font-family: var(--font-ming); font-size: 13px; line-height: 1.15;
+        color: var(--ink);
       }
       .collection-item .lv {
-        position: absolute; top: 2px; right: 3px;
-        font-family: var(--font-mono); font-size: 9px; font-weight: 700;
-        color: #fff; background: var(--brass);
-        border-radius: 2px; padding: 0 3px;
+        font-family: var(--font-mono); font-size: 9px; line-height: 1.2;
+        color: var(--brass);
       }
       /* 沒解鎖就只給剪影：看得到「還有這一隻」，但看不出長相 */
       .collection-item.locked .minion { filter: grayscale(1) brightness(.35) contrast(.85); opacity: .3; }
@@ -64,23 +63,7 @@ registerPage('gallery', {
       }
       .collection-grid .grp.note::after { content: none; }
 
-      /* 臉部格：**沒有小人**（那一組 SVG 只畫了手部 26 穴）。
-         不借用手部的小人圖—— 候的那隻小人在手部也看得到，兩格長一樣反而讓人以為是同一穴。
-         改成代號圓標，跟定位頁、圖冊介紹頁看到的是同一個識別字。 */
-      .collection-item .code-badge {
-        /* 膚囊而不是正圓：代號長短差很多（ST1 三個字、EX-HN7 七個）。
-           固定正圓的話長代號會換行、字溢出圓外 —— 320px 的小螢幕尤其明顯。
-           min-width 讓短代號維持接近圓形，nowrap 保證一行到底。 */
-        min-width: 42%; max-width: 92%; height: 30%;
-        padding: 0 5px; border-radius: 999px;
-        display: flex; align-items: center; justify-content: center;
-        white-space: nowrap;
-        font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
-        color: #fff; letter-spacing: .01em;
-      }
-      /* 未解鎖：跟手部小人剪影同一個意思，但**不能淡到讀不出代號** ——
-         臉部沒有小人，代號就是辨識這一穴的唯一線索。 */
-      .collection-item.locked .code-badge { filter: grayscale(1) brightness(.85); opacity: .5; }
+      .collection-item.locked .lv { color: var(--ink-soft); opacity: .5; }
     </style>
 
     <div class="stack">
@@ -98,20 +81,32 @@ function initCollectionGrid() {
   const grid = document.getElementById('collection-grid');
   grid.innerHTML = '';
 
-  // ⭐ 2026-09-20：圖冊納入臉部 23 穴（在這之前網頁圖冊只有手部，App 早就兩組都有）。
-  //    兩組共用同一個 renderCell()，差別只有「用小人圖還是代號圓標」與顏色來源。
+  // 2026-09-22：手機圖冊與 App 同步為手部、臉部、前臂三組，共 64 穴。
+  // 三組一律使用 App 的手掌小人卡，不再讓臉部單獨顯示代號膠囊。
   const hand = ACUPOINTS.map(a => a.name);
   const face = FACE_ACUPOINTS.map(a => a.code);
+  const forearm = [
+    ['少海穴', 'HT3'], ['小海穴', 'SI8'], ['曲澤穴', 'PC3'],
+    ['郄門穴', 'PC4'], ['間使穴', 'PC5'], ['內關穴', 'PC6'],
+    ['大陵穴', 'PC7'], ['靈道穴', 'HT4'], ['通里穴', 'HT5'],
+    ['陰郄穴', 'HT6'], ['外關穴', 'SJ5'], ['支溝穴', 'SJ6'],
+    ['三陽絡穴', 'SJ8'], ['四瀆穴', 'SJ9'], ['支正穴', 'SI7'],
+  ];
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));
-  let unlocked = hand.filter(id => renderCell(grid, id)).length;
+  let unlocked = hand.filter(id => renderCell(grid, id, acuLabel(id), acuColor(id), true)).length;
 
   grid.appendChild(groupHeader(t('gallery-group-face').replace('%n', face.length)));
-  grid.appendChild(groupHeader(t('gallery-face-nominion'), 'note'));
-  unlocked += face.filter(id => renderCell(grid, id)).length;
+  unlocked += face.filter(id => renderCell(grid, id, faceLabel(id), faceColor(id), true)).length;
+
+  grid.appendChild(groupHeader(isZh() ? `前臂 · ${forearm.length} 穴（尚未開放定位）`
+                                      : `Forearm · ${forearm.length} points (no locating yet)`));
+  forearm.forEach(([name], index) => renderCell(
+    grid, name, name, `hsl(${280 + (index % 5) * 7} 46% 44%)`, false,
+  ));
 
   document.getElementById('gallery-progress').textContent =
-    `${unlocked} / ${hand.length + face.length} ${isZh() ? '已解鎖' : 'UNLOCKED'}`;
+    `${unlocked} / ${hand.length + face.length + forearm.length} ${isZh() ? '已解鎖' : 'UNLOCKED'}`;
 }
 
 /** 橫跨整列的分組標題（不佔格子）。`note` 是底下那行小字說明 */
@@ -129,29 +124,18 @@ function groupHeader(text, cls) {
  *    臉部不要改用中文名 —— 代號是那條線的識別字，改譯名不會弄丟使用者的收集紀錄
  *    （跟 App 的 `minions[fa.code]` 同一個約定）。
  */
-function renderCell(grid, id) {
-  const face = isFaceItem(id);
+function renderCell(grid, id, label, color, canOpen) {
   const item = document.createElement('button');
   item.type = 'button';
   item.className = 'collection-item';
   item.dataset.acu = id;
-  item.onclick = () => showAcuInfo(id);
+  item.onclick = () => { if (canOpen) showAcuInfo(id); };
   const m = state.minions[id];
-  const color = itemColor(id);
-
-  if (face) {
-    const badge = document.createElement('div');
-    badge.className = 'code-badge';
-    badge.style.background = color;
-    badge.textContent = id;
-    item.appendChild(badge);
-  } else {
-    item.appendChild(minionImg(id));
-  }
+  item.appendChild(galleryMinionImg(id));
 
   const nm = document.createElement('div');
   nm.className = 'nm';
-  nm.textContent = itemLabel(id);
+  nm.textContent = label;
   item.appendChild(nm);
   grid.appendChild(item);
 
@@ -159,17 +143,20 @@ function renderCell(grid, id) {
     item.style.borderColor = color;
     const lv = document.createElement('span');
     lv.className = 'lv';
-    lv.textContent = 'Lv.' + m.level;
-    lv.style.background = color;
+    lv.textContent = `Lv.${m.level} · ${m.times}x`;
     item.appendChild(lv);
-    item.title = isZh() ? `${itemLabel(id)} — 已按 ${m.times} 次`
-                        : `${itemLabel(id)} — ${m.times} sessions`;
+    item.title = isZh() ? `${label} — 已按 ${m.times} 次`
+                        : `${label} — ${m.times} sessions`;
     return true;
   }
 
   item.classList.add('locked');
+  const locked = document.createElement('span');
+  locked.className = 'lv';
+  locked.textContent = isZh() ? '尚未解鎖' : 'Locked';
+  item.appendChild(locked);
   // 沒有定位公式的穴道要看得出來，不然會以為是自己還沒按到
-  item.title = itemImplemented(id)
+  item.title = canOpen && itemImplemented(id)
     ? (isZh() ? '尚未解鎖' : 'Locked')
     : (isZh() ? '定位尚未支援' : 'Locating not supported yet');
   return false;

@@ -125,7 +125,6 @@ const i18n = {
     // 分組標題（2026-09-20 圖冊納入臉部）。%n 換成這一組有幾穴
     'gallery-group-hand': '手部穴道 · %n',
     'gallery-group-face': '臉部穴道 · %n',
-    'gallery-face-nominion': '臉部穴道還沒有小人，先用代號顯示。',
     'info-locate': '定位',
     'info-symptoms': '主治',
     'info-level': '等級',
@@ -342,7 +341,6 @@ const i18n = {
     'gallery-title': 'Acupoint Collection',
     'gallery-group-hand': 'Hand · %n',
     'gallery-group-face': 'Face · %n',
-    'gallery-face-nominion': 'Facial points have no collectible figure yet; the code is shown instead.',
     'info-locate': 'Location',
     'info-symptoms': 'Used For',
     'info-level': 'Level',

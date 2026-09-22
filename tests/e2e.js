@@ -460,30 +460,25 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // ── 圖冊 ──
   w.showPage('gallery');
   ok($('backbar').style.display === 'none', '圖冊分頁不顯示返回列');
-  // ⭐ 2026-09-20：圖冊納入臉部 23 穴，分母從 26 變 49。
-  //    寫死 49 而不是算出來的值 —— 不然資料表掉了穴道測試還是綠的。
-  const totalTiles = 26 + 23;
-  ok(/2 \/ 49 已解鎖/.test($('gallery-progress').textContent), '圖冊 2/49 已解鎖（實得 ' + $('gallery-progress').textContent + '）');
+  // 2026-09-22：與 App 同步為手部 26＋臉部 23＋前臂 15，共 64 穴。
+  const totalTiles = 26 + 23 + 15;
+  ok(/2 \/ 64 已解鎖/.test($('gallery-progress').textContent), '圖冊 2/64 已解鎖（實得 ' + $('gallery-progress').textContent + '）');
   const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
-  ok(dataTotal === totalTiles, '兩張資料表加起來還是 49 穴（實得 ' + dataTotal + '）');
+  ok(dataTotal === 49, '手部與臉部資料表仍是 49 穴（實得 ' + dataTotal + '）');
 
-  // ── 小人圖（手部）與代號圓標（臉部）──
+  // ── 三組都使用 App 同一隻手掌小人 ──
   const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
   const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
-  ok(cells.length === totalTiles, '圖冊有 49 格（實得 ' + cells.length + '）');
-  ok(groups.length >= 2, '手部與臉部各有一個分組標題');
-  const handTiles = cells.filter(t => t.querySelector('img.minion'));
-  const faceTiles = cells.filter(t => t.querySelector('.code-badge'));
-  ok(handTiles.length === 26, '手部 26 格都有小人圖（實得 ' + handTiles.length + '）');
-  ok(faceTiles.length === 23, '臉部 23 格用代號圓標（實得 ' + faceTiles.length + '）');
-  // 臉部沒有小人，**也不該借手部的** —— 借了就會有兩格長一樣
-  ok(faceTiles.every(t => !t.querySelector('img.minion')), '臉部格不得挑手部的小人圖來用');
-  const srcs = handTiles.map(t => t.querySelector('img.minion').getAttribute('src'));
-  ok(new Set(srcs).size === 26, '26 隻小人各自不同檔（沒有共用同一張）');
-  ok(srcs.every(s => /^assets\/minions\/[a-z]+\.svg$/.test(s)), '圖片路徑格式正確：' + srcs[0]);
+  ok(cells.length === totalTiles, '圖冊有 64 格（實得 ' + cells.length + '）');
+  ok(groups.length === 3, '手部、臉部與前臂各有一個分組標題');
+  const handTiles = cells.slice(0, 26);
+  const faceTiles = cells.slice(26, 49);
+  const srcs = cells.map(t => t.querySelector('img.minion')?.getAttribute('src'));
+  ok(srcs.every(Boolean), '64 格都有小人圖');
+  ok(srcs.every(s => s === 'assets/minion/idle.webp'), '三組共用 App 小人素材');
   ok(cells.filter(t => t.classList.contains('locked')).length === totalTiles - 2,
-     '其餘 47 格未解鎖（顯示剪影）');
-  ok(cells.filter(t => t.querySelector('.lv')).length === 2, '只有已解鎖那兩格有 Lv 標籤');
+     '其餘 62 格未解鎖（顯示剪影）');
+  ok(cells.filter(t => t.querySelector('.lv')).length === totalTiles, '每格都有等級或尚未解鎖狀態');
   // 臉部的顏色不可以全部一樣（候的直接借 acuColor() 就會全是土黃色）
   const faceHues = new Set(w.eval('FACE_ACUPOINTS.map(a => faceColor(a.code))'));
   ok(faceHues.size > 1, '臉部代表色不是全部同一個（實得 ' + faceHues.size + ' 種）');
@@ -541,7 +536,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.showPage('gallery');
   const faceTile = [...$('collection-grid').children]
     .filter(e => !e.classList.contains('grp'))
-    .find(t => t.querySelector('.code-badge'));
+    .find(t => w.eval(`isFaceItem(${JSON.stringify(t.dataset.acu)})`));
   faceTile.click();
   ok(active().join() === 'acu-info', '點臉部那一格 → 同一個介紹頁');
   ok(w.eval('isFaceItem(infoAcuName)'), '介紹頁認得出這是臉部項目');
@@ -844,7 +839,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.showPage('profile');
   ok(/累計次數\s*0/.test($('profile-stats').textContent), '清除後個人頁歸零');
   w.showPage('gallery');
-  ok(/0 \/ 49/.test($('gallery-progress').textContent), '清除後圖冊歸零（分母含臉部 23 穴）');
+  ok(/0 \/ 64/.test($('gallery-progress').textContent), '清除後圖冊歸零（分母含手部、臉部與前臂 64 穴）');
 
   // ── 臉部專屬症狀（2026-09-20）：手部 0 穴時要自動落在臉部分頁 ──
   w.goHome();

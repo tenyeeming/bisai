@@ -22,6 +22,16 @@ const MINION_SLUG = {
 
 const minionSrc = (name) => `assets/minions/${MINION_SLUG[name] || ''}.svg`;
 
+/** 圖冊與 App 共用同一隻手掌小人；部位靠分組與代表色區分。 */
+function galleryMinionImg(name) {
+  const img = document.createElement('img');
+  img.className = 'minion';
+  img.src = 'assets/minion/idle.webp';
+  img.alt = name;
+  img.loading = 'lazy';
+  return img;
+}
+
 /** 產生一張小人圖。className 交給呼叫端決定大小 */
 function minionImg(name, className) {
   const img = document.createElement('img');
