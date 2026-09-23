@@ -29,8 +29,18 @@ registerPage('camera', {
         <h2 id="camera-title" class="acu-title"></h2>
       </div>
       <div class="camera-preview">
-        <div class="viewport"><canvas id="video-canvas" class="cam"></canvas></div>
-        <div class="readout gate-warn" id="camera-gate" data-i18n="camera-hint">請舉起手，手背朝上</div>
+        <!-- ⭐ 2026-09-22：讀數條**搬進 .viewport 裡面**（原本是它的兄弟節點）。
+             用戶：「那些提示在鏡頭畫面下方，他會壓縮到我的鏡頭畫面」。
+             ⚠️ 定位基準一定要是 .viewport 而不是外層的 .camera-preview ——
+                桌面橫式時 .viewport 被 responsive.css 的 max-width 限寬，
+                而外層沒有，疊上去會**超出畫面右緣約 30px**（實際踩過，
+                截圖在 比賽專區/介面討論/提示疊加取景框_20260922/）。
+             🚨 這整頁是 JS 模板字串，註解裡**絕對不能出現反引號** —— 會提前
+                關掉模板字串，整頁靜默不生成（2026-09-22 踩過）。 -->
+        <div class="viewport">
+          <canvas id="video-canvas" class="cam"></canvas>
+          <div class="readout gate-warn" id="camera-gate" data-i18n="camera-hint">請舉起手，手背朝上</div>
+        </div>
       </div>
       <!-- 即時數據面板（2026-09-20）：只在桌面（≥1024px）看得見，手機上 display:none。
            數字全部來自 js/vision.js 同一幀的既有判定（liveStats），**沒有任何新計算**。

@@ -16,6 +16,15 @@ let showDisc = true;
 let activeCanvas = null;
 let renderMode = 'locate';          // 'locate' | 'massage'
 let onTarget = false;               // 指尖是否對準（按摩頁計時用）
+// 對位判定的遲滯記憶（2026-09-23 對齊 App locate/AcuMath.kt 的 tolIn/tolOut）。
+// 只有「上一幀有走到按摩對位判定、而且判為對準」才是 true；任何一幀沒走到判定就歸零，
+// 所以手離開畫面、閘門擋下、換頁都不會把舊狀態帶過去。
+let pressWasOn = false;
+const PRESS_TOL_OUT_RATIO = 1.6;    // 已對準時，離開要超出 tolIn × 1.6 才算離開
+// 施密特遲滯：進入用 tolIn，已對準時要超出 tolOut 才判離開（同 App AcuMath.press）。
+function pressOnTarget(minD, tolIn, wasOn) {
+  return wasOn ? minD <= tolIn * PRESS_TOL_OUT_RATIO : minD <= tolIn;
+}
 
 // 手機版與 App 共用的顯示層穩定化。判定仍吃原始 pts，只有畫面上的點／圓盤吃平滑值。
 const isMobileWeb = () => typeof matchMedia === 'function' &&
@@ -269,6 +278,8 @@ function onHandsResults(results) {
 
   const canvas = activeCanvas;
   if (!canvas || !camRunning) return;
+  const prevPressOn = pressWasOn;
+  pressWasOn = false;
 
   // 畫布尺寸必須跟著影像走，否則 landmark(0~1) × W/H 全部算錯位置。
   //
@@ -514,8 +525,10 @@ function onHandsResults(results) {
     if (d < minD) { minD = d; hitPt = p; hitTip = tp; }
   }));
 
+  // 沒有遲滯的話，手指在邊界抖一下計時就 on/off 反覆跳（App 早就有，網頁 09-21 盤點才發現分岔）。
   const tol = Math.max(discR, 18);
-  const touching = minD <= tol;
+  const touching = pressOnTarget(minD, tol, prevPressOn);
+  pressWasOn = touching;
   onTarget = touching;
   // 數據面板：距離用同一幀的 minD 換算成 mm（CUN_MM 是 acu-data.js 的換算常數）
   liveStats.distMm = cunPx > 0 ? (minD / cunPx) * CUN_MM : null;

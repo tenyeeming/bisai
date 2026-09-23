@@ -298,8 +298,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(!d.body.classList.contains('massage-fs') && !$('btn-massage-zoom').hidden,
      '縮小 → 退出全螢幕，並出現「放大顯示」');
   ok(w.eval('massageRunning') === true, '縮小不會停掉計時');
+  // ⚠️ 2026-09-23：原本驗 `massage-gate.previousElementSibling.id === 'massage-viewport'`，
+  //    那是批 59（09-22 讀數條改疊進取景框）之前的結構 —— 讀數條現在是 viewport 的
+  //    **子節點**而不是後兄弟，斷言因此永遠失敗。改版時漏跑 e2e 才留到今天。
+  //    還原本身沒問題：exitMassageFullscreen 用 insertBefore(el, next) 通用還原，
+  //    所以這裡改成驗「回到 viewport 裡面」，而不是寫死它在哪一個兄弟後面。
   ok($('timer-display').parentNode.classList.contains('meter')
-     && $('massage-gate').previousElementSibling.id === 'massage-viewport',
+     && $('massage-gate').parentNode.id === 'massage-viewport',
      '退出後兩個元件都回到原位');
   w.enterMassageFullscreen();
   ok(d.body.classList.contains('massage-fs'), '「放大顯示」可以再回到全螢幕');
@@ -975,6 +980,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      'One Euro 第一幀不漂移、下一幀平滑追上');
   const twistProbe = w.eval(`(()=>{const t=new TwistTracker();for(let i=0;i<8;i++)t.update(0,5,false);let r;for(let i=0;i<5;i++)r=t.update(.5,40,true);return r})()`);
   ok(twistProbe === 'pinky', '扭轉基準完成後能指出小指側回正方向');
+
+  // 對位判定遲滯（2026-09-23 對齊 App AcuMath.press 的 tolIn / tolOut=×1.6）
+  ok(w.eval('pressOnTarget(20, 20, false)') === true,  '遲滯：未對準時 d=tolIn 進入');
+  ok(w.eval('pressOnTarget(21, 20, false)') === false, '遲滯：未對準時 d>tolIn 不進入');
+  ok(w.eval('pressOnTarget(31, 20, true)') === true,   '遲滯：已對準時 tolIn<d≤1.6×tolIn 仍算對準（不因手抖跳掉）');
+  ok(w.eval('pressOnTarget(33, 20, true)') === false,  '遲滯：已對準時 d>1.6×tolIn 才離開');
+  ok(w.eval('pressWasOn') === false, '遲滯記憶初值為 false（上一幀沒走到判定就不帶舊狀態）');
 
   ['minions', 'acuHistory', 'acuStreak', 'flowSettings', 'notifyPlan']
     .forEach(k => w.localStorage.removeItem(k));

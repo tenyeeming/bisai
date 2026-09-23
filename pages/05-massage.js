@@ -226,8 +226,14 @@ registerPage('massage', {
             </div>
             <div class="fs-bottom" id="massage-hud-slot"></div>
           </div>
+          <!-- ⭐ 2026-09-22：讀數條搬進 .viewport（原本在它外面）。理由同 04-camera.js。
+               ⚠️ 全螢幕時這個節點會被 enterMassageFullscreen() **搬進** .fs-bottom，
+                  那時它就不是 .viewport 的直接子節點了，所以 shell.css 那條
+                  直接子選擇器自然不匹配，全螢幕那套樣式不受影響。
+               🚨 這整頁是 JS 模板字串，註解裡**絕對不能出現反引號** —— 會提前
+                  關掉模板字串，整頁靜默不生成（2026-09-22 踩過）。 -->
+          <div class="readout gate-warn" id="massage-gate">用另一隻手的指尖對準穴道圓盤</div>
         </div>
-        <div class="readout gate-warn" id="massage-gate">用另一隻手的指尖對準穴道圓盤</div>
       </div>
       <!-- 即時數據面板（2026-09-20）：只在桌面（≥1024px）看得見。
            數字全部來自 js/vision.js 同一幀的既有判定（liveStats），**沒有任何新計算** ——

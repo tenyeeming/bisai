@@ -383,10 +383,15 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
 /* 桌面的相機：寬度給滿之後，4/3 的畫面會高到超出視窗（1440×900 上要捲才看得到讀數條）。
    評審是站著看示範的，捲動 = 看不到重點。所以限制**寬度**讓高度回到視窗內 ——
    不直接限 max-height 是因為 canvas 吃 aspect-ratio，限高只會讓它自己被壓扁。
-   減掉的 300px = 品牌帶 + 返回列 + 步驟進度 + 標題 + 本輪列 + 下方狀態條的概估。 */
+   減掉的 255px = 品牌帶 + 返回列 + 步驟進度 + 標題 + 本輪列的概估。
+
+   ⭐ 2026-09-22：原本是 **300px**，含「下方狀態條」那一項。
+   讀數條改成疊在畫面上之後（shell.css 的 `.camera-preview > .readout`），
+   它已經不佔版面高度了，所以這裡要一起把那 45px 還回來 ——
+   不然畫面會白白比需要的小一圈。**這兩處是綁在一起的，改一邊記得改另一邊。** */
 @media (min-width: 1024px) and (orientation: landscape) {
   #page-camera .viewport, #page-massage .viewport {
-    max-width: min(100%, calc((100svh - 300px) * 4 / 3));
+    max-width: min(100%, calc((100svh - 255px) * 4 / 3));
   }
 }
 
