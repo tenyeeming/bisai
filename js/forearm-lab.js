@@ -50,6 +50,52 @@ const FL_FOREARM_CUN = 12;
 const FL_SIGN_HYST = 0.3;  // 尺側翻邊門檻（見 Hand 段）；估的
 const FL_CUN_EMA = 0.2;    // 同身寸平滑：新值權重；估的
 const FL_JITTER_N = 30;    // 波動讀數取最近幾幀
+
+// ── 即時邊緣（2026-09-24，照學長 acupoint_realtimeMediapipe.py:396 的小海公式）─────
+//   學長：pt_si8 = (px_elbow + elbow_ulnar) / 2
+//         elbow_ulnar = 從肘點沿尺側法向量走到**手臂輪廓邊緣**的那一點（SAM2 輪廓）
+//   這裡：輪廓換成 Pose 的 segmentationMask；從肘點沿尺側方向逐步取樣，
+//         遮罩值掉到 FL_MASK_TH 以下的第一個位置就是邊緣。
+//   邊緣距離每幀會抖（遮罩邊緣本來就毛）→ EMA 平滑。找不到邊緣就不硬猜，退回固定 0.5 寸並標明。
+let flOffsetMode = "edge";          // edge ＝ 學長公式（肘點與尺側邊緣中點）；fixed ＝ 舊的固定 0.5 寸
+const FL_MASK_TH = 0.5;
+const FL_EDGE_MAX_CUN = 4;          // 最遠找幾寸；超過代表遮罩連到身體或背景，視為沒找到（估的）
+const FL_EDGE_EMA = 0.3;
+const FL_MASK_W = 160, FL_MASK_H = 120;   // 遮罩縮小再讀像素，手機上每幀 getImageData 才不會太貴
+let flMaskCanvas = null, flMaskCtx = null, flEdgeDistSm = {};
+function flReadMask(mask) {
+  if (!mask) return null;
+  if (!flMaskCanvas) {
+    flMaskCanvas = document.createElement("canvas");
+    flMaskCanvas.width = FL_MASK_W; flMaskCanvas.height = FL_MASK_H;
+    flMaskCtx = flMaskCanvas.getContext("2d", { willReadFrequently: true });
+  }
+  flMaskCtx.clearRect(0, 0, FL_MASK_W, FL_MASK_H);
+  flMaskCtx.drawImage(mask, 0, 0, FL_MASK_W, FL_MASK_H);
+  return flMaskCtx.getImageData(0, 0, FL_MASK_W, FL_MASK_H).data;
+}
+// 遮罩值 0~1。Solutions 版遮罩有的放在 alpha、有的放在紅色通道 → 兩個都看，取有資訊的那個
+function flMaskAt(data, x, y, W, H) {
+  const mx = Math.floor((x / W) * FL_MASK_W), my = Math.floor((y / H) * FL_MASK_H);
+  if (mx < 0 || my < 0 || mx >= FL_MASK_W || my >= FL_MASK_H) return 0;
+  const i = (my * FL_MASK_W + mx) * 4;
+  const a = data[i + 3], r = data[i];
+  return (a < 250 ? a : r) / 255;
+}
+// 從 from 沿 dir 走，回傳第一個遮罩外的距離（px）；起點不在遮罩內或走太遠都回 null
+function flEdgeDistance(data, from, dir, W, H, maxPx) {
+  if (flMaskAt(data, from.x, from.y, W, H) < FL_MASK_TH) return null;
+  const step = Math.max(1, W / FL_MASK_W / 2);
+  for (let d = step; d <= maxPx; d += step) {
+    if (flMaskAt(data, from.x + dir.x * d, from.y + dir.y * d, W, H) < FL_MASK_TH) return d;
+  }
+  return null;
+}
+
+// ── 肘點翻邊否決（2026-08-13 T14 的修法，當時只進了 前臂/學長姐法_即時.py，這裡補上）──
+//   Pose 會把肘丟到手腕的另一側（手指那側），整段跳位不是抖動，平滑救不了。
+//   腕→肘 與 腕→中指根部(lm9) 同向（cos > 0.2）＝ 肘跑到手那邊了 ⇒ 這幀的肘不可信。
+const FL_VETO_COS = 0.2;
 const flRecent = [];       // 最近 N 幀的點（px），算波動用
 let flScaleMode = "hand";
 let flForearmLenPx = null; // 每幀更新：平滑後的肘-腕像素距離
@@ -242,6 +288,10 @@ function flStart() {
     // 09-23 為了「動的時候跟不上」改成 false，09-24 用戶回報「很容易出現位置波動」→ 改回 true。
     // 延遲與抖動是拉鋸；這次優先壓抖動（用戶要在身上畫點實測，靜止時要穩才量得出誤差）。
     smoothLandmarks: true,
+    // 2026-09-24 用戶：「參考他的做法實時檢測手的邊緣試試看」——
+    // 學長用 SAM2 切手臂輪廓（手機跑不動），這裡改用 Pose 自帶的人體分割遮罩，同一次推論順便輸出。
+    enableSegmentation: true,
+    smoothSegmentation: true,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5,
   });
@@ -343,7 +393,25 @@ function flProcessFrame(ctx, canvas, video) {
   const handZh = flHand === "left" ? "左手" : "右手";
 
   let smoothedElbow = null,
-    smoothedWrist = null;
+    smoothedWrist = null,
+    vetoed = false;
+  if (chosenSide) {
+    const idx = FL_POSE_IDX[chosenSide];
+    const rawElbow = { x: poseLm[idx.elbow].x * W, y: poseLm[idx.elbow].y * H };
+    const rawWrist = { x: poseLm[idx.wrist].x * W, y: poseLm[idx.wrist].y * H };
+    // 肘點翻邊否決（見檔頭 FL_VETO_COS）：要在餵進平滑器**之前**擋，否則錯的肘會被平均進去
+    const hs = (flLastHandResults && flLastHandResults.multiHandLandmarks) || [];
+    if (hs.length) {
+      const h = hs.reduce((b, lm) =>
+        Math.hypot(lm[0].x * W - rawWrist.x, lm[0].y * H - rawWrist.y) <
+        Math.hypot(b[0].x * W - rawWrist.x, b[0].y * H - rawWrist.y) ? lm : b);
+      const hd = { x: (h[9].x - h[0].x) * W, y: (h[9].y - h[0].y) * H };
+      const ew = { x: rawElbow.x - rawWrist.x, y: rawElbow.y - rawWrist.y };
+      const cos = (hd.x * ew.x + hd.y * ew.y) / ((Math.hypot(hd.x, hd.y) * Math.hypot(ew.x, ew.y)) || 1);
+      if (cos > FL_VETO_COS) vetoed = true;
+    }
+  }
+  if (vetoed) chosenSide = null;
   if (chosenSide) {
     const idx = FL_POSE_IDX[chosenSide];
     const rawElbow = { x: poseLm[idx.elbow].x * W, y: poseLm[idx.elbow].y * H };
@@ -428,6 +496,7 @@ function flProcessFrame(ctx, canvas, video) {
   let usingCache = handLm == null;
   let point = null;
   let reason = null;
+  let edgePt = null, edgeInfo = null;
 
   if (chosenSide) {
     const tracker = flUseStable ? flGetTracker(chosenSide) : null;
@@ -447,13 +516,44 @@ function flProcessFrame(ctx, canvas, video) {
             : "尚未累積到足夠的穩定判定";
     } else {
       const dirNow = { x: -axis.y * cached.ulnarSign, y: axis.x * cached.ulnarSign };
-      point = flLocateXiaohai(smoothedElbow, dirNow, flScalePx(cached.cunPx), FL_ULNAR_OFFSET_CUN);
+      const scale = flScalePx(cached.cunPx);
+      if (flOffsetMode === "edge") {
+        const mask = flReadMask(flLastPoseResults && flLastPoseResults.segmentationMask);
+        const d = mask && scale ? flEdgeDistance(mask, smoothedElbow, dirNow, W, H, FL_EDGE_MAX_CUN * scale) : null;
+        if (d != null) {
+          const prevD = flEdgeDistSm[chosenSide];
+          const dSm = prevD != null ? prevD + (d - prevD) * FL_EDGE_EMA : d;
+          flEdgeDistSm[chosenSide] = dSm;
+          edgePt = { x: smoothedElbow.x + dirNow.x * dSm, y: smoothedElbow.y + dirNow.y * dSm };
+          point = { x: smoothedElbow.x + dirNow.x * dSm / 2, y: smoothedElbow.y + dirNow.y * dSm / 2 };
+          edgeInfo = `找到（肘→邊 ${scale ? (dSm / scale).toFixed(2) : "?"} 寸）`;
+        } else {
+          edgeInfo = mask ? "沒找到 → 暫用固定 0.5 寸" : "沒有遮罩 → 暫用固定 0.5 寸";
+          point = flLocateXiaohai(smoothedElbow, dirNow, scale, FL_ULNAR_OFFSET_CUN);
+        }
+      } else {
+        point = flLocateXiaohai(smoothedElbow, dirNow, scale, FL_ULNAR_OFFSET_CUN);
+      }
     }
   } else {
-    reason = poseLm ? `${handZh}肘／腕可見度低於門檻 ${FL_FALLBACK_MIN_VISIBILITY}` : "Pose 未偵測到人";
+    reason = vetoed ? "這幀手肘位置不可信（Pose 把肘認到手那一側）"
+      : poseLm ? `${handZh}肘／腕可見度低於門檻 ${FL_FALLBACK_MIN_VISIBILITY}` : "Pose 未偵測到人";
   }
 
   // ── 4) 畫穴位 / 文字 ─────────────────────────────────────────────────
+  if (point && edgePt) {
+    // 青色：肘點 → 尺側邊緣的橫截線（學長的 elbow_ulnar），小海在它的中點
+    ctx.beginPath();
+    ctx.moveTo(smoothedElbow.x, smoothedElbow.y);
+    ctx.lineTo(edgePt.x, edgePt.y);
+    ctx.strokeStyle = "rgba(0,229,255,0.9)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(edgePt.x, edgePt.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "rgb(0,229,255)";
+    ctx.fill();
+  }
   if (point) {
     const r = Math.max(8, (flScalePx(flLastHandCache[chosenSide].cunPx) || 20) * 0.35);
     ctx.beginPath();
@@ -500,6 +600,8 @@ function flProcessFrame(ctx, canvas, video) {
       : "") +
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
       `限定 <b>${handZh}</b>　　` +
+      `偏移 <b>${flOffsetMode === "edge" ? "輪廓邊緣（學長公式）" : "固定 0.5 寸"}</b>` +
+      (edgeInfo ? `：${edgeInfo}` : "") + `　` +
       (chosenSide && flLastHandCache[chosenSide]
         ? `1寸：同身寸 <b>${flLastHandCache[chosenSide].cunPx.toFixed(1)}</b>px／骨度 <b>${(flForearmLenPx / FL_FOREARM_CUN).toFixed(1)}</b>px` +
           `（用 <b>${flScaleMode === "forearm" ? "骨度" : "同身寸"}</b>）　`

@@ -60,8 +60,11 @@ registerPage('face', {
 
       <div class="face-chips" id="face-chips"></div>
 
-      <div>
-        <div class="viewport"><canvas id="face-canvas" class="cam"></canvas></div>
+      <!-- 讀數條疊進取景框底部（2026-09-24，對齊 App 批 60 與手部頁批 59）：
+           不再佔取景框下方的高度。樣式沿用 css/shell.css 的 .viewport > .readout。
+           誠實聲明是好幾行的長段落，疊進去會蓋掉下巴一帶的穴位，所以仍留在框外。 -->
+      <div class="viewport">
+        <canvas id="face-canvas" class="cam"></canvas>
         <div class="readout gate-warn" id="face-gate" data-i18n="face-hint">請正對鏡頭</div>
       </div>
 

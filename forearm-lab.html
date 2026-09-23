@@ -110,6 +110,10 @@
     <option value="left" selected>限定左手</option>
     <option value="right">限定右手</option>
   </select>
+  <select id="fl-offset" title="小海從肘點往尺側偏多少" onchange="flOffsetMode = this.value">
+    <option value="edge" selected>偏移：即時邊緣（學長公式）</option>
+    <option value="fixed">偏移：固定 0.5 寸</option>
+  </select>
   <select id="fl-scale" title="1 寸用哪一把尺" onchange="flScaleMode = this.value">
     <option value="hand" selected>尺：同身寸（手）</option>
     <option value="forearm">尺：骨度（前臂÷12）</option>

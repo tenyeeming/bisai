@@ -400,8 +400,8 @@ canvas.cam { width: 100%; display: block; aspect-ratio: 4 / 3; }
       —— 全螢幕那套樣式不受影響。
    ⚠️ 用 `>` 直接子選擇器 ＋ 不用 `:is()`：CLAUDE.md 記過 `:is()` 的特異性
       取括號內最強的那一項，混不同深度會蓋不過去且沒有錯誤訊息。
-   ⚠️ 臉部頁（`pages/07-face.js` 的 `#face-gate`）**刻意沒動** ——
-      它的讀數條仍在 `.viewport` 外面，維持原樣。要一起改再說。 */
+   ⚠️ 臉部頁（`pages/07-face.js` 的 `#face-gate`）2026-09-24 也搬進 `.viewport`
+      （用戶：「網頁沒辦法像 app 一樣放到鏡頭畫面」，對齊 App 批 60）。 */
 .viewport { position: relative; }
 
 .viewport > .readout {
