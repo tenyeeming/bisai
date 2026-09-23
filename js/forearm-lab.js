@@ -30,6 +30,21 @@ const FL_POSE_IDX = {
 let flUseStable = true;
 let flSmoothMode = "one_euro";
 
+// ── 左右手限定（demo網站版，2026-09-23 用戶：「加入左右手判定，先限制某一手的判定」）──
+// ⭐ 左右**不看 Hands 的 handedness 標籤**：那個標籤假設輸入是鏡像畫面，
+//    我們餵的是沒翻轉的原始幀，可不可信沒驗過。改成兩步：
+//    ① Pose 只看使用者選的那一側（13/15 或 14/16），不再「挑可見度高的那側」
+//    ② Hands 開到 2 隻手，挑 lm0（腕）離 Pose 那側手腕最近的那隻；
+//       距離超過前臂長 × FL_HAND_MATCH_RATIO 就當作「畫面裡的手不是這隻手臂的」
+// ⚠️ Pose 自己的左右（解剖學左右）在背對鏡頭時可能對調，這裡沒有防。
+let flHand = "left";
+const FL_HAND_MATCH_RATIO = 0.35; // 約前臂長的三分之一 ≈ 8cm，估的、沒量過
+function flSetHand(side) {
+  flHand = side;
+  flResetSmoothers();
+  flResetTracker();
+}
+
 // ── 平滑器（照抄 smoothing_utils.OneEuroFilter）────────────────────────────
 class FLOneEuroFilter {
   constructor({ minCutoff = 1.0, beta = 0.1, dCutoff = 1.0 } = {}) {
@@ -191,7 +206,7 @@ function flStart() {
     locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
   });
   flHandsModel.setOptions({
-    maxNumHands: 1,
+    maxNumHands: 2, // demo網站版：兩隻手都抓，再用 Pose 手腕挑對的那隻（見 flHand）
     modelComplexity: 1,
     minDetectionConfidence: 0.8,
     minTrackingConfidence: 0.8,
@@ -279,9 +294,11 @@ function flProcessFrame(ctx, canvas, video) {
         wr = poseLm[idx.wrist];
       poseVis[side] = Math.min(el.visibility ?? 0, wr.visibility ?? 0);
     }
-    chosenSide = poseVis.left >= poseVis.right ? "left" : "right";
-    if (poseVis[chosenSide] < FL_FALLBACK_MIN_VISIBILITY) chosenSide = null; // 兩側都太低，跟 Python 版一樣不顯示
+    // demo網站版：只看使用者限定的那一側，不再挑可見度高的
+    chosenSide = flHand;
+    if (poseVis[chosenSide] < FL_FALLBACK_MIN_VISIBILITY) chosenSide = null;
   }
+  const handZh = flHand === "left" ? "左手" : "右手";
 
   let smoothedElbow = null,
     smoothedWrist = null;
@@ -307,8 +324,25 @@ function flProcessFrame(ctx, canvas, video) {
   // ── 2) Hand：掌側/背側二分判定 + cun/尺側方向 ───────────────────────────
   let observed = null; // "palmar" / "dorsal" / null（這幀沒偵測到手）
   let handedLabel = null;
-  const handLm = flLastHandResults && flLastHandResults.multiHandLandmarks && flLastHandResults.multiHandLandmarks[0];
-  const handedness = flLastHandResults && flLastHandResults.multiHandedness && flLastHandResults.multiHandedness[0];
+  // 從偵測到的手裡挑「手腕離這隻手臂的 Pose 手腕最近」的那隻（見檔頭 flHand 說明）
+  let handLm = null, handedness = null, handCount = 0, matchDist = null, rejected = false;
+  const allHands = (flLastHandResults && flLastHandResults.multiHandLandmarks) || [];
+  handCount = allHands.length;
+  if (chosenSide && handCount) {
+    const forearmLen = Math.hypot(smoothedElbow.x - smoothedWrist.x, smoothedElbow.y - smoothedWrist.y);
+    let best = -1, bestD = Infinity;
+    allHands.forEach((lm, i) => {
+      const d = Math.hypot(lm[0].x * W - smoothedWrist.x, lm[0].y * H - smoothedWrist.y);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    matchDist = forearmLen > 1 ? bestD / forearmLen : null;
+    if (matchDist != null && matchDist <= FL_HAND_MATCH_RATIO) {
+      handLm = allHands[best];
+      handedness = flLastHandResults.multiHandedness && flLastHandResults.multiHandedness[best];
+    } else {
+      rejected = true;
+    }
+  }
 
   if (handLm && chosenSide) {
     const pts = handLm.map((p) => ({ x: p.x * W, y: p.y * H }));
@@ -346,7 +380,9 @@ function flProcessFrame(ctx, canvas, video) {
         stable === "dorsal"
           ? "目前背側朝鏡頭"
           : handLm == null
-            ? flUseStable
+            ? rejected
+              ? `畫面裡的手不是${handZh}（離${handZh}腕太遠）`
+              : flUseStable
               ? "Hand 未偵測到，且已超過跨幀寬限期"
               : "Hand 未偵測到"
             : "尚未累積到足夠的穩定判定";
@@ -354,7 +390,7 @@ function flProcessFrame(ctx, canvas, video) {
       point = flLocateXiaohai(smoothedElbow, cached.ulnarDir, cached.cunPx, FL_ULNAR_OFFSET_CUN);
     }
   } else {
-    reason = poseLm ? "雙側手肘可見度都低於門檻 0.5" : "Pose 未偵測到人";
+    reason = poseLm ? `${handZh}肘／腕可見度低於門檻 ${FL_FALLBACK_MIN_VISIBILITY}` : "Pose 未偵測到人";
   }
 
   // ── 4) 畫穴位 / 文字 ─────────────────────────────────────────────────
@@ -383,8 +419,11 @@ function flProcessFrame(ctx, canvas, video) {
   // ── 5) 診斷面板 ──────────────────────────────────────────────────────
   flMetrics(
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
-      `選邊 <b>${chosenSide ?? "--"}</b>　　` +
-      `Hand ${handLm ? "<b class='lv-ok'>偵測到</b>（" + (handedLabel ?? "?") + "）" : "<span class='lv-bad'>沒偵測到</span>"}　` +
+      `限定 <b>${handZh}</b>　　` +
+      `畫面中的手 <b>${handCount}</b> 隻　` +
+      `Hand ${handLm ? "<b class='lv-ok'>配對到" + handZh + "</b>（MediaPipe 標籤 " + (handedLabel ?? "?") + "）"
+                     : rejected ? "<span class='lv-bad'>不是" + handZh + "</span>" : "<span class='lv-bad'>沒偵測到</span>"}` +
+      `${matchDist != null ? "　腕距 <b>" + matchDist.toFixed(2) + "</b>×前臂（門檻 " + FL_HAND_MATCH_RATIO + "）" : ""}　` +
       `這幀判定 <b>${observed ?? "--"}</b>　穩定判定 <b>${stable ?? "--"}</b>　` +
       `平滑 <b>${flSmoothMode}</b>　跨幀穩定化 <b>${flUseStable ? "開" : "關"}</b>`,
   );

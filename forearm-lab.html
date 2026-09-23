@@ -106,6 +106,10 @@
   <a class="btn ghost" href="acunavi-ideal.html"
      onclick="if (document.referrer.startsWith(location.origin)) { history.back(); return false; }">← 返回</a>
   <h1>🦴 小海穴 SI8（實驗版）</h1>
+  <select id="fl-hand" title="只判定哪一隻手" onchange="flSetHand(this.value)">
+    <option value="left" selected>限定左手</option>
+    <option value="right">限定右手</option>
+  </select>
   <select id="fl-facing" title="用哪一顆鏡頭" onchange="flSwitchFacing(this.value)">
     <option value="environment" selected>後鏡頭</option>
     <option value="user">前鏡頭</option>
@@ -134,7 +138,8 @@
       <h3>這頁在測什麼</h3>
       <p class="note-block">
         今天 Python 端已經測過的<b>小海穴 Pose 錨定</b>邏輯，原封不動搬進瀏覽器：<br />
-        1️⃣ Pose 抓左右手肘/手腕，挑可見度較高那一側（門檻 0.5，兩側都太低就不顯示）<br />
+        1️⃣ Pose 只看<b>上方選的那隻手</b>的肘/腕（門檻 0.5，太低就不顯示）；
+        Hands 抓最多 2 隻手，只採用手腕離那隻手臂腕點最近的那隻——另一隻手入鏡也不會被拿來算<br />
         2️⃣ Hand 抓 21 點，用<b>掌側/背側二分判定</b>（<code>isDorsalView</code>，跟網頁版原本
         26 個手部穴道共用同一支函式，直接重用沒改）決定顯不顯示——背側朝鏡頭時不顯示，
         這是遷就 Hand 偵測限制換來的近似判定，<b>不是真的在確認尺側朝鏡頭</b><br />
