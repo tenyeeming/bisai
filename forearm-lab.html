@@ -129,6 +129,8 @@
     <option value="none">不平滑</option>
     <option value="one_euro" selected>One Euro Filter</option>
   </select>
+  <button class="btn primary" onclick="flRememberPose()" title="擺好標準姿勢再按；之後姿勢差太多就不出點">📌 記住姿勢</button>
+  <button class="btn ghost" onclick="flClearPose()" title="清掉這隻手記住的姿勢">清除姿勢</button>
   <button class="btn primary" onclick="flSaveShot()" title="存下目前畫面＋演算法的點，之後跟你畫的點比對">📸 存圖</button>
   <span class="spacer"></span>
   <button class="btn ghost" onclick="flResetTracker()">⟲ 重設穩定化狀態</button>
@@ -151,7 +153,9 @@
         2️⃣ 看手：只採用接在這隻手臂上的手，<b>手背朝鏡頭</b>才顯示（小海在肘後內側），並看出小指在哪一邊<br />
         3️⃣ 找邊緣：Pose 順便描出人體輪廓，從手肘往小指那側走到皮膚邊緣（青色點）<br />
         4️⃣ 定點：小海＝手肘與邊緣的正中間（學長的公式），藍圈<br />
-        5️⃣ 防抖：點平滑移動，小指那側要明確才換邊
+        5️⃣ 防抖：點平滑移動，小指那側要明確才換邊<br />
+        6️⃣ 姿勢：先擺好標準姿勢按「📌 記住姿勢」，之後上臂／前臂方向差超過 20°、
+        或前臂變短到 85% 以下（朝鏡頭傾斜或手肘點滑掉）就不出點
       </p>
     </div>
     <div class="card">

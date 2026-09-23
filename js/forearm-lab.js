@@ -97,6 +97,33 @@ function flEdgeDistance(data, from, dir, W, H, maxPx) {
 //   腕→肘 與 腕→中指根部(lm9) 同向（cos > 0.2）＝ 肘跑到手那邊了 ⇒ 這幀的肘不可信。
 const FL_VETO_COS = 0.2;
 
+// ── 前臂變短閘門（2026-09-24 用戶：「從平放手到舉手，pose 的那條綫一直在變短，導致我的點位也變化」）──
+//   變短有兩種成因、單鏡頭分不出來：① 前臂真的朝鏡頭傾斜（透視前縮） ② Pose 肘點往腕端滑（08-13 T14 見過）。
+//   兩種情況下的小海都不可信 → 不補償、直接擋（同專案「不確定就誠實提示」的做法）。
+//   指標：前臂像素長 ÷ 手部同身寸 —— 兩者隨拍攝距離一起縮放，比值與距離無關。
+//   基準：這隻手目前為止見過的**最大**比值（前縮只會讓它變小；翻邊的假長度已被 FL_VETO_COS 擋在前面）。
+//   掉到基準的 FL_FORESHORT_TH 以下就不顯示。0.85 ≈ cos 32°，估的、沒量過。
+const FL_FORESHORT_TH = 0.85;
+const FL_RATIO_EMA = 0.3;
+let flRatioMax = {}, flRatioSm = {};
+
+// ── 姿勢範本（2026-09-24 用戶：「可以通過動作的向量嗎，就是要求他擺這個姿勢」）──────
+//   用戶擺好標準姿勢按「記住姿勢」→ 記下三個量：上臂方向（肩→肘）、前臂方向（肘→腕）、前臂長÷同身寸。
+//   之後每幀比對，任一項超出容許就不出點、並說出要怎麼調。有範本時長度基準改用範本的，不再用「見過的最大值」。
+//   容許值都是估的（沒量過）：方向 ±20°，長度 ≥ 範本 × FL_FORESHORT_TH。
+const FL_POSE_TOL_DEG = 20;
+let flPoseRef = {};   // side -> { upper: 角度°, fore: 角度°, ratio }
+let flPoseNow = {};   // side -> 目前這幀的同三個量（按「記住」時拿它）
+function flAngleDeg(v) { return Math.atan2(v.y, v.x) * 180 / Math.PI; }
+function flAngleDiff(a, b) { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+function flRememberPose() {
+  const now = flPoseNow[flHand];
+  if (!now) { flStatus("還抓不到完整的手臂和手，先擺好再按", "warn"); return; }
+  flPoseRef[flHand] = { ...now };
+  flRatioMax[flHand] = now.ratio;
+}
+function flClearPose() { delete flPoseRef[flHand]; flRatioMax = {}; flRatioSm = {}; }
+
 // Hands 隔幀（見 flStartCamera 的 onFrame）與幀率讀數
 let flFrameNo = 0, flHandFresh = true, flFps = null, flLastFrameT = null;
 const flRecent = [];       // 最近 N 幀的點（px），算波動用
@@ -109,6 +136,7 @@ function flScalePx(handCunPx) {
 
 function flSetHand(side) {
   flHand = side;
+  flRatioMax = {}; flRatioSm = {};   // 姿勢範本（flPoseRef）按手分開存，換手不清
   flResetSmoothers();
   flResetTracker();
 }
@@ -513,19 +541,51 @@ function flProcessFrame(ctx, canvas, video) {
   let point = null;
   let reason = null;
   let edgePt = null, edgeInfo = null;
+  let postureFail = null, lenPct = null, poseDiff = null;
 
   if (chosenSide) {
     const tracker = flUseStable ? flGetTracker(chosenSide) : null;
     stable = flUseStable ? tracker.update(observed) : observed;
     const cached = flLastHandCache[chosenSide];
 
+    // ── 姿勢／前臂長度閘門（見檔頭 FL_POSE_TOL_DEG、FL_FORESHORT_TH）──
+    postureFail = null;
+    if (cached && cached.cunPx) {
+      const idx = FL_POSE_IDX[chosenSide];
+      const sh = flGetSmoother(`shoulder_${chosenSide}`).filter(
+        { x: poseLm[idx.shoulder].x * W, y: poseLm[idx.shoulder].y * H }, now);
+      const ratioRaw = flForearmLenPx / cached.cunPx;
+      const rs = flRatioSm[chosenSide];
+      flRatioSm[chosenSide] = rs != null ? rs + (ratioRaw - rs) * FL_RATIO_EMA : ratioRaw;
+      const cur = {
+        upper: flAngleDeg({ x: smoothedElbow.x - sh.x, y: smoothedElbow.y - sh.y }),
+        fore: flAngleDeg({ x: smoothedWrist.x - smoothedElbow.x, y: smoothedWrist.y - smoothedElbow.y }),
+        ratio: flRatioSm[chosenSide],
+      };
+      flPoseNow[chosenSide] = cur;
+      const ref = flPoseRef[chosenSide];
+      if (!ref) flRatioMax[chosenSide] = Math.max(flRatioMax[chosenSide] || 0, cur.ratio);
+      const base = ref ? ref.ratio : flRatioMax[chosenSide];
+      lenPct = base ? cur.ratio / base : null;
+      if (ref) {
+        const dU = flAngleDiff(cur.upper, ref.upper), dF = flAngleDiff(cur.fore, ref.fore);
+        poseDiff = { dU, dF };
+        if (Math.abs(dU) > FL_POSE_TOL_DEG) postureFail = `上臂方向跟記住的姿勢差 ${Math.abs(dU).toFixed(0)}°，請擺回去`;
+        else if (Math.abs(dF) > FL_POSE_TOL_DEG) postureFail = `前臂方向跟記住的姿勢差 ${Math.abs(dF).toFixed(0)}°，請擺回去`;
+      }
+      if (!postureFail && lenPct != null && lenPct < FL_FORESHORT_TH)
+        postureFail = `前臂變短（只剩 ${(lenPct * 100).toFixed(0)}%），前臂可能朝鏡頭傾斜，請放平`;
+    }
+
     // 2026-09-24 改：掌心 → **手背**朝鏡頭才顯示（用戶：「試試看好了」）。
     //   小海在肘後內側（鷹嘴與內上髁之間），從背面才看得到；學長的「肘點與尺側邊緣中點」
     //   也是在手背面／尺側才用。09-22 選掌心是因為側面時 Hands 幾乎抓不到手，
     //   但手背朝鏡頭 Hands 抓得到（外關就是這樣做的），所以不必再遷就。
-    if (stable !== "dorsal" || cached == null) {
+    if (stable !== "dorsal" || cached == null || postureFail) {
       reason =
-        stable === "palmar"
+        stable === "dorsal" && cached && postureFail
+          ? postureFail
+          : stable === "palmar"
           ? "目前掌心朝鏡頭（小海在手肘背面，請把手背轉向鏡頭）"
           : handLm == null
             ? rejected
@@ -620,6 +680,10 @@ function flProcessFrame(ctx, canvas, video) {
       : "") +
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
       (flFps ? `每秒 <b>${flFps.toFixed(1)}</b> 幀　` : "") +
+      `姿勢範本 <b>${flPoseRef[flHand] ? "已記住" : "未記住（只檢查前臂長度）"}</b>` +
+      (lenPct != null ? `　前臂長度 <b class='${lenPct >= FL_FORESHORT_TH ? "lv-ok" : "lv-bad"}'>${(lenPct * 100).toFixed(0)}%</b>` : "") +
+      (poseDiff ? `　上臂差 <b>${poseDiff.dU.toFixed(0)}°</b>　前臂差 <b>${poseDiff.dF.toFixed(0)}°</b>（容許 ±${FL_POSE_TOL_DEG}°）` : "") +
+      `　　` +
       `限定 <b>${handZh}</b>　　` +
       `偏移 <b>${flOffsetMode === "edge" ? "輪廓邊緣（學長公式）" : "固定 0.5 寸"}</b>` +
       (edgeInfo ? `：${edgeInfo}` : "") + `　` +
