@@ -392,11 +392,24 @@ function onHandsResults(results) {
   const needDorsal = acu && acu.side === 'dorsal';
   const bilateral = BILATERAL_ACUPOINTS.has(name);
 
+  // ── 這一輪「必須」是哪隻手（2026-09-24 對齊 App 的 requireHand）──
+  //    用戶：「左右手判斷太糟糕了，參考 app 的做法」。原本只看正反面＋信心挑目標手，
+  //    完全不管這一輪是左手還是右手 —— 兩隻手都在畫面上時，常挑到負責按的那隻。
+  //    App（MassageScreen.kt requiredHandLabels ＋ AcuCameraView.kt requireHand）是：
+  //    只認這一輪那隻手的標籤，找不到就**不畫**並提示，不遞補。
+  //    ⚠️ 網頁是 Solutions API ＋ 未鏡像畫面：標籤 'Left' ＝ 真實右手
+  //       （同 App AcuBridge.kt 的註解；isDorsalView 也是照這個約定寫的）。
+  //    只在按摩頁、而且有分左右兩輪時才限定；定位頁與臉部單輪照舊。
+  const requireLabel = (renderMode === 'massage' && typeof hasRounds === 'function' && hasRounds()
+                        && typeof curHandKey === 'function')
+    ? (curHandKey() === 'hand-right' ? 'Left' : 'Right') : null;
+
   // ── 挑「目標手」：正反面通過優先，其次信心最高 ──
   let best = null;
   for (let i = 0; i < allHands.length; i++) {
     const lm = allHands[i], handedness = allSides[i];
     if (!lm || lm.length < 21 || !handedness) continue;
+    if (requireLabel && handedness.label !== requireLabel) continue;   // 不是這一輪的手
     const dorsal = isDorsalView(lm, handedness);
     const sideOk = bilateral || (needDorsal === dorsal);
     // computeAcuGate 內部就會呼叫 computeAcuConfidence，拿 gate 順便就有 info，不必算兩次
@@ -405,6 +418,16 @@ function onHandsResults(results) {
     const conf = info ? info.conf : 0;
     const score = (sideOk ? 10 : 0) + conf;
     if (!best || score > best.score) best = { i, lm, handedness, dorsal, sideOk, info, gate, conf, score };
+  }
+  if (!best && requireLabel) {
+    // 同 App 的 massage_wrong_hand：舉錯手還照畫，等於指著一個現在不該按的位置
+    acuPointSmoother.reset();
+    const hand = t(curHandKey());
+    setGate('bad', isZh()
+      ? `這一輪要按${hand} — 現在鏡頭裡的不是那一隻，位置先不顯示`
+      : `This round is the ${hand}. That is not the hand in view, so the position is hidden.`);
+    onTarget = false;
+    return;
   }
   if (!best) {
     setGate('warn', isZh() ? '手部偵測不穩' : 'Unstable detection');

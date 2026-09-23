@@ -41,7 +41,8 @@ const w = dom.window, d = w.document;
 
 // 圓盤中心那顆「位置白點」的半徑，跟 acu-math.js 的 drawConfidenceDisc 對齊。
 // 用它把位置白點從一堆 arc 呼叫（外圈輝光、描邊…）裡挑出來。
-const CENTER_DOT_R = 2.4;
+// 2026-09-24 改成 App 同款綠點，要跟 acu-math.js 的 ACU_DOT_R 同步（原本是 2.4）。
+const CENTER_DOT_R = 5;
 
 // ── 假的 2D context：把所有呼叫錄下來，並自己維護一個水平翻轉旗標 ──
 function makeRecorder() {
@@ -147,6 +148,27 @@ setTimeout(() => {
   ok(w.eval(`JSON.stringify(state.selectedAcupoints)`) === JSON.stringify([rec.acupoint]), '狀態沒被弄亂');
   const lmNow = JSON.stringify(results.multiHandLandmarks[0]);
   ok(lmNow === JSON.stringify(rec.landmarks), '原始 landmark 沒有被就地改動（定位公式吃的還是原值）');
+
+  // ── 按摩頁左右手限定（2026-09-24 對齊 App requireHand）──
+  //    先右後左、第 1 輪 ⇒ 只認標籤 'Left'（Solutions API＋未鏡像畫面：'Left' ＝ 真實右手）
+  const mCanvas = d.getElementById('massage-canvas');
+  if (mCanvas) mCanvas.getContext = () => ctx;
+  w.eval(`
+    flow.handOrder = 'right'; massageRound = 1;
+    activeCanvas = document.getElementById('massage-canvas') || activeCanvas;
+    renderMode = 'massage';
+  `);
+  const gateText = () => (d.getElementById('massage-gate') || {}).textContent || '';
+  ctx.calls.length = 0;
+  w.onHandsResults({ image: null, multiHandLandmarks: [rec.landmarks],
+                     multiHandedness: [{ label: 'Right', score: 0.98, index: 0 }] });
+  ok(gateText().includes('這一輪要按右手'), `舉錯手 → 提示這一輪要按右手（${gateText()}）`);
+  ok(!ctx.calls.some(c => c[0] === 'arc' && Math.abs(c[3] - CENTER_DOT_R) < 1e-9), '舉錯手 → 不畫穴位點');
+  ctx.calls.length = 0;
+  w.onHandsResults({ image: null, multiHandLandmarks: [rec.landmarks],
+                     multiHandedness: [{ label: 'Left', score: 0.98, index: 0 }] });
+  ok(!gateText().includes('這一輪要按'), `對的手 → 不再提示舉錯手（${gateText()}）`);
+  w.eval(`renderMode = 'locate'`);
 
   console.log(fail ? `\n=== ${fail} 項失敗 ===` : '\n=== 全過 ===');
   process.exit(fail ? 1 : 0);

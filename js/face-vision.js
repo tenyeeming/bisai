@@ -245,7 +245,8 @@ function onFaceResults(results) {
       allPts.push(p);
       if (faceShowDisc) drawFaceDisc(ctx, mx(p.x), p.y, r, pose);
       // 穴名不能被鏡射成反字，所以只把 x 翻過去畫，不用 canvas transform
-      drawAcupoint(ctx, mx(p.x), p.y, faceLabel(code), '#00e5a0', Math.max(4, r * 0.42));
+      // 2026-09-24：點改固定大小（原本 r×0.42 再加 2.2 倍光暈，幾乎跟圓盤一樣大）
+      drawAcupoint(ctx, mx(p.x), p.y, faceLabel(code), '#4FBF8B', ACU_DOT_R);
     });
   });
 

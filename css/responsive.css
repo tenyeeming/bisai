@@ -189,7 +189,9 @@ body .device { max-width: 1120px; min-height: 100svh; border: 0; }
 #page-massage .timer-display { display: table; margin: 12px auto; padding: 10px 16px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font-size: 3rem; }
 #page-massage .timer-display.paused { color: #594100; background: #ffe69b; }
 #page-massage .roundbar { flex-wrap: wrap; }
-#page-massage .meter { align-self: start; }
+/* 2026-09-24 拿掉 `.meter { align-self: start }`：平板直式時 .stack 是直式 flex，
+   align-self:start 讓計時面板縮成內容寬、只佔左半邊（用戶：「時間那裏爲什麽要只佔一半」）。
+   橫式雙欄 grid 那邊 .stack 本來就有 align-items:start，不需要它。 */
 #page-massage .timer-state { min-height: 1.5em; margin-bottom: 8px; font-size: .875rem; color: var(--ink-soft); }
 #page-massage .fs-bottom .timer-display { flex: none; margin: 0; color: #1c2522; background: #fff; text-shadow: none; }
 #page-massage .fs-bottom .timer-display.paused { background: #ffe69b; color: #594100; }

@@ -1182,12 +1182,9 @@ function acupointRadius(cunPx) {
  */
 function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
   if (!info || !info.basis) {
-    // 沒有法向資訊時退回小白點 —— 位置還是要看得到（3d 版同樣的處理）
+    // 沒有法向資訊時退回只畫位置點 —— 位置還是要看得到（3d 版同樣的處理）
     ctx.save();
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(cx, cy, 2.4, 0, Math.PI * 2);
-    ctx.fill();
+    drawAcuCenterDot(ctx, cx, cy);
     ctx.restore();
     return;
   }
@@ -1211,13 +1208,12 @@ function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
 
-  ctx.fillStyle = `rgba(${rgb}, ${degraded ? 0.45 : 0.85})`;
+  // 2026-09-24 改成 App 的樣子（用戶：「點位顯示幹嘛要點那麽大，縮小點像 app 一樣」）：
+  //   原本 85% 實心色塊＋7px 外圈輝光，整塊蓋住皮膚；App 是 2px 細線圈＋小實心點。
+  //   現在只留極淡的底色（形狀扁不扁仍看得出來）與細線，顏色語意（信心三色）不變。
+  //   ⚠️ 只改 demo網站的繪製；网页版_2d 的 acu-math.js 沒跟（那邊是研究工具）。
+  ctx.fillStyle = `rgba(${rgb}, ${degraded ? 0.08 : 0.14})`;
   ctx.fill();
-
-  // 外圈輝光（shadowBlur 的便宜替代）：同色、半透明、粗一倍，先描再描細的實線。
-  ctx.strokeStyle = `rgba(${rgb}, 0.35)`;
-  ctx.lineWidth = 7;
-  ctx.stroke();
 
   ctx.strokeStyle = `rgba(${rgb}, ${degraded ? 0.9 : 1})`;
   ctx.lineWidth = 2.4;
@@ -1229,15 +1225,24 @@ function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
   //    外面再套一圈深色描邊，免得圓盤是亮綠色時白點糊進去。
   //    ⚠️ `centerAt` 是給 tip 類用的：圓盤被沿骨軸外推了幾 mm，但白點是「位置」，
   //       必須留在原本的穴道座標上，不能跟著外框跑。沒給就用圓盤中心。
+  //    2026-09-24：圓盤改成近乎透明之後，2.4px 白點在皮膚上看不清 ——
+  //    改成 App 的綠色實心點（AcuCameraView 的 #4FBF8B）＋白描邊。
   const c = opts.centerAt || { x: cx, y: cy };
-  ctx.beginPath();
-  ctx.arc(c.x, c.y, 2.4, 0, Math.PI * 2);
-  ctx.fillStyle = "#fff";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+  drawAcuCenterDot(ctx, c.x, c.y);
   ctx.restore();
+}
+
+// 穴道位置點（App 同款：#4FBF8B 實心＋白描邊，固定大小不跟圓盤縮放）。
+// 半徑是影像座標 px：640 寬的畫面在手機上約縮成 0.56 倍，5px ≈ 螢幕上 3 點多。
+const ACU_DOT_R = 5;
+function drawAcuCenterDot(ctx, x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, ACU_DOT_R, 0, Math.PI * 2);
+  ctx.fillStyle = "#4FBF8B";
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 }
 
 /**
@@ -1273,13 +1278,7 @@ function drawAcuLabel(ctx, x, y, text, discR) {
 function drawAcupoint(ctx, x, y, label, color, radius) {
   radius = radius || 6;
   ctx.save();
-  // 外圈光暈（取代 shadowBlur）
-  ctx.globalAlpha = 0.22;
-  ctx.beginPath();
-  ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  // 2026-09-24 拿掉外圈光暈（半徑 ×2.2，臉部上幾乎跟圓盤一樣大）—— App 的點沒有光暈。
   // 實心點
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);

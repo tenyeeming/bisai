@@ -503,10 +503,14 @@ function flProcessFrame(ctx, canvas, video) {
     stable = flUseStable ? tracker.update(observed) : observed;
     const cached = flLastHandCache[chosenSide];
 
-    if (stable !== "palmar" || cached == null) {
+    // 2026-09-24 改：掌心 → **手背**朝鏡頭才顯示（用戶：「試試看好了」）。
+    //   小海在肘後內側（鷹嘴與內上髁之間），從背面才看得到；學長的「肘點與尺側邊緣中點」
+    //   也是在手背面／尺側才用。09-22 選掌心是因為側面時 Hands 幾乎抓不到手，
+    //   但手背朝鏡頭 Hands 抓得到（外關就是這樣做的），所以不必再遷就。
+    if (stable !== "dorsal" || cached == null) {
       reason =
-        stable === "dorsal"
-          ? "目前背側朝鏡頭"
+        stable === "palmar"
+          ? "目前掌心朝鏡頭（小海在手肘背面，請把手背轉向鏡頭）"
           : handLm == null
             ? rejected
               ? `畫面裡的手不是${handZh}（離${handZh}腕太遠）`
@@ -568,7 +572,7 @@ function flProcessFrame(ctx, canvas, video) {
     ctx.font = "bold 16px sans-serif";
     ctx.fillStyle = "#fff";
     ctx.fillText("小海穴 SI8（實驗版" + (usingCache && handLm == null ? "，沿用快取" : "") + "）", 14, 24);
-    flStatus("顯示中（掌側/背側二分判定，非真正尺側判定）", "ok");
+    flStatus("顯示中（手背朝鏡頭）", "ok");
   } else {
     ctx.font = "16px sans-serif";
     ctx.fillStyle = "#ffaa3c";
