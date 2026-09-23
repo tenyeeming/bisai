@@ -110,6 +110,10 @@
     <option value="left" selected>限定左手</option>
     <option value="right">限定右手</option>
   </select>
+  <select id="fl-scale" title="1 寸用哪一把尺" onchange="flScaleMode = this.value">
+    <option value="hand" selected>尺：同身寸（手）</option>
+    <option value="forearm">尺：骨度（前臂÷12）</option>
+  </select>
   <select id="fl-facing" title="用哪一顆鏡頭" onchange="flSwitchFacing(this.value)">
     <option value="environment" selected>後鏡頭</option>
     <option value="user">前鏡頭</option>

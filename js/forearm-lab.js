@@ -39,6 +39,21 @@ let flSmoothMode = "one_euro";
 // ⚠️ Pose 自己的左右（解剖學左右）在背對鏡頭時可能對調，這裡沒有防。
 let flHand = "left";
 const FL_HAND_MATCH_RATIO = 0.35; // 約前臂長的三分之一 ≈ 8cm，估的、沒量過
+// ── 比例尺切換（2026-09-23 用戶：「會隨著移動不再精準」）──────────────────
+// hand    ＝ 原本的同身寸（computeCunPx，從手部算）：手指一彎、手掌一轉就跟著變，
+//            而小海在手肘，手的姿勢其實跟它無關
+// forearm ＝ 骨度分寸：肘橫紋→腕橫紋 12 寸，用 Pose 肘-腕距離 ÷ 12。
+//            不受手指姿勢影響，但前臂朝向鏡頭（透視縮短）時會變短。
+// ⚠️ 哪一把比較準**沒有標注可驗**，所以做成切換讓用戶實機比，預設仍是原本的 hand。
+//    （09-22 記錄：骨度與同身寸在測試照片上差 24%，量級不小）
+const FL_FOREARM_CUN = 12;
+let flScaleMode = "hand";
+let flForearmLenPx = null; // 每幀更新：平滑後的肘-腕像素距離
+function flScalePx(handCunPx) {
+  if (flScaleMode === "forearm" && flForearmLenPx) return flForearmLenPx / FL_FOREARM_CUN;
+  return handCunPx;
+}
+
 function flSetHand(side) {
   flHand = side;
   flResetSmoothers();
@@ -220,7 +235,10 @@ function flStart() {
   });
   flPoseModel.setOptions({
     modelComplexity: 1,
-    smoothLandmarks: true,
+    // demo網站版改 false（2026-09-23 用戶：「會隨著移動不再精準」，動的時候點跟不上）：
+    // 原本 Pose 內建平滑 ＋ 我們的 One Euro 疊兩層，兩層都有延遲。留一層就好 —— 留 One Euro，
+    // 因為它有「動得快就少平滑」的機制、而且可從頁首關掉比較。
+    smoothLandmarks: false,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5,
   });
@@ -309,6 +327,7 @@ function flProcessFrame(ctx, canvas, video) {
     smoothedElbow = flGetSmoother(`elbow_${chosenSide}`).filter(rawElbow, now);
     smoothedWrist = flGetSmoother(`wrist_${chosenSide}`).filter(rawWrist, now);
     axis = flUnit({ x: smoothedElbow.x - smoothedWrist.x, y: smoothedElbow.y - smoothedWrist.y });
+    flForearmLenPx = Math.hypot(smoothedElbow.x - smoothedWrist.x, smoothedElbow.y - smoothedWrist.y);
 
     // 灰色肘-腕參考線：不管穴位顯不顯示都畫，方便分辨「Pose有沒有抓到」跟「穴位有沒有顯示」
     ctx.beginPath();
@@ -352,8 +371,13 @@ function flProcessFrame(ctx, canvas, video) {
     handedLabel = handedness ? handedness.label : null;
 
     if (axis) {
+      // 🐞 2026-09-23 修：以前快取的是**絕對方向向量** ulnarDir。Hand 漏抓的那幾幀（動起來常因模糊漏抓）
+      //    沿用它時，手臂已經轉了、向量還指著舊方向 ⇒ 點往錯的方向偏。
+      //    改成只記「小指在軸的哪一側」（±1），方向每幀用**當下**的軸重算。
+      const n1 = { x: -axis.y, y: axis.x };
       const ulnarDir = flUlnarDirection(axis, pts[0], pts[17]);
-      flLastHandCache[chosenSide] = { cunPx, ulnarDir, dorsal, handedLabel };
+      const ulnarSign = ulnarDir.x * n1.x + ulnarDir.y * n1.y >= 0 ? 1 : -1;
+      flLastHandCache[chosenSide] = { cunPx, ulnarSign, dorsal, handedLabel };
     }
 
     for (const p of pts) {
@@ -387,7 +411,8 @@ function flProcessFrame(ctx, canvas, video) {
               : "Hand 未偵測到"
             : "尚未累積到足夠的穩定判定";
     } else {
-      point = flLocateXiaohai(smoothedElbow, cached.ulnarDir, cached.cunPx, FL_ULNAR_OFFSET_CUN);
+      const dirNow = { x: -axis.y * cached.ulnarSign, y: axis.x * cached.ulnarSign };
+      point = flLocateXiaohai(smoothedElbow, dirNow, flScalePx(cached.cunPx), FL_ULNAR_OFFSET_CUN);
     }
   } else {
     reason = poseLm ? `${handZh}肘／腕可見度低於門檻 ${FL_FALLBACK_MIN_VISIBILITY}` : "Pose 未偵測到人";
@@ -395,7 +420,7 @@ function flProcessFrame(ctx, canvas, video) {
 
   // ── 4) 畫穴位 / 文字 ─────────────────────────────────────────────────
   if (point) {
-    const r = Math.max(8, (flLastHandCache[chosenSide].cunPx || 20) * 0.35);
+    const r = Math.max(8, (flScalePx(flLastHandCache[chosenSide].cunPx) || 20) * 0.35);
     ctx.beginPath();
     ctx.arc(point.x, point.y, r, 0, Math.PI * 2);
     ctx.strokeStyle = "rgb(100,100,255)";
@@ -420,6 +445,10 @@ function flProcessFrame(ctx, canvas, video) {
   flMetrics(
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
       `限定 <b>${handZh}</b>　　` +
+      (chosenSide && flLastHandCache[chosenSide]
+        ? `1寸：同身寸 <b>${flLastHandCache[chosenSide].cunPx.toFixed(1)}</b>px／骨度 <b>${(flForearmLenPx / FL_FOREARM_CUN).toFixed(1)}</b>px` +
+          `（用 <b>${flScaleMode === "forearm" ? "骨度" : "同身寸"}</b>）　`
+        : "") +
       `畫面中的手 <b>${handCount}</b> 隻　` +
       `Hand ${handLm ? "<b class='lv-ok'>配對到" + handZh + "</b>（MediaPipe 標籤 " + (handedLabel ?? "?") + "）"
                      : rejected ? "<span class='lv-bad'>不是" + handZh + "</span>" : "<span class='lv-bad'>沒偵測到</span>"}` +
