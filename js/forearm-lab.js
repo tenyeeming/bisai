@@ -96,6 +96,9 @@ function flEdgeDistance(data, from, dir, W, H, maxPx) {
 //   Pose 會把肘丟到手腕的另一側（手指那側），整段跳位不是抖動，平滑救不了。
 //   腕→肘 與 腕→中指根部(lm9) 同向（cos > 0.2）＝ 肘跑到手那邊了 ⇒ 這幀的肘不可信。
 const FL_VETO_COS = 0.2;
+
+// Hands 隔幀（見 flStartCamera 的 onFrame）與幀率讀數
+let flFrameNo = 0, flHandFresh = true, flFps = null, flLastFrameT = null;
 const flRecent = [];       // 最近 N 幀的點（px），算波動用
 let flScaleMode = "hand";
 let flForearmLenPx = null; // 每幀更新：平滑後的肘-腕像素距離
@@ -160,7 +163,9 @@ class FLNoSmoothing {
   }
 }
 function flMakeSmoother(mode) {
-  return mode === "one_euro" ? new FLOneEuroFilter({ minCutoff: 1.0, beta: 0.1 }) : new FLNoSmoothing();
+  // minCutoff 1.0 → 0.5（2026-09-24，配合 Pose 內建平滑關掉）：靜止時多壓一點抖；
+  // 移動時 cutoff = 0.5 + 0.1 × 速度(px/s)，300px/s 就 30Hz，幾乎不拖。0.5 是估的、沒量過。
+  return mode === "one_euro" ? new FLOneEuroFilter({ minCutoff: 0.5, beta: 0.1 }) : new FLNoSmoothing();
 }
 
 // ── 跨幀穩定化（照抄 smoothing_utils.StableLabelTracker）──────────────────
@@ -285,9 +290,12 @@ function flStart() {
   });
   flPoseModel.setOptions({
     modelComplexity: 1,
-    // 09-23 為了「動的時候跟不上」改成 false，09-24 用戶回報「很容易出現位置波動」→ 改回 true。
-    // 延遲與抖動是拉鋸；這次優先壓抖動（用戶要在身上畫點實測，靜止時要穩才量得出誤差）。
-    smoothLandmarks: true,
+    // 沿革：09-23 為「動的時候跟不上」改 false → 09-24 早「很容易出現位置波動」改回 true
+    //       → 09-24 晚「我移動會偏移」再改 false。
+    // 這次改 false 的理由跟 09-23 不同：當時的波動主因是**尺側翻邊**與**同身寸沒平滑**，
+    // 那兩個已另外修掉（FL_SIGN_HYST、FL_CUN_EMA）；Pose 內建平滑只剩「移動時拖尾」這個副作用。
+    // 靜止時的穩定交給 One Euro（minCutoff 調低到 0.5：靜止多平滑，動起來 beta 讓它自動放開）。
+    smoothLandmarks: false,
     // 2026-09-24 用戶：「參考他的做法實時檢測手的邊緣試試看」——
     // 學長用 SAM2 切手臂輪廓（手機跑不動），這裡改用 Pose 自帶的人體分割遮罩，同一次推論順便輸出。
     enableSegmentation: true,
@@ -333,8 +341,16 @@ function flStartCamera(video, ctx, canvas) {
       // 兩個模型都跑同一幀畫面。send() 的 promise 在 onResults callback 跑完才 resolve
       // （Solutions API 的行為），所以兩個 await 做完後 flLastHandResults /
       // flLastPoseResults 一定是這一幀的最新結果，再統一畫一次，不會半幀半幀畫。
-      await flHandsModel.send({ image: video });
+      // 2026-09-24「我移動會偏移」：Hands 改隔幀跑。手的資訊（朝向、小指側、同身寸）變得慢，
+      // 已有快取可沿用；省下的時間讓 Pose（肘點＝位置本體）更新得更勤。
+      // 沒跑 Hands 的那幀視為「這幀沒手」→ 由 StableLabelTracker 的寬限期（8 幀）撐住。
+      flFrameNo++;
+      flHandFresh = flFrameNo % 2 === 0 || !flLastHandCache[flHand];
+      if (flHandFresh) await flHandsModel.send({ image: video });
       await flPoseModel.send({ image: video });
+      const t = performance.now();
+      if (flLastFrameT) flFps = flFps ? flFps * 0.9 + 100 / (t - flLastFrameT) : 1000 / (t - flLastFrameT);
+      flLastFrameT = t;
       flProcessFrame(ctx, canvas, video);
     },
     width: 640,
@@ -400,7 +416,7 @@ function flProcessFrame(ctx, canvas, video) {
     const rawElbow = { x: poseLm[idx.elbow].x * W, y: poseLm[idx.elbow].y * H };
     const rawWrist = { x: poseLm[idx.wrist].x * W, y: poseLm[idx.wrist].y * H };
     // 肘點翻邊否決（見檔頭 FL_VETO_COS）：要在餵進平滑器**之前**擋，否則錯的肘會被平均進去
-    const hs = (flLastHandResults && flLastHandResults.multiHandLandmarks) || [];
+    const hs = (flHandFresh && flLastHandResults && flLastHandResults.multiHandLandmarks) || []; // 隔幀沒跑 Hands＝舊的手，不拿來比
     if (hs.length) {
       const h = hs.reduce((b, lm) =>
         Math.hypot(lm[0].x * W - rawWrist.x, lm[0].y * H - rawWrist.y) <
@@ -437,7 +453,7 @@ function flProcessFrame(ctx, canvas, video) {
   let handedLabel = null;
   // 從偵測到的手裡挑「手腕離這隻手臂的 Pose 手腕最近」的那隻（見檔頭 flHand 說明）
   let handLm = null, handedness = null, handCount = 0, matchDist = null, rejected = false;
-  const allHands = (flLastHandResults && flLastHandResults.multiHandLandmarks) || [];
+  const allHands = (flHandFresh && flLastHandResults && flLastHandResults.multiHandLandmarks) || [];
   handCount = allHands.length;
   if (chosenSide && handCount) {
     const forearmLen = Math.hypot(smoothedElbow.x - smoothedWrist.x, smoothedElbow.y - smoothedWrist.y);
@@ -603,6 +619,7 @@ function flProcessFrame(ctx, canvas, video) {
       ? `靜止時看：近 ${flRecent.length} 幀波動 <b class='${jitterCun < 0.15 ? "lv-ok" : jitterCun < 0.3 ? "lv-edge" : "lv-bad"}'>±${jitterCun.toFixed(2)} 寸</b>　　`
       : "") +
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
+      (flFps ? `每秒 <b>${flFps.toFixed(1)}</b> 幀　` : "") +
       `限定 <b>${handZh}</b>　　` +
       `偏移 <b>${flOffsetMode === "edge" ? "輪廓邊緣（學長公式）" : "固定 0.5 寸"}</b>` +
       (edgeInfo ? `：${edgeInfo}` : "") + `　` +
