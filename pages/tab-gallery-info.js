@@ -91,7 +91,10 @@ registerPage('acu-info', {
         #page-acu-info {
           position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
           max-height: 90dvh; overflow-y: auto;
-          padding: 18px 16px calc(22px + env(safe-area-inset-bottom));
+          /* 2026-09-23 修：底部膠囊分頁列（約 58px ＋ 離底 6px）疊在這張 sheet 上面，
+             捲到底時「練習」鈕整顆被它蓋住、按下去會按到「圖冊」分頁（手部／臉部都中）。
+             留白多墊 76px，讓最後一顆鈕停在分頁列上方。 */
+          padding: 18px 16px calc(22px + 76px + env(safe-area-inset-bottom));
           border-radius: 22px 22px 0 0; background: var(--bg);
           box-shadow: 0 -18px 60px rgba(10,28,42,.28);
         }
@@ -250,6 +253,7 @@ function renderAcuInfo() {
 //    （js/regions.js 的「療程項目」那組 helper），認穴頁、相機頁都已經會分辨，
 //    所以這裡不必為臉部另開一條分支。只有「能不能練」的判斷要換成 itemImplemented()。
 function practiceThisAcu() {
+  if (infoAcuName && FOREARM_LAB[infoAcuName]) { location.href = FOREARM_LAB[infoAcuName]; return; }
   if (!infoAcuName || !itemImplemented(infoAcuName)) return;
   state.selectedSymptoms = [];
   state.recommendedAcupoints = isFaceItem(infoAcuName) ? [] : [infoAcuName];
@@ -375,7 +379,8 @@ function renderForearmAcuInfo(name) {
   portrait.appendChild(galleryMinionImg(name));
   document.getElementById('info-code').textContent = acu.code;
   document.getElementById('info-name').textContent = acu.name;
-  document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　${t('info-nolocate')}`;
+  document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　` +
+    (FOREARM_LAB[name] ? (isZh() ? '實驗定位' : 'Experimental locating') : t('info-nolocate'));
   document.getElementById('info-stat').innerHTML = [
     [t('info-times'), 0], [t('info-last'), '—'],
   ].map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
@@ -389,5 +394,14 @@ function renderForearmAcuInfo(name) {
   const sym = Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name));
   const box = document.getElementById('info-symptoms'); box.innerHTML='';
   sym.forEach(n => { const b=document.createElement('button'); b.type='button'; b.className='tag'; b.innerHTML='<span class="hash">#</span>'; b.appendChild(document.createTextNode(symptomLabel(n))); b.onclick=()=>startFromSymptom(n); box.appendChild(b); });
-  const btn = document.getElementById('btn-practice'); btn.disabled=true; btn.textContent=t('info-nolocate');
+  // 2026-09-23 用戶：「專門在他的圖冊裏面開通」「開小海就行」——
+  // 只有 FOREARM_LAB 裡的穴開放，點了進獨立實驗頁 forearm-lab.html（Hands＋Pose），
+  // 不走認穴→相機→按摩那條療程流程：vision.js 只有 Hands，Pose 錨定沒接進去。
+  const lab = FOREARM_LAB[name];
+  const btn = document.getElementById('btn-practice');
+  btn.disabled = !lab;
+  btn.textContent = lab ? (isZh() ? '練習（實驗版）' : 'Try (experimental)') : t('info-nolocate');
 }
+
+// 前臂開放實驗定位的穴 → 實驗頁網址
+const FOREARM_LAB = { '小海穴': 'forearm-lab.html' };

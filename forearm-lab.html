@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>前臂穴道（Pose錨定）網頁實驗 — AcuNavi</title>
+
+<!-- MediaPipe：照專案慣例用普通 <script src>，不要用 ES module
+     （Windows 的 python -m http.server 會把 .mjs 標成 text/plain，瀏覽器直接拒絕執行，整頁靜默失效）
+     Pose 是這頁新加的（原本網頁版只有 Hands），版本跟 hand_lab.html 用的 Hands 同一個 CDN 系列。 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+<!-- 版本沒特別釘死（跟 Hands/Camera 不同）：手上沒辦法先驗證 Pose 特定版號在 CDN 上一定存在，
+     用不釘版本的路徑拿最新版，避免打到不存在的版號整頁失效。如果之後要釘版本鎖定穩定性，
+     之後再補上實測過可用的版號。 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    --bg: #10141c;
+    --panel: #1a2130;
+    --line: #2c3550;
+    --fg: #e8eef8;
+    --dim: #8b98b0;
+    --ok: #00e5a0;
+    --warn: #ffaa3c;
+    --bad: #ff505a;
+    --accent: #4da3ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1rem; margin: 0; letter-spacing: .5px; }
+  header .ver { color: var(--dim); font-size: .8rem; }
+  select, button { font-family: inherit; font-size: .9rem; }
+  select {
+    background: #0e1420; color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  }
+  .opt { color: var(--dim); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .btn {
+    background: #243049; color: var(--fg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  .btn:hover { background: #2e3c5c; }
+  .btn.ghost { background: transparent; color: var(--dim); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #06101f; font-weight: 700; }
+  .spacer { margin-left: auto; }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(360px, 1.15fr) minmax(280px, .85fr);
+    gap: 14px;
+    padding: 14px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 10px; } }
+  @media (max-width: 599px) { header { gap: 8px; padding: 8px 10px; } header h1 { font-size: .92rem; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: .88rem; color: var(--dim); font-weight: 600; }
+
+  #fl-canvas { width: 100%; border-radius: 8px; background: #000; display: block; }
+  .fl-status { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #0e1420; }
+  .fl-status.ok { color: var(--ok); }
+  .fl-status.warn { color: var(--warn); }
+  .fl-status.bad { color: var(--bad); }
+  #fl-metrics { margin-top: 6px; color: var(--dim); font-size: .82rem; line-height: 1.8; }
+  #fl-metrics b { color: var(--fg); }
+  .lv-ok { color: var(--ok); } .lv-edge { color: var(--warn); } .lv-bad { color: var(--bad); }
+  .dim { color: var(--dim); }
+
+  .note-block {
+    background: #0e1420; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; color: var(--dim); font-size: .78rem; line-height: 1.8;
+  }
+  .note-block b { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<!-- 2026-09-23 從 网页版_2d/forearm_lab.html 複製進 demo網站，由圖冊「小海穴 → 練習（實驗）」開啟。
+     跟原版的差別只有：返回圖冊鈕、前／後鏡頭切換（手機拿一手、拍另一手的手肘，後鏡頭比較好拍）。
+     定位邏輯（js/forearm-lab.js）與原版相同，一行沒改。 -->
+<header>
+  <!-- 主站沒有 hash 路由：從圖冊點進來就 history.back()（bfcache 會還原到圖冊），直接開這頁才回首頁 -->
+  <a class="btn ghost" href="acunavi-ideal.html"
+     onclick="if (document.referrer.startsWith(location.origin)) { history.back(); return false; }">← 返回</a>
+  <h1>🦴 小海穴 SI8（實驗版）</h1>
+  <select id="fl-facing" title="用哪一顆鏡頭" onchange="flSwitchFacing(this.value)">
+    <option value="environment" selected>後鏡頭</option>
+    <option value="user">前鏡頭</option>
+  </select>
+  <label class="opt" title="不勾＝原始每幀判定，抖動較明顯；勾起來＝跟Python版一樣的跨幀穩定化＋Hand資料快取">
+    <input type="checkbox" id="fl-stable" checked onchange="flUseStable = this.checked" />跨幀穩定化
+  </label>
+  <select id="fl-smooth" title="肘/腕點的平滑方式" onchange="flSmoothMode = this.value; flResetSmoothers();">
+    <option value="none">不平滑</option>
+    <option value="one_euro" selected>One Euro Filter</option>
+  </select>
+  <span class="spacer"></span>
+  <button class="btn ghost" onclick="flResetTracker()">⟲ 重設穩定化狀態</button>
+</header>
+
+<main>
+  <div class="card">
+    <video id="fl-video" width="640" height="480" autoplay playsinline style="display:none"></video>
+    <canvas id="fl-canvas" width="640" height="480"></canvas>
+    <div id="fl-status" class="fl-status">初始化中…</div>
+    <div id="fl-metrics">—</div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:14px;">
+    <div class="card">
+      <h3>這頁在測什麼</h3>
+      <p class="note-block">
+        今天 Python 端已經測過的<b>小海穴 Pose 錨定</b>邏輯，原封不動搬進瀏覽器：<br />
+        1️⃣ Pose 抓左右手肘/手腕，挑可見度較高那一側（門檻 0.5，兩側都太低就不顯示）<br />
+        2️⃣ Hand 抓 21 點，用<b>掌側/背側二分判定</b>（<code>isDorsalView</code>，跟網頁版原本
+        26 個手部穴道共用同一支函式，直接重用沒改）決定顯不顯示——背側朝鏡頭時不顯示，
+        這是遷就 Hand 偵測限制換來的近似判定，<b>不是真的在確認尺側朝鏡頭</b><br />
+        3️⃣ 位置＝肘點 ＋ 尺側方向 × 0.5寸 × 同身寸（同身寸也重用 <code>computeCunPx</code>）<br />
+        4️⃣ 跨幀穩定化：連續 5 幀同一判定才切換，Hand 短暫沒偵測到時沿用快取方向資料
+        （寬限 8 幀），邏輯照搬 <code>smoothing_utils.StableLabelTracker</code>
+      </p>
+    </div>
+    <div class="card">
+      <h3>已知限制（跟 Python 版一樣，沒有變得更準）</h3>
+      <p class="note-block">
+        🚨 尺側偏移量 0.5寸是猜的，沒有標注驗證。<br />
+        🚨 掌側/背側二分不是真正的尺側朝鏡頭判定，準度未知。<br />
+        🚨 Pose 手肘可見度在側身/部分入鏡時常常低於 0.5 門檻，會直接不顯示——
+        這是今天 Python 即時測試發現的瓶頸，網頁版沒有解決它，只是把同一套邏輯搬過來看效果。
+      </p>
+    </div>
+  </div>
+</main>
+
+<!-- 公式與資料照原樣重用，這頁沿用 isDorsalView / computeCunPx，一行都沒改 -->
+<script src="js/acu-data.js"></script>
+<script src="js/acu-math.js"></script>
+<script src="js/forearm-lab.js"></script>
+</body>
+</html>

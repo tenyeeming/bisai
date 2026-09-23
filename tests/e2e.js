@@ -581,6 +581,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(!!$('info-ref').querySelector('img'), '前臂穴道有學長繪製參考圖');
   ok($('btn-practice').disabled === true, '前臂尚未實作定位 → 練習按鈕停用');
 
+  // 2026-09-23：只開小海穴一穴的實驗頁，其餘 14 穴維持停用
+  w.eval("infoAcuName='小海穴'"); w.showPage('acu-info');
+  ok($('btn-practice').disabled === false, '小海穴開放實驗定位 → 練習按鈕可按');
+  ok(w.eval("FOREARM_LAB['小海穴']") === 'forearm-lab.html', '小海穴練習指向 forearm-lab.html');
+  ok(w.eval("Object.keys(FOREARM_LAB).length") === 1, '前臂只開放小海一穴');
+
   // ── 主治標籤 → 開療程（2026-09-04：補上 App 早就有、網頁還沒有的互動）──
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
   const tagBtns = [...$('info-symptoms').querySelectorAll('button.tag')];
