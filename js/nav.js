@@ -145,8 +145,9 @@ function showPage(name) {
     PAGES[currentPage].onLeave();
   }
   // 新頁不需要相機就一定要關，否則背景持續佔用鏡頭。兩套模型各關各的。
-  if (typeof camRunning !== 'undefined' && camRunning && !cfg.keepsCamera) stopCamera();
-  if (typeof faceCamRunning !== 'undefined' && faceCamRunning && !cfg.keepsFaceCamera) stopFaceCamera();
+  // 「啟動中」也要關（2026-09-23）：權限視窗還沒按就切頁，不關的話啟動完會在背景佔住鏡頭
+  if (typeof camRunning !== 'undefined' && (camRunning || camStarting) && !cfg.keepsCamera) stopCamera();
+  if (typeof faceCamRunning !== 'undefined' && (faceCamRunning || faceCamStarting) && !cfg.keepsFaceCamera) stopFaceCamera();
 
   const previous = currentPage;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active', 'page-enter'));

@@ -18,7 +18,9 @@ html = html.replace('</head>',
   '<script>window.__mp={};' +
   'class Hands{setOptions(){}onResults(f){this._f=f}send(){return Promise.resolve()}close(){}}' +
   'class FaceMesh{setOptions(){}onResults(f){window.__mp.faceCb=f}send(){return Promise.resolve()}close(){}}' +
-  'class Camera{constructor(v,o){window.__mp.cam=this;this.o=o}start(){return Promise.resolve()}stop(){}}<\/script></head>');
+  'class Camera{constructor(v,o){window.__mp.cam=this;this.o=o}start(){return Promise.resolve()}stop(){}}' +
+  // jsdom 沒有 mediaDevices；vision.js 啟動前會先檢查它（沒有＝非 https，給中文提示）
+  'if(!navigator.mediaDevices)Object.defineProperty(navigator,"mediaDevices",{value:{getUserMedia(){return Promise.resolve()}},configurable:true});<\/script></head>');
 html = html.replace(/<script src="((?:js|pages)\/[^"]+)"><\/script>/g,
   (_, f) => '<script>' + fs.readFileSync(DIR + f, 'utf8') + '<\/script>');
 // 注意：測試裡不再提供 fetch stub —— 正式程式碼已經不能依賴 fetch

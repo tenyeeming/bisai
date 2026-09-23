@@ -17,6 +17,8 @@
 
 let faceMesh = null, faceCamera = null, faceVideo = null;
 let faceCamRunning = false, faceCamStarting = false;
+// 啟動中保護，原理同 js/vision.js 的 camWanted／camStartP（2026-09-23 修「相機容易打不開」）
+let faceCamWanted = false, faceCamStartP = null;
 let faceFacingMode = 'user';
 let faceShowDisc = true;
 let faceCanvas = null;
@@ -68,19 +70,28 @@ async function startFaceCamera(canvasId, gateId, mode) {
   faceMode = mode === 'massage' ? 'massage' : 'locate';
   faceHandLm = null;
   faceCanvas = document.getElementById(faceCanvasId);
-  if (faceCamRunning || faceCamStarting) return;
+  faceCamWanted = true;
+  if (faceCamRunning) return;
+  if (faceCamStartP) return faceCamStartP;   // 啟動中：等同一次
   faceCamStarting = true;
   setFaceGate('warn', isZh() ? '啟動相機中…' : 'Starting camera…');
+  faceCamStartP = (async () => {
+  let cam = null;
   try {
-    // 手部那邊可能還開著（例如從定位頁直接切過來），先確保只有一邊在用鏡頭
-    if (typeof camRunning !== 'undefined' && camRunning) stopCamera();
+    // 手部那邊可能還開著或還在啟動（例如從定位頁直接切過來），先確保只有一邊在用鏡頭
+    if (typeof camRunning !== 'undefined' && (camRunning || camStarting)) stopCamera();
+    if (typeof camIdle === 'function') await camIdle();
+    if (!faceCamWanted) return;
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
+    }
     faceVideo = document.getElementById('hidden-video');
     const fm = getFaceMesh();
     // 按摩模式要順便看手。用的是 js/vision.js 那個共用實例（不另外建一個，
     // 不然 wasm 要載兩份），只是把結果導到這裡來 —— 見該檔的 faceMode 分支。
     const hm = (faceMode === 'massage' && typeof getHands === 'function') ? getHands() : null;
     if (hm && typeof applyHandsOptions === 'function') applyHandsOptions(hm, 'locate');  // 臉部只需要一隻手
-    faceCamera = new Camera(faceVideo, {
+    cam = faceCamera = new Camera(faceVideo, {
       onFrame: async () => {
         if (!faceCamRunning) return;
         // 模型還沒吐過結果之前，先把影像畫上去，不然使用者盯著一片黑
@@ -93,7 +104,13 @@ async function startFaceCamera(canvasId, gateId, mode) {
       },
       width: 640, height: 480, facingMode: faceFacingMode,
     });
-    await faceCamera.start();
+    await cam.start();
+    if (!faceCamWanted) {          // 啟動途中已被關：自己收掉，不留殭屍串流
+      try { cam.stop(); } catch (e) {}
+      if (faceCamera === cam) faceCamera = null;
+      return;
+    }
+    faceCamera = cam;
     faceCamRunning = true;
 
     // 模型載不起來時要講清楚，不要讓畫面停在「載入中」讓人以為是相機壞了
@@ -106,11 +123,22 @@ async function startFaceCamera(canvasId, gateId, mode) {
       }
     }, FACE_MODEL_TIMEOUT_MS);
   } catch (err) {
-    setFaceGate('bad', (isZh() ? '相機啟動失敗：' : 'Camera failed: ') + (err && err.message ? err.message : err));
+    if (cam) { try { cam.stop(); } catch (e) {} if (faceCamera === cam) faceCamera = null; }
+    if (faceCamWanted) {
+      setFaceGate('bad', typeof cameraErrorText === 'function' ? cameraErrorText(err)
+        : (isZh() ? '相機啟動失敗：' : 'Camera failed: ') + (err && err.message ? err.message : err));
+    }
     console.error(err);
   } finally {
     faceCamStarting = false;
+    faceCamStartP = null;
   }
+  })();
+  return faceCamStartP;
+}
+
+function faceCamIdle() {
+  return faceCamStartP || Promise.resolve();
 }
 
 /** 只畫影像、不畫穴位 —— 模型載入期間用，讓相機至少看得到 */
@@ -128,6 +156,7 @@ function drawFacePreview() {
 }
 
 function stopFaceCamera() {
+  faceCamWanted = false;
   faceCamRunning = false;
   faceGotResult = false;
   faceHandLm = null;

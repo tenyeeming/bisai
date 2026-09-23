@@ -47,6 +47,10 @@ const FL_HAND_MATCH_RATIO = 0.35; // 約前臂長的三分之一 ≈ 8cm，估�
 // ⚠️ 哪一把比較準**沒有標注可驗**，所以做成切換讓用戶實機比，預設仍是原本的 hand。
 //    （09-22 記錄：骨度與同身寸在測試照片上差 24%，量級不小）
 const FL_FOREARM_CUN = 12;
+const FL_SIGN_HYST = 0.3;  // 尺側翻邊門檻（見 Hand 段）；估的
+const FL_CUN_EMA = 0.2;    // 同身寸平滑：新值權重；估的
+const FL_JITTER_N = 30;    // 波動讀數取最近幾幀
+const flRecent = [];       // 最近 N 幀的點（px），算波動用
 let flScaleMode = "hand";
 let flForearmLenPx = null; // 每幀更新：平滑後的肘-腕像素距離
 function flScalePx(handCunPx) {
@@ -235,10 +239,9 @@ function flStart() {
   });
   flPoseModel.setOptions({
     modelComplexity: 1,
-    // demo網站版改 false（2026-09-23 用戶：「會隨著移動不再精準」，動的時候點跟不上）：
-    // 原本 Pose 內建平滑 ＋ 我們的 One Euro 疊兩層，兩層都有延遲。留一層就好 —— 留 One Euro，
-    // 因為它有「動得快就少平滑」的機制、而且可從頁首關掉比較。
-    smoothLandmarks: false,
+    // 09-23 為了「動的時候跟不上」改成 false，09-24 用戶回報「很容易出現位置波動」→ 改回 true。
+    // 延遲與抖動是拉鋸；這次優先壓抖動（用戶要在身上畫點實測，靜止時要穩才量得出誤差）。
+    smoothLandmarks: true,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5,
   });
@@ -253,17 +256,28 @@ function flStart() {
 // 手機上是一手拿手機、拍另一手的手肘 → 預設後鏡頭。
 // 座標不做鏡像：兩個模型都吃同一張沒翻轉的畫面、畫布也照原樣畫，前後鏡頭都一致。
 let flFacing = "environment";
-function flSwitchFacing(mode) {
+// 切鏡頭的競態（2026-09-23 修「相機容易打不開」，原理同 js/vision.js 的 camWanted）：
+//   camera_utils 的 stop() 只停「已經拿到」的串流。上一次還在開就切，stop() 落空，
+//   舊串流回來後一直佔著鏡頭，Android 上新鏡頭就 NotReadableError。
+//   ⇒ flGen 標記「哪一次才是最新的」，舊的回來自己收掉；切換前先等舊的那次回來。
+let flGen = 0, flStartP = null, flSwitching = false;
+async function flSwitchFacing(mode) {
   flFacing = mode;
+  if (flSwitching) return;            // 連點：正在切的那次會讀到最新的 flFacing
+  flSwitching = true;
+  flGen++;                            // 讓還在啟動中的那次作廢
+  if (flStartP) await flStartP.catch(() => {});
   if (flCamera) flCamera.stop();
   flResetSmoothers();
   flResetTracker();
+  flSwitching = false;
   flStartCamera(document.getElementById("fl-video"), document.getElementById("fl-canvas").getContext("2d"),
                 document.getElementById("fl-canvas"));
 }
 
 function flStartCamera(video, ctx, canvas) {
-  flCamera = new Camera(video, {
+  const gen = ++flGen;
+  const cam = flCamera = new Camera(video, {
     facingMode: flFacing,
     onFrame: async () => {
       // 兩個模型都跑同一幀畫面。send() 的 promise 在 onResults callback 跑完才 resolve
@@ -276,9 +290,19 @@ function flStartCamera(video, ctx, canvas) {
     width: 640,
     height: 480,
   });
-  flCamera.start().then(
-    () => flStatus("相機已啟動", "ok"),
-    (e) => flStatus("相機打不開：" + e, "bad"),
+  flStartP = cam.start().then(
+    () => {
+      if (gen !== flGen) { cam.stop(); return; }   // 途中又切了：這條作廢
+      flStatus("相機已啟動", "ok");
+    },
+    (e) => {
+      if (gen !== flGen) return;
+      const n = (e && e.name) || "";
+      const hint = n === "NotAllowedError" ? "（權限被拒：網址列左邊圖示 → 權限 → 相機改允許，再重新整理）"
+        : n === "NotReadableError" ? "（鏡頭被佔用：關掉其他用相機的 App 或分頁）"
+        : n === "NotFoundError" || n === "OverconstrainedError" ? "（找不到這顆鏡頭，換前／後鏡頭試試）" : "";
+      flStatus("相機打不開：" + e + hint, "bad");
+    },
   );
 }
 
@@ -376,8 +400,19 @@ function flProcessFrame(ctx, canvas, video) {
       //    改成只記「小指在軸的哪一側」（±1），方向每幀用**當下**的軸重算。
       const n1 = { x: -axis.y, y: axis.x };
       const ulnarDir = flUlnarDirection(axis, pts[0], pts[17]);
-      const ulnarSign = ulnarDir.x * n1.x + ulnarDir.y * n1.y >= 0 ? 1 : -1;
-      flLastHandCache[chosenSide] = { cunPx, ulnarSign, dorsal, handedLabel };
+      let ulnarSign = ulnarDir.x * n1.x + ulnarDir.y * n1.y >= 0 ? 1 : -1;
+      // 🐞 2026-09-24「很容易出現位置波動」：小指根部 lm17 靠近前臂軸線時，
+      //    它在軸的哪一側每幀都可能翻，點就在肘的兩側之間**跳一整寸**。
+      //    加遲滯：新的一側要夠明確（投影 ≥ FL_SIGN_HYST × 腕→小指距離）才准翻，否則沿用上一次。
+      const prev = flLastHandCache[chosenSide];
+      if (prev && ulnarSign !== prev.ulnarSign) {
+        const tp = { x: pts[17].x - pts[0].x, y: pts[17].y - pts[0].y };
+        const proj = Math.abs(tp.x * n1.x + tp.y * n1.y) / (Math.hypot(tp.x, tp.y) || 1);
+        if (proj < FL_SIGN_HYST) ulnarSign = prev.ulnarSign;
+      }
+      // 同身寸每幀從手重算、抖動大（手指一動就變）→ 指數平滑，新值只佔 FL_CUN_EMA
+      const cunSm = prev && prev.cunPx ? prev.cunPx + (cunPx - prev.cunPx) * FL_CUN_EMA : cunPx;
+      flLastHandCache[chosenSide] = { cunPx: cunSm, ulnarSign, dorsal, handedLabel };
     }
 
     for (const p of pts) {
@@ -441,8 +476,28 @@ function flProcessFrame(ctx, canvas, video) {
     flStatus(reason || "偵測中…", "warn");
   }
 
+  // ── 波動讀數（2026-09-24，給用戶在身上畫點實測用）──────────────────────
+  // 最近 N 幀點位的標準差（兩軸合成），換成寸。**只有手靜止時才有意義**——動的時候這數字本來就大。
+  let jitterCun = null;
+  if (point) {
+    flRecent.push(point);
+    if (flRecent.length > FL_JITTER_N) flRecent.shift();
+    if (flRecent.length >= 10) {
+      const mx = flRecent.reduce((s, p) => s + p.x, 0) / flRecent.length;
+      const my = flRecent.reduce((s, p) => s + p.y, 0) / flRecent.length;
+      const sd = Math.sqrt(flRecent.reduce((s, p) => s + (p.x - mx) ** 2 + (p.y - my) ** 2, 0) / flRecent.length);
+      const cun = flScalePx(flLastHandCache[chosenSide].cunPx);
+      if (cun) jitterCun = sd / cun;
+    }
+  } else {
+    flRecent.length = 0;
+  }
+
   // ── 5) 診斷面板 ──────────────────────────────────────────────────────
   flMetrics(
+    (jitterCun != null
+      ? `靜止時看：近 ${flRecent.length} 幀波動 <b class='${jitterCun < 0.15 ? "lv-ok" : jitterCun < 0.3 ? "lv-edge" : "lv-bad"}'>±${jitterCun.toFixed(2)} 寸</b>　　`
+      : "") +
     `可見度（門檻 ${FL_FALLBACK_MIN_VISIBILITY}） 左 <b>${poseVis.left.toFixed(2)}</b>　右 <b>${poseVis.right.toFixed(2)}</b>　` +
       `限定 <b>${handZh}</b>　　` +
       (chosenSide && flLastHandCache[chosenSide]
@@ -456,6 +511,17 @@ function flProcessFrame(ctx, canvas, video) {
       `這幀判定 <b>${observed ?? "--"}</b>　穩定判定 <b>${stable ?? "--"}</b>　` +
       `平滑 <b>${flSmoothMode}</b>　跨幀穩定化 <b>${flUseStable ? "開" : "關"}</b>`,
   );
+}
+
+// 📸 存圖（2026-09-24）：用戶在身上畫出真正的小海，存下「畫面＋演算法的點」，
+// 之後對照兩個點量誤差。圖只存在手機本機（瀏覽器下載），不上傳。
+function flSaveShot() {
+  const c = document.getElementById("fl-canvas");
+  const ts = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+  const a = document.createElement("a");
+  a.download = `xiaohai_${flHand}_${flScaleMode}_${ts}.png`;
+  a.href = c.toDataURL("image/png");
+  a.click();
 }
 
 window.addEventListener("DOMContentLoaded", flStart);

@@ -11,6 +11,12 @@
 
 let hands = null, camera = null, video = null;
 let camRunning = false, camStarting = false;
+// 相機「啟動中」的保護（2026-09-23 修「相機容易打不開」）：
+//   camera_utils 的 stop() 只停「已經拿到」的串流。權限視窗還沒按、或鏡頭還在開的時候
+//   就切頁／切背景，stop() 等於沒做，等 getUserMedia 回來就變成沒人管的殭屍串流，
+//   一直佔著鏡頭 —— Android 同一時間只准一條，下一次開相機就 NotReadableError。
+//   ⇒ camWanted 記「現在到底要不要相機」，啟動完才看；camStartP 讓重複呼叫等同一次啟動。
+let camWanted = false, camStartP = null;
 let facingMode = 'user';
 let showDisc = true;
 let activeCanvas = null;
@@ -174,31 +180,81 @@ async function startCamera(canvasId, mode) {
   // 定位頁 → 按摩頁是「相機不停、只換模式」，會走下面的 early return，
   // 所以手數要在這裡先調整，不能等到 getHands() 之後
   if (hands) applyHandsOptions(hands, mode);
-  if (camRunning || camStarting) return;   // 已在跑就只換畫布/模式
+  camWanted = true;
+  if (camRunning) return;                  // 已在跑就只換畫布/模式
+  if (camStartP) return camStartP;         // 啟動中：等同一次，不另開一條
   camStarting = true;
   setGate('warn', isZh() ? '啟動相機中…' : 'Starting camera…');
-  try {
-    video = document.getElementById('hidden-video');
-    const h = getHands();
-    applyHandsOptions(h, mode);
-    camera = new Camera(video, {
-      onFrame: async () => {
-        if (!camRunning) return;
-        try { await h.send({ image: video }); } catch (e) { /* 關閉瞬間的競態 */ }
-      },
-      width: 640, height: 480, facingMode,
-    });
-    await camera.start();            // camera_utils 沒有 initialize()，只有 start()
-    camRunning = true;
-  } catch (err) {
-    setGate('bad', (isZh() ? '相機啟動失敗：' : 'Camera failed: ') + (err && err.message ? err.message : err));
-    console.error(err);
-  } finally {
-    camStarting = false;
+  camStartP = (async () => {
+    let cam = null;
+    try {
+      // 臉部頁跟這裡共用 hidden-video，它若還在啟動中要先等它收完
+      if (typeof faceCamIdle === 'function') await faceCamIdle();
+      if (!camWanted) return;
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+        throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
+      }
+      video = document.getElementById('hidden-video');
+      const h = getHands();
+      applyHandsOptions(h, renderMode);
+      cam = new Camera(video, {
+        onFrame: async () => {
+          if (!camRunning) return;
+          try { await h.send({ image: video }); } catch (e) { /* 關閉瞬間的競態 */ }
+        },
+        width: 640, height: 480, facingMode,
+      });
+      camera = cam;
+      await cam.start();            // camera_utils 沒有 initialize()，只有 start()
+      if (!camWanted) {             // 啟動途中已被關（切頁／切背景）：自己收掉，不留殭屍串流
+        try { cam.stop(); } catch (e) {}
+        if (camera === cam) camera = null;
+        return;
+      }
+      camera = cam;                 // 途中 stop 過又被叫回來時，camera 已被清成 null
+      camRunning = true;
+    } catch (err) {
+      if (cam) { try { cam.stop(); } catch (e) {} if (camera === cam) camera = null; }
+      if (camWanted) setGate('bad', cameraErrorText(err));
+      console.error(err);
+    } finally {
+      camStarting = false;
+      camStartP = null;
+    }
+  })();
+  return camStartP;
+}
+
+// 別人要用鏡頭前，等這邊的啟動收完（成功或被取消都算）
+function camIdle() {
+  return camStartP || Promise.resolve();
+}
+
+// 相機錯誤翻成看得懂、知道下一步做什麼的話（手部、臉部共用）
+function cameraErrorText(err) {
+  const zh = isZh();
+  const name = (err && err.name) || '';
+  if (name === 'NoMediaDevices') {
+    return zh ? '這個網址不能開相機：請用 https:// 開頭的網址（本機用 localhost）。'
+              : 'Camera needs an https:// address (or localhost).';
   }
+  if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
+    return zh ? '相機權限被拒絕：點網址列左邊的圖示 → 權限 → 相機改「允許」，再重新整理。'
+              : 'Camera permission denied: allow camera in site settings, then reload.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') {
+    return zh ? '鏡頭被佔用：關掉其他正在用相機的 App 或分頁，再重新進這頁。'
+              : 'Camera is busy: close other apps/tabs using it, then re-open this page.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError') {
+    return zh ? '找不到可用的鏡頭，試試切換前／後鏡頭。'
+              : 'No usable camera found. Try switching front/back camera.';
+  }
+  return (zh ? '相機啟動失敗：' : 'Camera failed: ') + (err && err.message ? err.message : err);
 }
 
 function stopCamera() {
+  camWanted = false;                // 啟動中的那次回來時會看到，自己收掉
   camRunning = false;
   onTarget = false;
   acuPointSmoother.reset();
