@@ -1,6 +1,6 @@
 // ══ 圖冊 → 單穴介紹 ══════════════════════════════════════════════
-// 從圖冊點任一格進來。未解鎖的也能看（不然收集不到的穴道就沒法先認識），
-// 只是小人維持剪影。
+// 從圖冊點任一格進來。2026-09-24 起網頁沒有收集／解鎖，每一穴都直接看得到；
+// 「等級／次數／上次」那排統計也一併拿掉（網頁不存紀錄，見 js/state.js 開頭）。
 
 let infoAcuName = null;
 
@@ -22,26 +22,11 @@ registerPage('acu-info', {
         overflow: hidden; position: relative;
       }
       .info-portrait .minion { width: 84%; height: auto; display: block; }
-      .info-portrait.locked .minion { filter: grayscale(1) brightness(.35) contrast(.85); opacity: .3; }
       .info-code {
         font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em;
         color: var(--brass);
       }
       .info-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
-
-      .info-stat {
-        display: flex; gap: 1px; background: var(--line);
-        border: 1px solid var(--line); border-radius: var(--r); overflow: hidden;
-      }
-      .info-stat > div { flex: 1; background: var(--surface); padding: 9px 11px; }
-      .info-stat .k {
-        font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em;
-        text-transform: uppercase; color: var(--ink-soft);
-      }
-      .info-stat .v {
-        font-family: var(--font-mono); font-size: 19px; margin-top: 2px;
-        font-variant-numeric: tabular-nums; color: var(--ink);
-      }
 
       .info-sec + .info-sec { margin-top: 13px; }
       .info-sec h3 {
@@ -76,7 +61,6 @@ registerPage('acu-info', {
         font-family: var(--font-mono); font-weight: 700; color: #fff;
         font-size: clamp(11px, 3.4vw, 15px); letter-spacing: .02em;
       }
-      .info-portrait.locked .code-badge-lg { opacity: .45; }
 
       /* 這頁的參考圖給整塊寬度，比認穴頁那張大 */
       #info-ref .ref-frame, #info-ref .ref-none { width: 100%; }
@@ -118,7 +102,6 @@ registerPage('acu-info', {
         </div>
       </div>
 
-      <div class="info-stat" id="info-stat"></div>
       <div id="info-note"></div>
 
       <div>
@@ -157,13 +140,10 @@ function renderAcuInfo() {
 
   const acu = ACUPOINTS.find(a => a.name === name) || {};
   const detail = ACUPOINT_DETAIL[name] || {};
-  const m = state.minions[name];
-  const hist = state.history[name];
-
-  // ── 頭像 ──
+  // ── 頭像：這一穴的專屬小人 ──
   const portrait = document.getElementById('info-portrait');
   portrait.innerHTML = '';
-  portrait.className = 'info-portrait' + (m ? '' : ' locked');
+  portrait.className = 'info-portrait';
   portrait.style.background = acuColor(name);
   portrait.appendChild(minionImg(name));
 
@@ -177,13 +157,6 @@ function renderAcuInfo() {
   const implemented = IMPLEMENTED.has(name);
   document.getElementById('info-meta').textContent =
     `${t(region.label)}　·　${t(sideKey)}` + (implemented ? '' : `　·　${t('info-nolocate')}`);
-
-  // ── 收集狀態 ──
-  document.getElementById('info-stat').innerHTML = [
-    [t('info-level'), m ? 'Lv.' + m.level : '—'],
-    [t('info-times'), hist ? hist.times : 0],
-    [t('info-last'),  hist && hist.lastDate ? hist.lastDate.slice(5) : '—'],
-  ].map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 
   // ── 安全警語 ──
   const noteBox = document.getElementById('info-note');
@@ -279,14 +252,12 @@ function practiceThisAcu() {
 function renderFaceAcuInfo(code) {
   const acu = faceAcu(code) || {};
   const detail = faceDetail(code);
-  const m = state.minions[code];
-  const hist = state.history[code];
   const implemented = FACE_IMPLEMENTED.has(code);
 
   // ── 頭像：代號圓標 ──
   const portrait = document.getElementById('info-portrait');
   portrait.innerHTML = '';
-  portrait.className = 'info-portrait' + (m ? '' : ' locked');
+  portrait.className = 'info-portrait';
   portrait.style.background = faceColor(code);
   const badge = document.createElement('div');
   badge.className = 'code-badge-lg';
@@ -303,12 +274,6 @@ function renderFaceAcuInfo(code) {
       acu.inWHO ? 'WHO' : (isZh() ? '經外奇穴' : 'Extra point'),
       implemented ? null : t('info-nolocate'),
     ].filter(Boolean).join('　·　');
-
-  document.getElementById('info-stat').innerHTML = [
-    [t('info-level'), m ? 'Lv.' + m.level : '—'],
-    [t('info-times'), hist ? hist.times : 0],
-    [t('info-last'),  hist && hist.lastDate ? hist.lastDate.slice(5) : '—'],
-  ].map(([k, v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 
   // 誠實聲明取代手部的安全警語：這條線的參數只建立在極少數照片上
   const noteBox = document.getElementById('info-note');
@@ -374,16 +339,14 @@ function renderForearmAcuInfo(name) {
   const acu = forearmAcu(name);
   if (!acu) { showPage('gallery'); return; }
   const portrait = document.getElementById('info-portrait');
-  portrait.innerHTML = ''; portrait.className = 'info-portrait locked';
+  portrait.innerHTML = ''; portrait.className = 'info-portrait';
   portrait.style.background = forearmColor(name);
-  portrait.appendChild(galleryMinionImg(name));
+  const fb = document.createElement('div'); fb.className = 'code-badge-lg'; fb.textContent = acu.code;
+  portrait.appendChild(fb);
   document.getElementById('info-code').textContent = acu.code;
   document.getElementById('info-name').textContent = acu.name;
   document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　` +
     (FOREARM_LAB[name] ? (isZh() ? '實驗定位' : 'Experimental locating') : t('info-nolocate'));
-  document.getElementById('info-stat').innerHTML = [
-    [t('info-times'), 0], [t('info-last'), '—'],
-  ].map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
   const note = document.getElementById('info-note'); note.innerHTML = '';
   if (acu.caution) { const p=document.createElement('p'); p.className='notice warn'; p.textContent=acu.caution; note.appendChild(p); }
   document.getElementById('info-locate').textContent = acu.locate;

@@ -111,7 +111,8 @@
     <option value="right">限定右手</option>
   </select>
   <select id="fl-offset" title="小海從肘點往尺側偏多少" onchange="flOffsetMode = this.value">
-    <option value="edge" selected>偏移：即時邊緣（學長公式）</option>
+    <option value="tip" selected>偏移：肘尖錨定（09-24 實驗）</option>
+    <option value="edge">偏移：即時邊緣（學長公式）</option>
     <option value="fixed">偏移：固定 0.5 寸</option>
   </select>
   <select id="fl-scale" title="1 寸用哪一把尺" onchange="flScaleMode = this.value">
@@ -122,6 +123,9 @@
     <option value="environment" selected>後鏡頭</option>
     <option value="user">前鏡頭</option>
   </select>
+  <label class="opt" title="灰色前臂線、黃色手部 21 點、青色邊緣線（除錯用）">
+    <input type="checkbox" onchange="flShowAux = this.checked" />顯示輔助線
+  </label>
   <label class="opt" title="不勾＝原始每幀判定，抖動較明顯；勾起來＝跟Python版一樣的跨幀穩定化＋Hand資料快取">
     <input type="checkbox" id="fl-stable" checked onchange="flUseStable = this.checked" />跨幀穩定化
   </label>
@@ -129,8 +133,14 @@
     <option value="none">不平滑</option>
     <option value="one_euro" selected>One Euro Filter</option>
   </select>
+  <select id="fl-lenref" title="判斷前臂有沒有變短用哪把尺" onchange="flLenMode = this.value">
+    <option value="auto" selected>長度尺：自動（肩膀看得到用上臂）</option>
+    <option value="upper">長度尺：上臂（要肩膀入鏡）</option>
+    <option value="hand">長度尺：同身寸（舊）</option>
+  </select>
   <button class="btn primary" onclick="flRememberPose()" title="擺好標準姿勢再按；之後姿勢差太多就不出點">📌 記住姿勢</button>
   <button class="btn ghost" onclick="flClearPose()" title="清掉這隻手記住的姿勢">清除姿勢</button>
+  <a class="btn" href="forearm-measure.html" title="用照片或影片跟你畫的點比對誤差">📏 量測</a>
   <button class="btn primary" onclick="flSaveShot()" title="存下目前畫面＋演算法的點，之後跟你畫的點比對">📸 存圖</button>
   <span class="spacer"></span>
   <button class="btn ghost" onclick="flResetTracker()">⟲ 重設穩定化狀態</button>
@@ -151,17 +161,17 @@
         <b>拍法：手肘微彎，手肘背面（手背那一側）對著鏡頭。</b><br />
         1️⃣ 找手肘：Pose 只看上方選的那隻手的肘/腕；肘被認到手那一側的幀直接不用<br />
         2️⃣ 看手：只採用接在這隻手臂上的手，<b>手背朝鏡頭</b>才顯示（小海在肘後內側），並看出小指在哪一邊<br />
-        3️⃣ 找邊緣：Pose 順便描出人體輪廓，從手肘往小指那側走到皮膚邊緣（青色點）<br />
-        4️⃣ 定點：小海＝手肘與邊緣的正中間（學長的公式），藍圈<br />
+        3️⃣ 找邊緣：Pose 順便描出人體輪廓，從手肘往小指那側走到皮膚邊緣（勾「顯示輔助線」可看到青色邊緣點）<br />
+        4️⃣ 定點：小海＝手肘與邊緣的正中間（學長的公式），綠點＋「小海」字樣（跟手部、臉部同款）<br />
         5️⃣ 防抖：點平滑移動，小指那側要明確才換邊<br />
-        6️⃣ 姿勢：先擺好標準姿勢按「📌 記住姿勢」，之後上臂／前臂方向差超過 20°、
+        6️⃣ 姿勢：<b>一定要先</b>手背朝鏡頭擺好、<b>肩膀入鏡</b>，按「📌 記住姿勢」才會出點；之後上臂／前臂方向差超過 20°、手腕扭轉跟記住時不一樣、
         或前臂變短到 85% 以下（朝鏡頭傾斜或手肘點滑掉）就不出點
       </p>
     </div>
     <div class="card">
       <h3>已知限制</h3>
       <p class="note-block">
-        🚨 還沒有跟真正的小海比對過（等身上畫點實測），準度未知。<br />
+        🚨 只有 1 人（用戶左手）的畫點實測：手背朝鏡頭、姿勢不變時約 6～7mm；手掌朝鏡頭時會推錯邊（見 前臂/小海GT_量測記錄_20260924.md）<br />
         🚨 「小指在哪邊」看的是手腕附近，手肘那端的朝向沒有另外算（前臂轉動時會偏）。<br />
         🚨 穿長袖或手肘貼著身體時，輪廓可能連在一起，邊緣會找錯。<br />
         🚨 Pose 手肘可見度在側身/部分入鏡時常常低於 0.5 門檻，會直接不顯示。

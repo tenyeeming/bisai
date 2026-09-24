@@ -1,11 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════
 // 穴道小人
 //
-// 一穴一個 SVG，放在 assets/minions/。目前是程式產生的佔位圖，
-// 要換成手繪版就「直接覆蓋同名檔案」，這支不用改。
+// 手部 26 穴一穴一隻，放在 assets/minions/<拼音>.webp。
+// 來源：`小人物/穴道集合/<穴名>穴.png`（與 App 批 67 同一組 26 隻），
+// 長邊縮到 256px 轉 WebP（26 張共約 340KB）。原本的程式產生佔位 SVG 已不再引用。
 //
-// 圖檔載入失敗時底下會露出該穴道的代表色（acuColor），
-// 所以少一兩個檔案不會破版，只是變回色塊。
+// 2026-09-24 起網頁**沒有收集／升級**（網頁沒資料庫，紀錄換裝置就不見）——
+// 小人只剩「完成時出來慶祝」這個用途；圖冊格子改顯示穴道參考圖。
+// 臉部／前臂沒有專屬小人，慶祝時用首頁那 5 隻共用角色。
+//
+// 圖檔載入失敗時底下會露出該穴道的代表色（acuColor），少一兩個檔案不會破版。
 // ═══════════════════════════════════════════════════════════════════
 
 const MINION_SLUG = {
@@ -20,16 +24,41 @@ const MINION_SLUG = {
   '關衝穴': 'guanchong', '勞宮穴': 'laogong',
 };
 
-const minionSrc = (name) => `assets/minions/${MINION_SLUG[name] || ''}.svg`;
+const minionSrc = (name) => `assets/minions/${MINION_SLUG[name] || ''}.webp`;
 
-/** 圖冊與 App 共用同一隻手掌小人；部位靠分組與代表色區分。 */
-function galleryMinionImg(name) {
+/**
+ * 圖冊格子用的穴道參考圖路徑。三組各自的圖在不同資料夾（見 js/acu-ref.js）。
+ * 沒有圖（手部後補 6 穴、臉部 EX-HN7／GV27）回 null，由呼叫端改畫代號圓標。
+ */
+function refThumbSrc(id) {
+  if (isFaceItem(id)) return FACE_REF_CODES.has(id) ? `assets/face-ref/${id}.jpg` : null;
+  if (isForearmItem(id)) { const a = forearmAcu(id); return a ? `assets/forearm-ref/${a.ref}` : null; }
+  return acuRefSrc(ACUPOINTS.find(a => a.name === id));
+}
+
+/** 圖冊格子的縮圖：有參考圖就放圖，沒有就放代號圓標（不拿別穴的圖頂替） */
+function galleryThumb(id, code) {
+  const src = refThumbSrc(id);
+  const badge = () => {
+    const b = document.createElement('div');
+    b.className = 'thumb-code';
+    b.textContent = code || '—';
+    return b;
+  };
+  if (!src) return badge();
   const img = document.createElement('img');
-  img.className = 'minion';
-  img.src = 'assets/minion/idle.webp';
-  img.alt = name;
+  img.className = 'thumb';
+  img.src = src;
+  img.alt = id;
   img.loading = 'lazy';
+  img.onerror = () => img.replaceWith(badge());
   return img;
+}
+
+/** 完成時出來慶祝的那一隻：手部用專屬小人，臉部／前臂用共用角色 */
+function celebrantImg(name, index) {
+  if (MINION_SLUG[name]) return minionImg(name);
+  return castImage(index || 0);
 }
 
 /** 產生一張小人圖。className 交給呼叫端決定大小 */
@@ -54,8 +83,16 @@ function castImage(index) {
   return img;
 }
 
-function renderRewardStage(id, celebrate) {
+/**
+ * 慶祝舞台：站本次按過的穴道小人（最多 5 隻，依序），臉部／前臂以共用角色補位。
+ * names 沒給就站 5 隻共用角色（舊行為）。
+ */
+function renderRewardStage(id, celebrate, names) {
   const stage = document.getElementById(id);
-  stage.replaceChildren(...Array.from({ length: 5 }, (_, i) => castImage(i)));
+  const list = names && names.length ? names.slice(0, 5) : [];
+  const imgs = list.length
+    ? list.map((n, i) => { const im = celebrantImg(n, i); im.className = ''; im.style.setProperty('--i', i); return im; })
+    : Array.from({ length: 5 }, (_, i) => castImage(i));
+  stage.replaceChildren(...imgs);
   stage.classList.toggle('celebrate', celebrate);
 }

@@ -1,5 +1,7 @@
 // ══ 圖冊分頁 ═════════════════════════════════════════════════════
-// 每個穴道一隻小人，按過才解鎖。顏色規則見 js/state.js 的 acuColor()。
+// 穴道圖鑑：每格放該穴的參考圖（紅點標出位置），點進去看定位、主治、教學。
+// 2026-09-24（用戶）：網頁不做收集 —— 拿掉解鎖／剪影／等級，全部直接可看。
+//   理由見 js/state.js 開頭。App 仍然有收集與小人等級。
 
 registerPage('gallery', {
   tab: 'gallery',
@@ -12,7 +14,7 @@ registerPage('gallery', {
       /* 三欄 —— 與 App 的 GalleryScreen.kt 一致（GridCells.Fixed(3)）。
          ⚠ 這段註解在 template literal 裡面，**不要用反引號**（會把字串切斷）。
          2026-09-21 從四欄改過來：用戶「圖冊那些還是原來的樣子」。
-         欄少一欄 = 每格寬約多三成，小人與穴名跟著放大（下面兩個字級也是這次一起調的）。
+         欄少一欄 = 每格寬約多三成，圖與穴名跟著放大（下面兩個字級也是這次一起調的）。
          ⚠️ 桌面（≥1024px）另有 auto-fill 的規則在 css/responsive.css:332，不受這行影響。 */
       .collection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
       .collection-item {
@@ -31,7 +33,17 @@ registerPage('gallery', {
         cursor: pointer;
       }
       .collection-item:hover { border-color: var(--brass); }
-      .collection-item .minion { width: auto; height: 56px; display: block; }
+      /* 參考圖是白底線稿，放進白色圓角框，深色主題下也是一張「卡片裡的圖」 */
+      .collection-item .thumb {
+        width: 100%; height: 84px; object-fit: contain; display: block;
+        background: #fff; border-radius: calc(var(--r) - 2px);
+      }
+      /* 沒有參考圖的穴（手部後補 6 穴、臉部 EX-HN7／GV27）：代號圓標，不拿別穴的圖頂替 */
+      .collection-item .thumb-code {
+        width: 100%; height: 84px; display: flex; align-items: center; justify-content: center;
+        border-radius: calc(var(--r) - 2px); background: var(--surface-2);
+        font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft);
+      }
       .collection-item .nm {
         font-family: var(--font-ming); font-size: 13px; line-height: 1.15;
         color: var(--ink);
@@ -40,9 +52,8 @@ registerPage('gallery', {
         font-family: var(--font-mono); font-size: 9px; line-height: 1.2;
         color: var(--brass);
       }
-      /* 沒解鎖就只給剪影：看得到「還有這一隻」，但看不出長相 */
-      .collection-item.locked .minion { filter: grayscale(1) brightness(.35) contrast(.85); opacity: .3; }
-      .collection-item.locked .nm { color: var(--ink-soft); opacity: .45; }
+      /* 定位尚未支援的穴：仍可點進去看資料，只是標一行小字 */
+      .collection-item .lv.soon { color: var(--ink-soft); }
 
       /* ── 分組標題（2026-09-20 圖冊納入臉部）─────────────
          49 格手臉混在一起看不出是兩群（連 id 都不同型：手部穴名、臉部代號）。
@@ -63,12 +74,11 @@ registerPage('gallery', {
       }
       .collection-grid .grp.note::after { content: none; }
 
-      .collection-item.locked .lv { color: var(--ink-soft); opacity: .5; }
     </style>
 
     <div class="stack">
       <div>
-        <p class="eyebrow" data-i18n="eyebrow-gallery">收集</p>
+        <p class="eyebrow" data-i18n="eyebrow-gallery">圖鑑</p>
         <h2 data-i18n="gallery-title">穴道圖冊</h2>
         <p class="mono-sm" id="gallery-progress" style="margin-top:6px"></p>
       </div>
@@ -82,22 +92,23 @@ function initCollectionGrid() {
   grid.innerHTML = '';
 
   // 2026-09-22：手機圖冊與 App 同步為手部、臉部、前臂三組，共 64 穴。
-  // 三組一律使用 App 的手掌小人卡，不再讓臉部單獨顯示代號膠囊。
+  // 2026-09-24：格子改放各穴參考圖（原本三組共用一隻手掌小人）。
   const hand = ACUPOINTS.map(a => a.name);
   const face = FACE_ACUPOINTS.map(a => a.code);
   const forearm = FOREARM_ACUPOINTS;
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));
-  let unlocked = hand.filter(id => renderCell(grid, id, acuLabel(id), acuColor(id), true)).length;
+  hand.forEach(id => renderCell(grid, id, acuLabel(id), (ACUPOINTS.find(a => a.name === id) || {}).code));
 
   grid.appendChild(groupHeader(t('gallery-group-face').replace('%n', face.length)));
-  unlocked += face.filter(id => renderCell(grid, id, faceLabel(id), faceColor(id), true)).length;
+  face.forEach(id => renderCell(grid, id, faceLabel(id), id));
 
   grid.appendChild(groupHeader(t('gallery-group-forearm').replace('%n', forearm.length)));
-  forearm.forEach(a => renderCell(grid, a.name, itemLabel(a.name), forearmColor(a.name), true));
+  forearm.forEach(a => renderCell(grid, a.name, itemLabel(a.name), a.code));
 
+  const total = hand.length + face.length + forearm.length;
   document.getElementById('gallery-progress').textContent =
-    `${unlocked} / ${hand.length + face.length + forearm.length} ${isZh() ? '已解鎖' : 'UNLOCKED'}`;
+    isZh() ? `共 ${total} 穴` : `${total} ACUPOINTS`;
 }
 
 /** 橫跨整列的分組標題（不佔格子）。`note` 是底下那行小字說明 */
@@ -109,46 +120,31 @@ function groupHeader(text, cls) {
 }
 
 /**
- * 畫一格。回傳「這一穴解鎖了沒」，呼叫端據此數進度。
- *
- * ⚠️ 收集紀錄一律用**這個 id** 當 key：手部是中文穴名、臉部是代號（'EX-HN3'）。
- *    臉部不要改用中文名 —— 代號是那條線的識別字，改譯名不會弄丟使用者的收集紀錄
- *    （跟 App 的 `minions[fa.code]` 同一個約定）。
+ * 畫一格：參考圖 ＋ 穴名；定位還不支援的穴多標一行小字（誠實告訴使用者現在練不了）。
+ * 每一格都能點進去看介紹。
  */
-function renderCell(grid, id, label, color, canOpen) {
+function renderCell(grid, id, label, code) {
   const item = document.createElement('button');
   item.type = 'button';
   item.className = 'collection-item';
   item.dataset.acu = id;
-  item.onclick = () => { if (canOpen) showAcuInfo(id); };
-  const m = state.minions[id];
-  item.appendChild(galleryMinionImg(id));
+  item.onclick = () => showAcuInfo(id);
+  item.appendChild(galleryThumb(id, code));
 
   const nm = document.createElement('div');
   nm.className = 'nm';
   nm.textContent = label;
   item.appendChild(nm);
-  grid.appendChild(item);
 
-  if (m) {
-    item.style.borderColor = color;
-    const lv = document.createElement('span');
-    lv.className = 'lv';
-    lv.textContent = `Lv.${m.level} · ${m.times}x`;
-    item.appendChild(lv);
-    item.title = isZh() ? `${label} — 已按 ${m.times} 次`
-                        : `${label} — ${m.times} sessions`;
-    return true;
+  if (!itemImplemented(id)) {
+    // 前臂小海有獨立的實驗頁（forearm-lab.html），標「實驗版」而不是「不支援」
+    const lab = typeof FOREARM_LAB !== 'undefined' && FOREARM_LAB[id];
+    const soon = document.createElement('span');
+    soon.className = 'lv soon';
+    soon.textContent = lab ? (isZh() ? '實驗版' : 'Beta')
+                           : (isZh() ? '定位尚未支援' : 'Locating soon');
+    item.appendChild(soon);
   }
-
-  item.classList.add('locked');
-  const locked = document.createElement('span');
-  locked.className = 'lv';
-  locked.textContent = isZh() ? '尚未解鎖' : 'Locked';
-  item.appendChild(locked);
-  // 沒有定位公式的穴道要看得出來，不然會以為是自己還沒按到
-  item.title = canOpen && itemImplemented(id)
-    ? (isZh() ? '尚未解鎖' : 'Locked')
-    : (isZh() ? '定位尚未支援' : 'Locating not supported yet');
-  return false;
+  item.title = label;
+  grid.appendChild(item);
 }

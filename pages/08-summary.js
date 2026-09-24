@@ -1,14 +1,13 @@
 // ══ 總結（2026-09-02）══════════════════════════════════════════════
 //
 // 全部穴道都按完才會到這頁。單穴的完成頁（06-complete）在自動模式下不停留，
-// 小人獎勵改在這裡一次看完 —— 使用者要的是「按完自己接下去」，
+// 小人慶祝改在這裡一次看完 —— 使用者要的是「按完自己接下去」，
 // 中間每一穴都停一次會把那個流暢感打斷。
 //
 // 資料來自 sessionLog（js/state.js），只記這一次療程，關掉分頁就沒了。
-// 長期紀錄（圖冊、連續天數）仍然由 06-complete.js 的 completeMassage() 寫入。
 //
-// ⚠️ 時間是「實際按滿的秒數」不是「經過的秒數」——
-//    計時只在指尖真的對準時前進，所以這個數字是有意義的，不是碼錶。
+// 2026-09-24（用戶）：拿掉各穴時間、總時長、連續天數、Lv. 標籤。
+//   這頁只剩「今天按了哪些」＋ 那幾穴的小人出來慶祝。
 
 registerPage('summary', {
   tab: 'home',
@@ -34,24 +33,8 @@ registerPage('summary', {
       #summary-list .nm {
         font-family: var(--font-ming); font-size: 0.9375rem; letter-spacing: .04em;
       }
-      #summary-list .sec {
-        margin-left: auto;
-        font-family: var(--font-mono); font-size: 0.8125rem; color: var(--ink-soft);
-        font-variant-numeric: tabular-nums;
-      }
-      .total {
-        display: flex; align-items: baseline; gap: 10px;
-        border: 1px solid var(--brass); border-radius: var(--r);
-        background: var(--surface-2); padding: 13px 14px;
-      }
-      .total .k {
-        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
-        text-transform: uppercase; color: var(--brass);
-      }
-      .total .v {
-        margin-left: auto;
-        font-family: var(--font-mono); font-size: 1.875rem; font-weight: 600;
-        color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
+      #summary-list .ok {
+        margin-left: auto; color: var(--accent-text); font-size: 0.875rem;
       }
     </style>
 
@@ -62,21 +45,7 @@ registerPage('summary', {
       </div>
 
       <div id="summary-stage" class="reward-stage" aria-hidden="true"></div>
-      <div id="summary-rewards" class="reward-list"></div>
       <div id="summary-list"></div>
-
-      <div class="summary-stats">
-      <div class="total">
-        <span class="k" data-i18n="summary-total">總時長</span>
-        <span class="v" id="summary-total">0:00</span>
-      </div>
-      <div class="total">
-        <span class="k" id="summary-streak-label"></span>
-        <span class="v" id="summary-streak"></span>
-      </div>
-      </div>
-
-      <p class="hint mono-sm" data-i18n="summary-note">時間只計「指尖真的對準穴道」的秒數，離開穴道時計時是停住的。</p>
 
       <div class="btn-row">
         <button class="btn" onclick="goHome()" data-i18n="btn-home">回首頁</button>
@@ -85,12 +54,6 @@ registerPage('summary', {
     </div>
   </div>`,
 });
-
-// mm:ss。超過一小時不處理 —— 一次療程按到一小時的話，問題不在這個函式
-function fmtDuration(ms) {
-  const total = Math.round(ms / 1000);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
 
 let celebratedSession = null;
 let celebratedEntries = 0;
@@ -102,31 +65,18 @@ function renderSummary() {
   // 沒紀錄還跑到這頁（例如重新整理），回首頁比顯示一張空表誠實
   if (!sessionLog.length) { goHome(); return; }
 
-  list.innerHTML = sessionLog.map(r => `
+  // 保險起見去重：同一穴只列一次、只站一隻
+  const names = [...new Set(sessionLog.map(r => r.name))];
+  list.innerHTML = names.map(n => `
     <div class="row">
-      <span class="dot" style="background:${acuColor(r.name)}"></span>
-      <span class="nm">${itemLabel(r.name)}</span>
-      <span class="sec">${fmtDuration(r.ms)}</span>
+      <span class="dot" style="background:${acuColor(n)}"></span>
+      <span class="nm">${itemLabel(n)}</span>
+      <span class="ok" aria-label="${isZh() ? '完成' : 'done'}">✓</span>
     </div>`).join('');
 
-  document.getElementById('summary-total').textContent =
-    fmtDuration(sessionLog.reduce((a, r) => a + r.ms, 0));
-
-  // 完成時才寫長期紀錄。回到這頁、切語言都只重繪，不發第二份獎勵。
+  // 只有第一次進來才跳；回到這頁、切語言都只重繪，不重播慶祝。
   const firstVisit = celebratedSession !== sessionLog || celebratedEntries !== sessionLog.length;
-  renderRewardStage('summary-stage', firstVisit);
+  renderRewardStage('summary-stage', firstVisit, names);
   celebratedSession = sessionLog;
   celebratedEntries = sessionLog.length;
-  const rewards = document.getElementById('summary-rewards');
-  rewards.replaceChildren();
-  [...new Set(sessionLog.map(r => r.name))].forEach(name => {
-    const chip = document.createElement('span');
-    chip.className = 'reward-chip';
-    chip.textContent = `${itemLabel(name)} · Lv.${state.minions[name]?.level || 1}`;
-    rewards.appendChild(chip);
-  });
-  document.getElementById('summary-streak-label').textContent = isZh() ? '連續天數' : 'Daily streak';
-  const dayGap = state.streak.date ? daysBetween(state.streak.date, todayStr()) : null;
-  const streak = dayGap !== null && dayGap >= 0 && dayGap <= 1 ? state.streak.count : 0;
-  document.getElementById('summary-streak').textContent = isZh() ? `${streak} 天` : `${streak} days`;
 }

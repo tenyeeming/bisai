@@ -8,8 +8,7 @@
 const i18n = {
   zh: {
     // ── 底部分頁列 ──
-    'nav-home': '首頁', 'nav-gallery': '圖冊', 'nav-settings': '設定', 'nav-profile': '個人',
-
+    'nav-home': '首頁', 'nav-gallery': '圖冊', 'nav-settings': '設定',
     // ── 步驟軌 ──
     // 首頁（選症狀）是進入點不是步驟，不上軌；療程從選穴才開始算 01。
     'step-1': '選穴', 'step-2': '認穴', 'step-3': '定位', 'step-4': '按摩',
@@ -93,8 +92,8 @@ const i18n = {
     'menu-advance-manual': '換穴：手動',
     'menu-open': '相機與結束選項',
     'menu-end-early': '提早結束',
-    'menu-end-early-desc': '本穴不計入紀錄與圖冊',
-    'confirm-end-early': '提早結束這一穴？\n\n因為沒有按滿時間，這一次不會計入紀錄、圖冊與連續天數。',
+    'menu-end-early-desc': '這一穴不算完成',
+    'confirm-end-early': '提早結束這一穴？\n\n因為沒有按滿時間，這一穴不算完成，小人也不會出來慶祝。',
 
     // ── 06 完成 ──
     'eyebrow-complete': '完成',
@@ -103,8 +102,6 @@ const i18n = {
     // ── 08 總結 ──
     'eyebrow-summary': '療程總結',
     'summary-title': '今天按了這些',
-    'summary-total': '總時長',
-    'summary-note': '時間只計「指尖真的對準穴道」的秒數，離開穴道時計時是停住的。',
 
     // ── 07 臉部定位 ──
     'eyebrow-face': '臉部 · 即時定位',
@@ -120,7 +117,7 @@ const i18n = {
 
     // ── 圖冊 ──
     'splash-skip': '點一下跳過',
-    'eyebrow-gallery': '收集',
+    'eyebrow-gallery': '圖鑑',
     'gallery-title': '穴道圖冊',
     // 分組標題（2026-09-20 圖冊納入臉部）。%n 換成這一組有幾穴
     'gallery-group-hand': '手部穴道 · %n',
@@ -128,9 +125,6 @@ const i18n = {
     'gallery-group-forearm': '前臂穴道 · %n（尚未開放定位）',
     'info-locate': '定位',
     'info-symptoms': '主治',
-    'info-level': '等級',
-    'info-times': '累計',
-    'info-last': '最後一次',
     'info-nosymptom': '尚未對應症狀',
     'info-symptom-go': '以這個症狀開始一次療程',
     'info-nolocate': '尚未支援定位',
@@ -150,7 +144,6 @@ const i18n = {
     // 2026-09-21：組名對齊 App 的 settings_group_flow（「療程」）。
     // 舊 key 'settings-group-locate'（「定位」）已停用 —— App 的設定目錄沒有這一組。
     'settings-group-flow': '療程',
-    'settings-group-data': '資料',
     // 顯示（字體大小）。對齊 App 的 settings_display 那一組字串
     'settings-display': '顯示',
     'settings-fontsize': '字體大小',
@@ -211,7 +204,7 @@ const i18n = {
     'preset-save': '儲存',
     'btn-cancel': '取消',
     'preset-delete': '刪除這組流程',
-    'preset-delete-confirm': '刪除這組流程？按摩紀錄與圖冊收集不受影響。',
+    'preset-delete-confirm': '刪除這組流程？',
     'preset-need-acu': '至少要選一個穴道。',
     'preset-full': '流程數量已達上限。',
     // 定位精度。⚠️ 設定目錄 2026-09-21 起不再有這個入口（對齊 App，行為固定嚴格），
@@ -221,34 +214,17 @@ const i18n = {
     'settings-strict': '嚴格模式：角度不佳時不顯示穴位',
     'settings-strict-desc': '關閉後，即使手掌傾斜過大也會畫出穴位，但位置誤差可能很大。',
     'settings-strict-why': '系統寧可少標一個點，也不給一個看起來很篤定、其實是猜的紅點。關掉這個開關不會讓定位變準，只會讓系統不再把不確定的結果擋下來。',
-    // 資料與紀錄
-    'settings-data': '資料與紀錄',
-    'settings-data-where': '所有紀錄都只存在這台裝置的瀏覽器裡，不會上傳。攝影機影像全程在本機運算，一幀都沒有離開過這台電腦。',
-    'settings-reset': '清除所有紀錄',
-    'settings-reset-desc': '清除會刪掉按摩紀錄、圖冊收集與連續天數。語言、每日提醒與定位設定不受影響。這個動作無法復原。',
-
-    // ── 個人 ──
-    'eyebrow-profile': '紀錄',
-    'profile-title': '個人',
-    'profile-top': '最常按的穴道',
-    'profile-levels': '小人等級分布',
-    'profile-empty': '還沒有紀錄。完成一次按摩就會出現在這裡。',
-    'stat-streak': '連續天數',
-    'stat-total': '累計次數',
-    'stat-unlocked': '已解鎖',
-    'stat-today': '今日完成',
   },
 
   en: {
-    'nav-home': 'Home', 'nav-gallery': 'Collection', 'nav-settings': 'Settings', 'nav-profile': 'Profile',
-
+    'nav-home': 'Home', 'nav-gallery': 'Atlas', 'nav-settings': 'Settings',
     'step-1': 'Points', 'step-2': 'Anatomy', 'step-3': 'Locate', 'step-4': 'Massage',
 
     'btn-back': '← Back',
     'btn-stop': '← Stop',
     'btn-next': 'Next',
     'btn-home': 'Home',
-    'btn-gallery': 'Collection',
+    'btn-gallery': 'Atlas',
 
     'eyebrow-home': 'Complaint',
     'home-title': 'Select Your Symptoms',
@@ -315,16 +291,14 @@ const i18n = {
     'menu-advance-manual': 'Next point: manual',
     'menu-open': 'Camera and exit options',
     'menu-end-early': 'End Early',
-    'menu-end-early-desc': 'Not counted toward your record',
-    'confirm-end-early': 'End this acupoint early?\n\nSince the timer did not finish, this session will not count toward your record, collection or streak.',
+    'menu-end-early-desc': 'This point won\'t count as done',
+    'confirm-end-early': 'End this acupoint early?\n\nSince the timer did not finish, this point will not count as done and its minion will not celebrate.',
 
     'eyebrow-complete': 'Complete',
     'btn-next-acu': 'Next Acupoint',
 
     'eyebrow-summary': 'Session Summary',
     'summary-title': 'What You Pressed Today',
-    'summary-total': 'Total',
-    'summary-note': 'Time counts only the seconds your fingertip was actually on target; it pauses when you leave the point.',
 
     'eyebrow-face': 'Face · Live Locating',
     'face-title': 'Facial Acupoints',
@@ -338,16 +312,13 @@ const i18n = {
     'face-side-hint': 'Look straight at the camera; do not tilt or turn your head.',
 
     'splash-skip': 'Tap to skip',
-    'eyebrow-gallery': 'Collection',
-    'gallery-title': 'Acupoint Collection',
+    'eyebrow-gallery': 'Atlas',
+    'gallery-title': 'Acupoint Atlas',
     'gallery-group-hand': 'Hand · %n',
     'gallery-group-face': 'Face · %n',
     'gallery-group-forearm': 'Forearm · %n (no locating yet)',
     'info-locate': 'Location',
     'info-symptoms': 'Used For',
-    'info-level': 'Level',
-    'info-times': 'Sessions',
-    'info-last': 'Last',
     'info-nosymptom': 'No symptom mapped yet',
     'info-symptom-go': 'Start a session for this symptom',
     'info-nolocate': 'Locating not supported yet',
@@ -364,7 +335,6 @@ const i18n = {
     'settings-title': 'Settings',
     'settings-group-general': 'General',
     'settings-group-flow': 'Treatment',
-    'settings-group-data': 'Data',
     'settings-display': 'Display',
     'settings-fontsize': 'Text Size',
     'settings-fontsize-desc': 'Only the text size changes; borders and spacing stay the same. Applies to the whole site immediately.',
@@ -419,27 +389,13 @@ const i18n = {
     'preset-save': 'Save',
     'btn-cancel': 'Cancel',
     'preset-delete': 'Delete this routine',
-    'preset-delete-confirm': 'Delete this routine? Your session history and collection are not affected.',
+    'preset-delete-confirm': 'Delete this routine?',
     'preset-need-acu': 'Pick at least one acupoint.',
     'preset-full': 'You have reached the maximum number of routines.',
     'settings-accuracy': 'Locating Accuracy',
     'settings-strict': 'Strict mode: hide acupoint when angle is poor',
     'settings-strict-desc': 'When off, acupoints are drawn even at large tilt, but positional error may be large.',
     'settings-strict-why': 'We would rather skip a point than draw a confident-looking red dot that is really a guess. Turning this off does not make locating more accurate — it only stops the system from holding back uncertain results.',
-    'settings-data': 'Data & Records',
-    'settings-data-where': 'Everything is stored in this device\'s browser only and never uploaded. Camera frames are processed locally — not one frame leaves this computer.',
-    'settings-reset': 'Clear All Progress',
-    'settings-reset-desc': 'Clearing removes your session history, collection and streak. Language, reminder and locating settings are untouched. This cannot be undone.',
-
-    'eyebrow-profile': 'Record',
-    'profile-title': 'Your Record',
-    'profile-top': 'Most Massaged',
-    'profile-levels': 'Minion Levels',
-    'profile-empty': 'No records yet. Finish one session and it shows up here.',
-    'stat-streak': 'Streak',
-    'stat-total': 'Sessions',
-    'stat-unlocked': 'Unlocked',
-    'stat-today': 'Today',
   }
 };
 

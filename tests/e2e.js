@@ -48,7 +48,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ── 載入 ──
   const n = d.querySelectorAll('#pages .page').length;
-  ok(n === 19, `19 頁全部載入（實得 ${n}）`);   // 2026-09-21 +settings-display
+  ok(n === 17, `17 頁全部載入（實得 ${n}）`);   // 2026-09-21 +settings-display；09-25 批 68 −tab-profile −settings-data
   ok(active().join() === 'home', '起始在首頁');
   ok(activeTab().join() === 'home', '起始分頁 = 首頁');
   ok(d.querySelectorAll('#steprail li').length === 4, '步驟軌自動長出 4 格（首頁是進入點，不上軌）');
@@ -68,14 +68,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('backbar').style.display === 'none', '首頁不顯示返回列');
   ok(!/class="back"/.test(d.getElementById('pages').innerHTML), '各頁內容裡已沒有自己的返回鈕');
 
-  // ── 四分頁互切 ──
-  for (const [tab, page] of [['gallery', 'gallery'], ['settings', 'settings'], ['profile', 'profile'], ['home', 'home']]) {
+  // ── 三分頁互切（2026-09-24 拿掉「個人」）──
+  ok(!d.querySelector('#tabbar [data-tab="profile"]'), '分頁列已沒有「個人」');
+  for (const [tab, page] of [['gallery', 'gallery'], ['settings', 'settings'], ['home', 'home']]) {
     [...d.querySelectorAll('#tabbar button')].find(b => b.getAttribute('data-tab') === tab).click();
     ok(active().join() === page && activeTab().join() === tab, `分頁「${tab}」→ ${page}`);
   }
 
   // ── 完整療程 ──
-  w.eval('state.history={};state.minions={};state.streak={date:null,count:0}');
+  // 2026-09-24 起網頁不存任何按摩紀錄：這三把舊鑰匙從頭到尾都必須是空的
+  const recKeys = () => JSON.stringify(['acuHistory', 'acuStreak', 'minions'].map(k => w.localStorage.getItem(k)));
+  const NO_RECORDS = '[null,null,null]';
+  ok(recKeys() === NO_RECORDS, '開站時沒有舊的紀錄鑰匙');
   const headacheIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='緩解頭痛')");
   ok(headacheIdx >= 0, '找得到「緩解頭痛」症狀');
   $('symptom-grid').children[headacheIdx].click();
@@ -316,8 +320,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('massage-menu').hidden, '設定選單預設收起');
   $('massage-gear').click();
   ok(!$('massage-menu').hidden && $('massage-gear').getAttribute('aria-expanded') === 'true', '點齒輪展開選單');
-  ok(/提早結束/.test($('massage-menu').textContent) && /不計入紀錄/.test($('massage-menu').textContent),
-     '選單有「提早結束」且註明不計入紀錄');
+  ok(/提早結束/.test($('massage-menu').textContent) && /不算完成/.test($('massage-menu').textContent),
+     '選單有「提早結束」且註明這一穴不算完成');   // 批 68 拿掉紀錄後文案改了
   ok(/切換鏡頭/.test($('massage-menu').textContent), '選單有切換鏡頭');
   // 選單裡的圓盤開關要跟定位頁那顆同步
   const discBtns = () => [...d.querySelectorAll('[data-disc-label]')];
@@ -330,7 +334,6 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('massage-menu').hidden, '點畫面別處會收起選單');
 
   // 提早結束：取消
-  const timesBefore = w.eval('JSON.stringify(state.history)');
   w.confirm = () => false;
   $('massage-gear').click();
   w.endMassageEarly();
@@ -340,7 +343,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.confirm = () => true;
   w.endMassageEarly();
   ok(active().join() === 'acu-detail' && $('acu-progress').textContent === '2 / 2', '提早結束 → 直接到下一穴');
-  ok(w.eval('JSON.stringify(state.history)') === timesBefore, '提早結束沒有寫入任何紀錄');
+  ok(recKeys() === NO_RECORDS, '提早結束沒有寫入任何紀錄');
   ok(w.eval('massageRunning') === false, '提早結束會停掉計時');
   ok(w.eval('massageRound') === 1, '重進按摩頁時輪次會歸 1');
 
@@ -367,7 +370,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(!$('btn-switch-now').hidden, '換手倒數時出現「立即開始」');
   ok($('btn-massage-start').textContent === '開始按左手', '按鈕變成「開始按左手」');
   ok($('btn-massage-start').disabled === false, '按鈕重新啟用');
-  ok(w.eval('JSON.stringify(state.history)') === '{}', '只按完一隻手不算完成，沒寫紀錄');
+  ok(recKeys() === NO_RECORDS, '只按完一隻手不算完成，沒寫紀錄');
   ok(w.eval('massageRemainMs') === w.eval('flow.pressSec') * 1000, '第二輪計時重新裝滿成設定的單手秒數');
 
   // ⭐ 按摩頁那支滑桿改的是「這一穴」，不再是全域設定（2026-09-08 改）。
@@ -401,10 +404,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(active().join() === 'complete', '兩輪都完成 → 完成頁（手動模式）');
   ok($('backbar').style.display === 'none', '完成頁不顯示返回列');
   ok(w.eval('camRunning') === false, '完成頁自動關相機');
-  ok($('minion-badge').textContent === 'Lv.1', '首次完成 = Lv.1');
-  ok(/連續第 1 天/.test($('complete-streak').textContent), '連續第 1 天');
+  const badgeImg = $('minion-badge').querySelector('img');
+  ok(!!badgeImg && badgeImg.getAttribute('src') === w.eval('minionSrc(state.selectedAcupoints[0])'),
+     '完成頁是這一穴的專屬小人：' + (badgeImg && badgeImg.getAttribute('src')));
+  ok(!/Lv\./.test($('page-complete').textContent) && !/連續/.test($('page-complete').textContent),
+     '完成頁沒有等級、沒有連續天數');
+  ok(/完成/.test($('complete-cheer').textContent), '完成頁有慶祝文字：' + $('complete-cheer').textContent);
   ok($('btn-next-acu').style.display === '', '還有下一穴，按鈕顯示');
-  ok(w.eval('state.history[state.selectedAcupoints[0]].times') === 1, '紀錄寫入 times=1');
+  ok(recKeys() === NO_RECORDS, '完成也不寫任何紀錄');
 
   w.goToNextAcu();
   ok(active().join() === 'acu-detail' && $('acu-progress').textContent === '2 / 2', '下一穴 → 認穴頁 2/2');
@@ -432,8 +439,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await wait(300);
   ok(active().join() === 'summary', '自動模式最後一穴按完 → 總結頁');
   ok(d.querySelectorAll('#summary-list .row').length === 2, '總結頁列出這次按過的兩個穴道');
-  ok(/^\d+:\d\d$/.test($('summary-total').textContent), '總時長是 mm:ss：' + $('summary-total').textContent);
-  ok($('summary-total').textContent !== '0:00', '總時長不是 0');
+  ok(!$('summary-total') && !/\d+:\d\d/.test($('page-summary').textContent), '總結頁沒有時間與總時長');
+  ok($('summary-stage').querySelectorAll('img').length === 2, '總結舞台站這次按過的兩隻小人');
 
   // ── 開場動畫（2026-09-20）────────────────────────
   // 這一層是動態建的，boot() 最後才叫。測試環境裡 boot 已經跑過，
@@ -469,39 +476,41 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('backbar').style.display === 'none', '圖冊分頁不顯示返回列');
   // 2026-09-22：與 App 同步為手部 26＋臉部 23＋前臂 15，共 64 穴。
   const totalTiles = 26 + 23 + 15;
-  ok(/2 \/ 64 已解鎖/.test($('gallery-progress').textContent), '圖冊 2/64 已解鎖（實得 ' + $('gallery-progress').textContent + '）');
+  ok(/共 64 穴/.test($('gallery-progress').textContent), '圖冊標「共 64 穴」（實得 ' + $('gallery-progress').textContent + '）');
   const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
   ok(dataTotal === 49, '手部與臉部資料表仍是 49 穴（實得 ' + dataTotal + '）');
 
-  // ── 三組都使用 App 同一隻手掌小人 ──
+  // ── 每格是該穴參考圖（2026-09-24），沒有鎖、沒有等級 ──
   const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
   const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
   ok(cells.length === totalTiles, '圖冊有 64 格（實得 ' + cells.length + '）');
   ok(groups.length === 3, '手部、臉部與前臂各有一個分組標題');
   const handTiles = cells.slice(0, 26);
   const faceTiles = cells.slice(26, 49);
-  const srcs = cells.map(t => t.querySelector('img.minion')?.getAttribute('src'));
-  ok(srcs.every(Boolean), '64 格都有小人圖');
-  ok(srcs.every(s => s === 'assets/minion/idle.webp'), '三組共用 App 小人素材');
-  ok(cells.filter(t => t.classList.contains('locked')).length === totalTiles - 2,
-     '其餘 62 格未解鎖（顯示剪影）');
-  ok(cells.filter(t => t.querySelector('.lv')).length === totalTiles, '每格都有等級或尚未解鎖狀態');
+  ok(cells.every(t => t.querySelector('img.thumb, .thumb-code')), '64 格都有參考圖或代號圓標');
+  ok(handTiles.find(t => t.dataset.acu === '合谷穴').querySelector('img.thumb').getAttribute('src') === 'assets/acu-ref/hegu.jpg',
+     '合谷那格放的是合谷參考圖');
+  ok(faceTiles.find(t => t.dataset.acu === 'ST1').querySelector('img.thumb').getAttribute('src') === 'assets/face-ref/ST1.jpg',
+     '承泣那格放的是承泣參考圖');
+  ok(!!handTiles.find(t => t.dataset.acu === '少商穴').querySelector('.thumb-code'), '少商沒有參考圖 → 代號圓標，不借別穴的圖');
+  ok(cells.filter(t => t.classList.contains('locked')).length === 0, '沒有任何一格被鎖');
+  ok(!/Lv\.|已解鎖|尚未解鎖/.test($('collection-grid').textContent), '圖冊沒有等級與解鎖字樣');
   // 臉部的顏色不可以全部一樣（候的直接借 acuColor() 就會全是土黃色）
   const faceHues = new Set(w.eval('FACE_ACUPOINTS.map(a => faceColor(a.code))'));
   ok(faceHues.size > 1, '臉部代表色不是全部同一個（實得 ' + faceHues.size + ' 種）');
 
   // ── 圖冊 → 單穴介紹 ──
-  const lockedTile = handTiles.find(t => t.classList.contains('locked'));
-  lockedTile.click();
+  handTiles.find(t => t.dataset.acu === '陽池穴').click();
   ok(active().join() === 'acu-info', '點圖冊任一格 → 介紹頁');
   ok(activeTab().join() === 'gallery', '介紹頁仍歸圖冊分頁');
   ok($('back-btn').style.visibility !== 'hidden', '介紹頁有返回鈕');
-  ok($('info-portrait').classList.contains('locked'), '未解鎖的穴道頭像是剪影（但仍可閱讀介紹）');
+  ok(!$('info-portrait').classList.contains('locked'), '介紹頁頭像不再有剪影');
+  ok($('info-portrait').querySelector('img').getAttribute('src') === 'assets/minions/yangchi.webp', '手部頭像是該穴專屬小人');
   ok($('info-name').textContent.length > 0 && $('info-code').textContent.length > 0,
      '有穴名與代號：' + $('info-name').textContent + ' / ' + $('info-code').textContent);
   ok($('info-locate').textContent.length > 8, '有定位說明');
   ok(/手背|手心|手側緣/.test($('info-meta').textContent), '有標部位與正反面：' + $('info-meta').textContent);
-  ok($('info-stat').textContent.includes('等級'), '有收集狀態欄');
+  ok(!$('info-stat'), '介紹頁沒有「等級／累計／最後一次」統計');
 
   // 找一個「有參考圖、有主治、可以練」的穴道來驗完整內容
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
@@ -621,35 +630,20 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.startFromSymptom('沒有這個症狀');
   ok(active().join() === 'acu-info', '未知症狀 → 原地不動');
 
-  // ── 個人頁 ──
-  const today = new Date().toISOString().split('T')[0];
-  const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  w.eval(`state.history={'合谷穴':{times:7,lastDate:'${today}'},'陽池穴':{times:3,lastDate:'${yest}'},'中渚穴':{times:5,lastDate:'${today}'}};` +
-         `state.minions={'合谷穴':{level:2,times:7},'陽池穴':{level:1,times:3},'中渚穴':{level:2,times:5}};` +
-         `state.streak={date:'${today}',count:4}`);
-  w.showPage('profile');
-  const stats = $('profile-stats').textContent;
-  ok(/連續天數\s*4/.test(stats), '連續天數 = 4');
-  ok(/累計次數\s*15/.test(stats), '累計次數 = 15');
-  ok(/已解鎖\s*3\/26/.test(stats), '已解鎖 3/26');
-  ok(/今日完成\s*2/.test(stats), '今日完成 = 2（昨天那筆不算）');
-  const rows = [...$('profile-rank').querySelectorAll('.rank-row')].map(r => r.textContent.trim());
-  ok(rows.length === 3 && /合谷/.test(rows[0]) && /中渚/.test(rows[1]) && /陽池/.test(rows[2]), '排行降冪：' + rows.join(' | '));
-  w.eval("state.streak={date:'2020-01-01',count:99}"); w.initProfile();
-  ok(/連續天數\s*0/.test($('profile-stats').textContent), '中斷後連續天數歸 0');
+  // ── 個人頁：2026-09-24 整頁拿掉（網頁不存紀錄）──
+  ok(!w.eval("typeof initProfile !== 'undefined'"), '個人頁的程式已經不在');
 
   // ── 切語言只重繪當前頁 ──
-  w.eval(`state.streak={date:'${today}',count:4}`);
   w.goHome();
   $('symptom-grid').children[headacheIdx].click();
   w.goToRecommendation();
   $('recommend-list').children[0].click();
   const before = w.eval('state.selectedAcupoints.length');
-  w.showPage('profile');
+  w.showPage('gallery');
   ok(!/中\/EN/.test(d.querySelector('header').textContent), 'header 已沒有語言按鈕');
   w.setLanguage('en');
-  ok([...d.querySelectorAll('#tabbar button span')].map(s => s.textContent).join() === 'Home,Collection,Settings,Profile', '分頁列切英文');
-  ok(/STREAK/i.test($('profile-stats').textContent), '個人頁跟著切英文');
+  ok([...d.querySelectorAll('#tabbar button span')].map(s => s.textContent).join() === 'Home,Atlas,Settings', '分頁列切英文');
+  ok(/ACUPOINTS/.test($('gallery-progress').textContent), '圖冊跟著切英文');
   ok([...d.querySelectorAll('#steprail li')].map(l => l.textContent).join().includes('Points'), '步驟軌跟著切英文');
   ok(w.eval('state.selectedAcupoints.length') === before, '在別頁切語言不會清掉已勾的穴道');
   ok(w.localStorage.getItem('language') === 'en', '語言有存檔');
@@ -666,7 +660,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('page-settings-lang').querySelector('h2').textContent === '語言', '語言頁標題跟著切');
   seg()[0].click();
   ok(w.eval('currentLanguage') === 'zh', '重複點同一列不出事');
-  ok([...d.querySelectorAll('#tabbar button span')].map(s => s.textContent).join() === '首頁,圖冊,設定,個人', '切回中文');
+  ok([...d.querySelectorAll('#tabbar button span')].map(s => s.textContent).join() === '首頁,圖冊,設定', '切回中文');   // 批 68 拿掉個人分頁
   ok(w.eval("PAGES['settings-lang'].backTo") === 'settings' && w.eval("PAGES['settings-lang'].tab") === 'settings',
      '子頁退回設定目錄、且仍歸設定分頁');
 
@@ -685,9 +679,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-09-21 對齊 App 的 SettingsScreen.kt：
   //   +「顯示」（字體大小）、「每日提醒」從一般組搬到療程組、「定位精度」入口移除
   //   （App 2026-09-09 就刪了，行為固定嚴格）
-  ok(menuRows().length === 6, `設定目錄列出 6 個功能（實得 ${menuRows().length}）`);
-  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,我的流程,每日提醒,資料與紀錄',
-     '目錄六列：語言／顯示／療程節奏／我的流程／每日提醒／資料與紀錄');
+  // 2026-09-24：「資料與紀錄」拿掉（網頁不存紀錄）→ 五列
+  ok(menuRows().length === 5, `設定目錄列出 5 個功能（實得 ${menuRows().length}）`);
+  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,我的流程,每日提醒',
+     '目錄五列：語言／顯示／療程節奏／我的流程／每日提醒');
   ok(!menuRows().some(b => b.querySelector('.label').textContent === '定位精度'),
      '目錄裡沒有「定位精度」（同 App）');
   ok(!$('page-settings').querySelector('input'), '設定首頁本身沒有任何開關（全都搬進子頁）');
@@ -852,15 +847,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.onNotifyChange(false);
   ok(w.eval('reminderTimer') === null, '關掉提醒會把排程取消掉');
 
-  // ── 設定 › 資料與紀錄 ──
-  w.showPage('settings-data');
-  w.confirm = () => true;
-  w.resetProgress();
-  ok(w.eval('Object.keys(state.history).length') === 0, '清除紀錄');
-  w.showPage('profile');
-  ok(/累計次數\s*0/.test($('profile-stats').textContent), '清除後個人頁歸零');
-  w.showPage('gallery');
-  ok(/0 \/ 64/.test($('gallery-progress').textContent), '清除後圖冊歸零（分母含手部、臉部與前臂 64 穴）');
+  // ── 設定 › 資料與紀錄：2026-09-24 拿掉（沒有紀錄可清）──
+  w.showPage('settings');
+  ok(!menuRows().some(b => /資料/.test(b.textContent)), '設定目錄沒有「資料與紀錄」');
 
   // ── 臉部專屬症狀（2026-09-20）：手部 0 穴時要自動落在臉部分頁 ──
   w.goHome();
@@ -952,23 +941,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval('camRunning') === false, '切到圖冊自動關相機');
 
   // ── 防呆：localStorage 存了壞形狀的資料（2026-09-04）──────────────
-  // 這些不會丟例外，只會靜靜地畫出 Lv.undefined / NaN，所以要在讀進來時就洗掉。
+  // 這些不會丟例外，只會靜靜地畫出 NaN 或整頁空白，所以要在讀進來時就洗掉。
+  // （2026-09-24：小人／紀錄／連續天數三份存檔已整個拿掉，對應的清洗測試一起刪）
   const setLS = (k, v) => w.localStorage.setItem(k, v);
-
-  setLS('minions', '[1,2,3]');
-  ok(JSON.stringify(w.eval('cleanMinions()')) === '{}', '小人表存成陣列 → 整份丟掉回空物件');
-  setLS('minions', '{"合谷穴":{"level":"三","times":"7"},"陽池穴":5}');
-  const cm = w.eval('JSON.stringify(cleanMinions())');
-  ok(!/undefined|null/.test(cm) && /"level":2/.test(cm),
-     '字串 times 換算回等級、非物件那筆丟掉：' + cm);
-
-  setLS('acuHistory', '{"合谷穴":{"times":null,"lastDate":"昨天"}}');
-  ok(w.eval('JSON.stringify(cleanHistory())') === '{"合谷穴":{"times":0,"lastDate":null}}',
-     '壞掉的 times/lastDate 洗成 0 / null');
-
-  setLS('acuStreak', '{"date":"哪一天","count":9}');
-  ok(w.eval('JSON.stringify(cleanStreak())') === '{"date":null,"count":0}',
-     '日期不合法 → 連續天數歸零（留著會算出負的間隔）');
+  ok(['cleanMinions', 'cleanHistory', 'cleanStreak'].every(fn => w.eval(`typeof ${fn}`) === 'undefined'),
+     '紀錄相關的清洗函式已經不在');
 
   setLS('flowSettings', '{"pressSec":"abc","readySec":-5,"switchSec":9999,"handOrder":"上","autoAdvance":"yes"}');
   const cf = w.eval('JSON.stringify(cleanFlow())');
@@ -996,8 +973,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval('pressOnTarget(33, 20, true)') === false,  '遲滯：已對準時 d>1.6×tolIn 才離開');
   ok(w.eval('pressWasOn') === false, '遲滯記憶初值為 false（上一幀沒走到判定就不帶舊狀態）');
 
-  ['minions', 'acuHistory', 'acuStreak', 'flowSettings', 'notifyPlan']
-    .forEach(k => w.localStorage.removeItem(k));
+  ['flowSettings', 'notifyPlan'].forEach(k => w.localStorage.removeItem(k));
 
   // ══ 印堂「加入」療程（2026-09-04）══════════════════════════════
   // 臉部穴道不再是死路：勾了之後由「開始療程」一起帶進 selectedAcupoints，
@@ -1308,14 +1284,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goHome();
   ok(!d.body.classList.contains('massage-fs'), '離開按摩頁釋放放大畫面');
 
-  // 總結重繪純展示，不增加歷史或獎勵。
+  // 總結重繪純展示：舞台站本次按過的穴（手部＝專屬小人、臉部＝共用角色），不寫任何紀錄。
   w.eval("sessionLog=[{name:'合谷穴',ms:12000},{name:'EX-HN3',ms:5000}]");
-  const savedProgress = w.eval('JSON.stringify([state.history,state.minions,state.streak])');
   w.showPage('summary');
-  ok($('summary-stage').querySelectorAll('img').length === 5, '總結有五個角色');
-  ok($('summary-rewards').children.length === 2, '總結列出本次兩個穴道獎勵');
+  const stageSrcs = [...$('summary-stage').querySelectorAll('img')].map(i => i.getAttribute('src'));
+  ok(stageSrcs.length === 2, '總結舞台站本次兩個穴道的角色（實得 ' + stageSrcs.length + '）');
+  ok(stageSrcs[0] === 'assets/minions/hegu.webp' && /assets\/cast\//.test(stageSrcs[1]),
+     '合谷用專屬小人、印堂用共用角色：' + stageSrcs.join(', '));
+  ok($('summary-list').querySelectorAll('.row').length === 2, '總結列出本次兩個穴道');
   w.renderSummary(); w.setLanguage('en'); w.setLanguage('zh');
-  ok(w.eval('JSON.stringify([state.history,state.minions,state.streak])') === savedProgress, '重開總結或切語言不重複記帳');
+  ok(recKeys() === NO_RECORDS, '重開總結或切語言都不寫紀錄');
   ok(!$('summary-stage').classList.contains('celebrate'), '相同紀錄不重播慶祝');
   w.goHome();
 

@@ -45,6 +45,7 @@
   <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
   <script src="js/face-data.js"></script>
   <script src="js/face-math.js"></script>
+  <script src="js/face-anchor.js"></script>
   <script src="js/forearm-data.js"></script>
   <!-- 臉部按摩的對準判定（跨兩個模型，不是定位公式，所以獨立一支） -->
   <script src="js/face-gate.js"></script>
@@ -80,8 +81,6 @@
   <script src="pages/settings-accuracy.js"></script>
   <script src="pages/settings-presets.js"></script>
   <script src="pages/settings-flow.js"></script>
-  <script src="pages/settings-data.js"></script>
-  <script src="pages/tab-profile.js"></script>
 </head>
 
 <body>
@@ -113,6 +112,7 @@
     <!-- 各頁的 html 會在開站時串起來塞進這裡（見 js/nav.js 的 boot） -->
     <main id="pages"></main>
 
+    <!-- 2026-09-24：「個人」分頁拿掉（網頁不存紀錄，那頁全是連續天數／排行／等級），剩三個 -->
     <nav class="tabbar" id="tabbar" aria-label="主功能">
       <button type="button" data-tab="home" onclick="goTab('home')">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.75 20v-5.5h4.5V20"/></svg>
@@ -125,10 +125,6 @@
       <button type="button" data-tab="settings" onclick="goTab('settings')">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h9"/><path d="M17 7.5h3"/><circle cx="15" cy="7.5" r="2"/><path d="M4 16.5h3"/><path d="M11 16.5h9"/><circle cx="9" cy="16.5" r="2"/></svg>
         <span data-i18n="nav-settings">設定</span>
-      </button>
-      <button type="button" data-tab="profile" onclick="goTab('profile')">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c0-3.6 3.4-5.5 7.5-5.5s7.5 1.9 7.5 5.5"/></svg>
-        <span data-i18n="nav-profile">個人</span>
       </button>
     </nav>
   </div>

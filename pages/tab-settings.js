@@ -7,7 +7,7 @@
 //   settings-flow      療程節奏
 //   settings-presets   我的流程（一組穴道＋一套節奏，點一下直接開始）
 //   settings-notify    每日提醒（含每天要按什麼）
-//   settings-data      資料與紀錄（清除）
+//   （settings-data「資料與紀錄」2026-09-24 拿掉：網頁不再存按摩紀錄，沒有東西可清）
 //
 // ⚠️ settings-accuracy（定位精度）**不在目錄裡** —— App 2026-09-09 刪了這個選項，
 //    行為固定為嚴格。頁面檔還在，但沒有入口。
@@ -72,9 +72,6 @@ function renderSettingsMenu() {
       { page: 'settings-flow',    label: t('settings-flow'),    value: flowSummary() },
       { page: 'settings-presets', label: t('settings-presets'), value: presetsSummary() },
       { page: 'settings-notify',  label: t('settings-notify'),  value: notifySummary() },
-    ]},
-    { title: t('settings-group-data'), rows: [
-      { page: 'settings-data', label: t('settings-data'), value: '' },
     ]},
   ];
 

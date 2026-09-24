@@ -202,5 +202,58 @@ if (!files.length) {
   ok(sum / n < 4, `平均 NME ${(sum / n).toFixed(2)}% < 4%（最差 ${worstKey} ${worst.toFixed(2)}%）`);
 }
 
+// ── face-anchor.js：A 網格錨定 ＋ D 遠側隱藏（2026-09-24）──
+{
+  const an = new Function('isZh', src + '\n' + fs.readFileSync(DIR + 'js/face-anchor.js', 'utf8') + `
+    ;return { FACE_FORMULA, computeFaceAcupoint, faceYawDeg, faceFarSide, faceAnchorReset,
+              computeFaceAcupointAnchored, FACE_ANCHOR_SKIP, FACE_FAR_HIDE_DEG, FACE_BIND_MAX_DEG };`)(() => true);
+  const f0 = files.filter(f => /self/.test(f)).sort().pop();
+  const ph = f0 && JSON.parse(fs.readFileSync(ANNOT + f0, 'utf8')).photos[0];
+  if (!ph || !ph.landmarks || ph.landmarks[0].z == null) {
+    console.log('SKIP 沒有帶 z 的正臉 landmark，跳過錨定測試');
+  } else {
+    const W = ph.width, H = ph.height, lm = ph.landmarks;
+    const codes = Object.keys(an.FACE_FORMULA);
+    // 繞臉中心的垂直軸轉 deg 度（正交投影，z 與 x 同尺度）
+    const rot = (deg) => {
+      const t = deg * Math.PI / 180, c = Math.cos(t), s2 = Math.sin(t);
+      const cx = lm.reduce((a, p) => a + p.x, 0) / lm.length, cz = lm.reduce((a, p) => a + p.z, 0) / lm.length;
+      return lm.map(p => ({ x: cx + (p.x - cx) * c - (p.z - cz) * s2, y: p.y, z: cz + (p.x - cx) * s2 + (p.z - cz) * c }));
+    };
+    const y0 = an.faceYawDeg(lm, W);
+    ok(Math.abs(y0) < an.FACE_BIND_MAX_DEG, `正臉照 yaw3D ${y0.toFixed(1)}° 在綁定範圍內`);
+    const y35 = an.faceYawDeg(rot(35), W);
+    ok(Math.abs(Math.abs(y35 - y0) - 35) < 3, `人工轉 35° → yaw3D 變化 ${(y35 - y0).toFixed(1)}°（容差 3°）`);
+    ok(an.faceFarSide(10) === null && an.faceFarSide(40) === 'L' && an.faceFarSide(-40) === 'R',
+       `遠側判定：±${an.FACE_FAR_HIDE_DEG}° 以內不藏、正 yaw 藏 L、負 yaw 藏 R`);
+
+    an.faceAnchorReset();
+    let maxd = 0;
+    codes.forEach(c => {
+      const raw = an.computeFaceAcupoint(c, lm, W, H) || [];
+      const got = an.computeFaceAcupointAnchored(c, lm, W, H, y0, 0).pts || [];
+      raw.forEach((p, k) => { maxd = Math.max(maxd, Math.hypot(p.x - got[k].x, p.y - got[k].y)); });
+    });
+    ok(maxd < 1e-6, `正臉下錨定點 ＝ 公式點（最大差 ${maxd.toExponential(1)} px）`);
+
+    const L = rot(40), yL = an.faceYawDeg(L, W), far = an.faceFarSide(yL);
+    const st2 = an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 10);
+    ok(far && st2.pts.length === 1 && st2.pts[0].side !== far, `轉 40°：四白只剩近側一點（藏 ${far}）`);
+    const raw6 = an.computeFaceAcupoint('ST6', L, W, H).filter(p => p.side !== far);
+    const got6 = an.computeFaceAcupointAnchored('ST6', L, W, H, yL, 10).pts;
+    ok(an.FACE_ANCHOR_SKIP.has('ST6') && got6[0].x === raw6[0].x && got6[0].y === raw6[0].y,
+       '側臉 6 穴不錨定（照舊公式）');
+
+    an.faceAnchorReset();
+    ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 0).unbound === true,
+       '沒在正臉綁過就轉頭 → 回報 unbound（讀數條提示先正對）');
+    an.computeFaceAcupointAnchored('ST2', lm, W, H, y0, 0);
+    ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 100).unbound === false, '正臉綁過再轉頭 → 用綁定');
+    an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 5000);
+    ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 5010).unbound === true,
+       '臉消失超過 1.5 秒 → 綁定清掉');
+  }
+}
+
 console.log(fail ? `\n=== ${fail} 項失敗 ===` : '\n=== 全過 ===');
 process.exit(fail ? 1 : 0);

@@ -100,14 +100,17 @@ ok(!/XMLHttpRequest/.test(jsFiles.map(read).join('')), '也沒有用 XMLHttpRequ
   const slugMap = JSON.parse(vm2.runInContext('JSON.stringify(MINION_SLUG)', ctx));
   const noSlug = names.filter(n => !slugMap[n]);
   ok(noSlug.length === 0, `${names.length} 個穴道都有小人代號` + (noSlug.length ? ': ' + noSlug : ''));
-  const noFile = names.filter(n => !fs.existsSync(DIR + `assets/minions/${slugMap[n]}.svg`));
-  ok(noFile.length === 0, '每個穴道的小人 SVG 檔都在' + (noFile.length ? ': ' + noFile : ''));
+  // 2026-09-24：佔位 SVG 換成 `小人物/穴道集合/` 那 26 隻（WebP，與 App 同一組）
+  const noFile = names.filter(n => !fs.existsSync(DIR + `assets/minions/${slugMap[n]}.webp`));
+  ok(noFile.length === 0, '每個穴道的小人 WebP 檔都在' + (noFile.length ? ': ' + noFile : ''));
+  const bigMinion = fs.readdirSync(DIR + 'assets/minions').filter(f => f.endsWith('.webp'))
+    .filter(f => fs.statSync(DIR + 'assets/minions/' + f).size > 40 * 1024);
+  ok(bigMinion.length === 0, '小人圖都在 40KB 以內（原圖 PNG 不要直接放進來）' + (bigMinion.length ? ': ' + bigMinion : ''));
   const slugs = names.map(n => slugMap[n]);
   ok(new Set(slugs).size === slugs.length, '沒有兩個穴道共用同一隻小人');
-  const orphanSvg = fs.readdirSync(DIR + 'assets/minions')
-    .filter(f => f.endsWith('.svg'))
-    .filter(f => !slugs.includes(f.replace('.svg', '')));
-  ok(orphanSvg.length === 0, 'assets/minions 底下沒有多餘的檔' + (orphanSvg.length ? ': ' + orphanSvg : ''));
+  const orphanMinion = fs.readdirSync(DIR + 'assets/minions')
+    .filter(f => !slugs.includes(f.replace(/\.webp$/, '')));
+  ok(orphanMinion.length === 0, 'assets/minions 底下沒有多餘的檔' + (orphanMinion.length ? ': ' + orphanMinion : ''));
 
   // 參考圖：acu-data 宣告了 ref 的穴道，圖檔就一定要在（沒宣告的會顯示「尚無參考圖」）
   const refs = JSON.parse(vm2.runInContext(
@@ -122,9 +125,9 @@ ok(!/XMLHttpRequest/.test(jsFiles.map(read).join('')), '也沒有用 XMLHttpRequ
   ok(bigRef.length === 0, '參考圖都在 200KB 以內（原圖 800KB 不要直接放進來）' + (bigRef.length ? ': ' + bigRef : ''));
 }
 
-// ── 6. tab 值必須是分頁列的四個之一 ──
+// ── 6. tab 值必須是分頁列的三個之一（2026-09-24 拿掉「個人」）──
 const tabs = [...shell.matchAll(/data-tab="([^"]+)"/g)].map(x => x[1]);
-ok(tabs.join(',') === 'home,gallery,settings,profile', '分頁列四格順序: ' + tabs.join(','));
+ok(tabs.join(',') === 'home,gallery,settings', '分頁列三格順序: ' + tabs.join(','));
 const badTab = regs.filter(r => { const m = r.body && r.body.match(/tab:\s*'([^']+)'/); return m && !tabs.includes(m[1]); });
 ok(badTab.length === 0, '每頁的 tab 都在分頁列裡' + (badTab.length ? ': ' + badTab.map(r => r.name) : ''));
 

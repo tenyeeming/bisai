@@ -203,12 +203,7 @@ body.massage-fs #massage-viewport { width: 100vw; height: 100dvh; }
 body.massage-fs #massage-canvas { aspect-ratio: auto; }
 
 .reward-stage { display: flex; justify-content: center; align-items: end; gap: clamp(4px, 2vw, 20px); min-height: 140px; padding: 22px 12px 10px; border-radius: 20px; background: linear-gradient(180deg, var(--surface), var(--surface-2)); }
-.reward-stage img { width: min(16%, 80px); height: 100px; object-fit: contain; }
-.summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-#page-summary .total { min-width: 0; flex-wrap: wrap; }
-#page-summary .total .k { color: var(--accent-text); font-size: .8125rem; }
-#page-summary .reward-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.reward-chip { border: 1px solid var(--line); border-radius: 20px; padding: 7px 12px; font-size: .875rem; background: var(--surface-2); }
+.reward-stage img { width: min(19%, 96px); height: 112px; object-fit: contain; }
 .device .page-enter { animation: page-arrive .22s ease-out; }
 @keyframes page-arrive { from { opacity: .35; translate: var(--enter-x, 0px) 8px; } to { opacity: 1; translate: 0 0; } }
 /* 含固定定位面板的頁面不套移動動畫，避免改變覆蓋層的定位基準。 */

@@ -162,6 +162,7 @@ function stopFaceCamera() {
   faceHandLm = null;
   faceGate = { state: 'noface', R: null, ipdFrac: null, gap: null };
   faceHeld = false; faceOkUntil = 0;
+  if (typeof faceAnchorReset === 'function') faceAnchorReset();   // 下次可能是另一張臉
   if (typeof onTarget !== 'undefined') onTarget = false;   // 計時器不能停在「還對著」
   clearTimeout(faceWatchdog);
   if (faceCamera) { try { faceCamera.stop(); } catch (e) {} faceCamera = null; }
@@ -235,10 +236,15 @@ function onFaceResults(results) {
 
   const r = faceDiscR(pose.ipd);
   let drawn = 0;
+  let unbound = false;
   const allPts = [];
+  // 2026-09-24：轉頭偏移 → 改走 face-anchor.js（A 網格錨定 ＋ D 遠側隱藏）
+  const yaw3d = faceYawDeg(lm, W);
 
   faceSelected.forEach(code => {
-    const pts = computeFaceAcupoint(code, lm, W, H);
+    const res = computeFaceAcupointAnchored(code, lm, W, H, yaw3d);
+    if (res.unbound) unbound = true;
+    const pts = res.pts;
     if (!pts) return;
     drawn += pts.length;
     pts.forEach(p => {
@@ -261,6 +267,11 @@ function onFaceResults(results) {
   const roll = Math.round(pose.rollDeg);
   if (!drawn) {
     setFaceGate('warn', isZh() ? '請先選要定位的穴道' : 'Select an acupoint first');
+  } else if (unbound) {
+    // 還沒在正臉時記住這張臉 → 現在的點是舊公式，轉頭會偏
+    setFaceGate('warn', isZh()
+      ? '先正對鏡頭一秒，讓穴位記住你的臉'
+      : 'Face the camera for a second so the points can lock on');
   } else if (pose.facing < 0.75) {
     setFaceGate('bad', isZh()
       ? `臉太側　信心 ${pct}%　請正對鏡頭`

@@ -1,5 +1,6 @@
-// ══ 完成 / 獎勵 ══════════════════════════════════════════════════
-// 這頁是唯一會寫入長期紀錄的地方：按滿計時才算數，中途離開不計。
+// ══ 完成 / 慶祝 ══════════════════════════════════════════════════
+// 按滿計時才會來到這頁，由這一穴的專屬小人出來慶祝。
+// 2026-09-24 起**不寫任何紀錄**（網頁不做連續天數／等級／收集，見 js/state.js 開頭）。
 
 let lastCompleted = null;   // 剛完成的那一穴，給這頁顯示用
 
@@ -13,21 +14,20 @@ registerPage('complete', {
     <style>
       .badge {
         position: relative;
-        width: 118px; height: 118px; border-radius: 50%;
-        margin: 16px auto 22px;
+        width: 150px; height: 150px; border-radius: 50%;
+        margin: 18px auto 16px;
         display: flex; align-items: center; justify-content: center;
         border: 2px solid rgba(255,255,255,.25);
+        overflow: visible;
       }
-      .badge .minion { width: 84%; height: auto; display: block; }
-      .badge .lv {
-        position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
-        font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700;
-        color: #fff; padding: 2px 9px; border-radius: 999px;
-        border: 1px solid rgba(255,255,255,.3);
-      }
+      .badge .minion, .badge img { width: 88%; height: auto; display: block; }
+      .cheer { font-size: 1.0625rem; font-weight: 600; color: var(--ink); }
+      /* 蹦出來（stamp）→ 原地跳三下（hop）。減少動態時整段不播，只顯示靜態圖 */
       @media (prefers-reduced-motion: no-preference) {
         .badge { animation: stamp .45s cubic-bezier(.2,.9,.3,1.3); }
+        .badge img { animation: cheer-hop .42s ease-in-out .45s 6 alternate; transform-origin: 50% 100%; }
         @keyframes stamp { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+        @keyframes cheer-hop { from { translate: 0 0; rotate: -4deg; } to { translate: 0 -16px; rotate: 4deg; } }
       }
     </style>
 
@@ -37,9 +37,7 @@ registerPage('complete', {
         <h2 id="complete-acu" class="acu-title"></h2>
       </div>
       <div class="badge" id="minion-badge"></div>
-      <p class="small" id="complete-level"></p>
-      <p class="small" id="complete-duration"></p>
-      <p class="mono-sm" id="complete-streak"></p>
+      <p class="cheer" id="complete-cheer"></p>
       <div class="btn-row">
         <button class="btn" id="btn-next-acu" onclick="goToNextAcu()" data-i18n="btn-next-acu">下一穴</button>
         <button class="btn ghost" onclick="goHome()" data-i18n="btn-home">回首頁</button>
@@ -51,31 +49,10 @@ registerPage('complete', {
 
 function completeMassage() {
   const name = curAcuName();
-  const today = todayStr();
-
-  if (!state.history[name]) state.history[name] = { times: 0, lastDate: null };
-  state.history[name].times++;
-  state.history[name].lastDate = today;
-
-  if (!state.minions[name]) state.minions[name] = { level: 1, times: 0 };
-  const m = state.minions[name];
-  m.times++;
-  m.level = m.times >= 20 ? 3 : m.times >= 5 ? 2 : 1;   // 升級門檻：5 次 → Lv2，20 次 → Lv3
-
-  // 連續天數：只有「昨天有做」才 +1，同一天重複不加，中斷就歸 1
-  if (state.streak.date !== today) {
-    state.streak.count = (state.streak.date && daysBetween(state.streak.date, today) === 1)
-      ? (state.streak.count || 0) + 1 : 1;
-    state.streak.date = today;
-  }
-  if (!state.streak.count) state.streak.count = 1;
-
-  saveState();
-
-  lastCompleted = { name, level: m.level, times: m.times, streak: state.streak.count };
+  lastCompleted = { name };
 
   // ── 自動模式：不停在完成頁 ────────────────────────────────
-  // 使用者要的是「按完自己接下去」，所以小人獎勵改到總結頁一次看完。
+  // 使用者要的是「按完自己接下去」，所以小人慶祝改到總結頁一次看完。
   // 手動模式維持原樣：停在這頁，自己按「下一穴」。
   const isLast = state.currentAcupointIndex >= state.selectedAcupoints.length - 1;
   if (flow.autoAdvance) {
@@ -89,26 +66,20 @@ function completeMassage() {
 
 function renderComplete() {
   if (!lastCompleted) { goHome(); return; }
-  const { name, level, times, streak } = lastCompleted;
+  const { name } = lastCompleted;
 
   document.getElementById('complete-acu').textContent = itemLabel(name);
 
   const badge = document.getElementById('minion-badge');
   badge.innerHTML = '';
-  badge.style.background = acuColor(name);
-  const lv = document.createElement('span');
-  lv.className = 'lv';
-  lv.textContent = 'Lv.' + level;
-  lv.style.background = acuColor(name);
-  const art = isFaceItem(name) ? castImage(0) : minionImg(name);
-  art.className = 'minion';
-  badge.append(art, lv);
+  badge.style.background = isFaceItem(name) ? faceColor(name)
+    : isForearmItem(name) ? forearmColor(name) : acuColor(name);
+  badge.appendChild(celebrantImg(name, 0));
+  // 重新觸發動畫：同一節點連續兩次進這頁時，瀏覽器不會自己重播
+  badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
 
-  document.getElementById('complete-level').textContent = isZh()
-    ? `${itemLabel(name)}小人 Lv.${level}　累計 ${times} 次`
-    : `${itemLabel(name)} minion Lv.${level} · ${times} sessions`;
-  document.getElementById('complete-streak').textContent = isZh()
-    ? `連續第 ${streak} 天` : `${streak}-DAY STREAK`;
+  document.getElementById('complete-cheer').textContent = isZh()
+    ? `${itemLabel(name)}完成！做得好` : `${itemLabel(name)} done — nice work!`;
 
   // 最後一穴就沒有「下一穴」可按
   const isLast = state.currentAcupointIndex >= state.selectedAcupoints.length - 1;
@@ -116,9 +87,6 @@ function renderComplete() {
   next.style.display = '';
   next.removeAttribute('data-i18n');
   next.textContent = isLast ? (isZh() ? '查看本次總結' : 'View summary') : t('btn-next-acu');
-  const entry = sessionLog[sessionLog.length - 1];
-  document.getElementById('complete-duration').textContent = entry && entry.name === name
-    ? (isZh() ? `本次對準時間 ${fmtDuration(entry.ms)}` : `Aligned time ${fmtDuration(entry.ms)}`) : '';
 }
 
 function goToNextAcu() {

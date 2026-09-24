@@ -83,10 +83,15 @@ try:
             check(page.evaluate("document.activeElement.classList.contains('info')"), name + ': detail restores focus')
             page.screenshot(path=str(args.output / f'{name}-recommend.png'), full_page=True)
             # Gallery deserves its own shot: it now holds hand + face + forearm (64 cells),
-            # all using the same App minion card.
+            # each showing its reference drawing (2026-09-24: no more unlock / minion cards).
             # The overflow check alone never told us whether the grid *looks* right.
             page.evaluate("showPage('gallery')")
             no_overflow(page, name + '/gallery')
+            check(page.locator('#collection-grid .collection-item').count() == 64, name + ': gallery lists 64 acupoints')
+            check(page.locator('#collection-grid .locked').count() == 0, name + ': gallery has no locked cells')
+            page.wait_for_timeout(300)
+            broken = page.evaluate("[...document.querySelectorAll('#collection-grid img.thumb')].filter(i => i.complete && !i.naturalWidth).length")
+            check(broken == 0, name + ': gallery reference thumbnails all load')
             page.screenshot(path=str(args.output / f'{name}-gallery.png'), full_page=True)
             page.evaluate("infoAcuName='ST1'; showPage('acu-info')")
             no_overflow(page, name + '/acu-info-face')
@@ -118,17 +123,24 @@ try:
             no_overflow(page, name + '/fullscreen')
             page.keyboard.press('Escape')
             check(not page.evaluate('massageFsOn'), name + ': Escape shrinks camera')
-            page.evaluate("goHome(); sessionLog=[{name:'合谷穴',ms:60000},{name:'EX-HN3',ms:30000}]; state.minions={'合谷穴':{level:2,times:5},'EX-HN3':{level:1,times:1}}; state.streak={date:todayStr(),count:3}; showPage('summary')")
-            before = page.evaluate('JSON.stringify([state.history,state.minions,state.streak])')
+            # 2026-09-24: completion page = the acupoint's own minion celebrating, no records written
+            page.evaluate("goHome(); state.selectedAcupoints=['合谷穴','三間穴']; state.currentAcupointIndex=0; flow.autoAdvance=false; sessionLog=[{name:'合谷穴',ms:60000}]; completeMassage()")
+            check(page.evaluate("document.querySelector('#page-complete.active #minion-badge img')?.getAttribute('src')") == 'assets/minions/hegu.webp', name + ': complete page shows the acupoint minion')
+            check(page.evaluate("['acuHistory','acuStreak','minions'].every(k => localStorage.getItem(k) === null)"), name + ': completing writes no records')
+            no_overflow(page, name + '/complete')
+            page.screenshot(path=str(args.output / f'{name}-complete.png'), full_page=True)
+            page.evaluate("goHome(); sessionLog=[{name:'合谷穴',ms:60000},{name:'EX-HN3',ms:30000}]; showPage('summary')")
+            check(page.locator('#summary-list .row').count() == 2, name + ': summary lists this session only')
+            check(page.locator('#summary-stage img').count() == 2, name + ': one celebrant per acupoint on stage')
+            check(page.locator('#summary-total').count() == 0, name + ': summary has no total time')
             page.evaluate("renderSummary(); setLanguage('en')")
-            check(page.evaluate('JSON.stringify([state.history,state.minions,state.streak])') == before, name + ': rendering summary never awards twice')
             no_overflow(page, name + '/summary-en')
             page.screenshot(path=str(args.output / f'{name}-summary.png'), full_page=True)
             page.evaluate('goHome()')
             no_overflow(page, name + '/home-en')
             page.evaluate("state.selectedSymptoms=[0,4]; goToRecommendation()")
             no_overflow(page, name + '/recommend-en')
-            for route in ['gallery','settings','profile','settings-lang','settings-notify','settings-flow','settings-presets','settings-accuracy','settings-data']:
+            for route in ['gallery','settings','settings-lang','settings-display','settings-notify','settings-flow','settings-presets','settings-accuracy']:
                 page.evaluate('(route)=>showPage(route)', route)
                 no_overflow(page, name + '/' + route + '-en')
             page.emulate_media(color_scheme='dark')

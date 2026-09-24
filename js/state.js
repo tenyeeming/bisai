@@ -3,13 +3,15 @@
 //
 // 分兩種：
 //   state.selected*     → 這一次療程的暫時選擇，關掉分頁就沒了
-//   state.history/...   → 存進 localStorage 的長期紀錄（圖冊、連續天數靠它）
+//   偏好設定（提醒、節奏、預設流程、字級）→ localStorage
+//
+// ⚠️ 2026-09-24 起網頁**不存按摩紀錄**：連續天數、小人等級、圖冊收集解鎖全部拿掉。
+//    理由（用戶）：網頁沒有資料庫，localStorage 只活在單一瀏覽器，換裝置／清快取就不見，
+//    而本系統的核心是多設備使用 —— 留著只會讓人問「我昨天按的怎麼沒了」。
+//    養成系統只在 App 有。偏好設定不同：換裝置沒了只是回預設，不會誤導，所以保留。
 // ═══════════════════════════════════════════════════════════════════
 
 const LS = {
-  history: 'acuHistory',   // { 穴名: { times, lastDate } }
-  streak:  'acuStreak',    // { date, count }
-  minions: 'minions',      // { 穴名: { level, times } }
   notify:  'notifyEnabled',
   notifyTime: 'notifyTime',// 'HH:MM'
   notifyPlan: 'notifyPlan',// { mode, symptoms, region }：每天提醒你按什麼
@@ -25,8 +27,8 @@ const jget = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); re
 // ── 防呆：存進去的東西不一定還是原來的形狀 ───────────────────────
 // jget 只擋得住「JSON 壞掉」，擋不住「JSON 好好的、但型別不對」——
 // 舊版本存的格式、使用者自己改過 localStorage、或兩個分頁同時寫，
-// 都會讓 acuHistory 變成陣列、level 變成字串。這些不會丟例外，
-// 只會安安靜靜地顯示成 `Lv.undefined` 或讓計數變 NaN，比報錯還難查。
+// 都會讓清單變成物件、秒數變成字串。這些不會丟例外，
+// 只會安安靜靜地讓計數變 NaN 或整頁畫不出來，比報錯還難查。
 // 所以一律在「讀進來的那一刻」洗乾淨，下游各頁就不必各自防一次。
 
 const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -38,36 +40,6 @@ const jgetMap = (k, d) => { const v = jget(k, d); return isPlainObj(v) ? v : d; 
 function intIn(v, lo, hi, fallback) {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
-}
-
-// 小人：{ level 1–3, times ≥0 }。壞掉的那一筆丟掉，不是整份丟掉 ——
-// 收集紀錄是使用者累積出來的，能救幾筆救幾筆。
-function cleanMinions() {
-  const out = {};
-  Object.entries(jgetMap(LS.minions, {})).forEach(([name, m]) => {
-    if (!isPlainObj(m)) return;
-    const times = intIn(m.times, 0, 1e6, 0);
-    out[name] = { times, level: intIn(m.level, 1, 3, times >= 20 ? 3 : times >= 5 ? 2 : 1) };
-  });
-  return out;
-}
-
-// 按摩紀錄：{ times ≥0, lastDate 'YYYY-MM-DD' 或 null }
-function cleanHistory() {
-  const out = {};
-  Object.entries(jgetMap(LS.history, {})).forEach(([name, h]) => {
-    if (!isPlainObj(h)) return;
-    const d = typeof h.lastDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(h.lastDate) ? h.lastDate : null;
-    out[name] = { times: intIn(h.times, 0, 1e6, 0), lastDate: d };
-  });
-  return out;
-}
-
-// 連續天數：日期不合法就當成沒紀錄（count 留著沒意義，會算出負的間隔）
-function cleanStreak() {
-  const s = jgetMap(LS.streak, {});
-  const ok = typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date);
-  return ok ? { date: s.date, count: intIn(s.count, 0, 1e5, 1) } : { date: null, count: 0 };
 }
 
 // ── 每日提醒的「內容」──────────────────────────────
@@ -98,10 +70,10 @@ let state = {
   selectedFace: [],           // 臉部穴道另外存：走另一套資料（代碼如 'BL1'），見 js/face-data.js
   acuSecs: {},                // 逐穴的單手秒數（選穴頁拉的滑桿）。沒有那一筆＝跟著全域 flow.pressSec
   currentAcupointIndex: 0,    // 現在按到第幾個
-  history: cleanHistory(),
-  streak:  cleanStreak(),
-  minions: cleanMinions(),
 };
+
+// 舊版（2026-09-24 以前）存下的按摩紀錄：已經沒有任何地方讀它，開站時順手清掉。
+['acuHistory', 'acuStreak', 'minions'].forEach(k => { try { localStorage.removeItem(k); } catch {} });
 
 // 嚴格模式：角度不佳時要不要乾脆不畫穴位（設定頁可關）
 let strictGate = jget(LS.strict, true);
@@ -266,18 +238,8 @@ const acuSecIsCustom = (id) => (id in state.acuSecs);
 // 這一次療程按了什麼、各按多久（總結頁用）。關掉分頁就沒了，不進 localStorage。
 let sessionLog = [];
 
-function saveState() {
-  localStorage.setItem(LS.history, JSON.stringify(state.history));
-  localStorage.setItem(LS.streak,  JSON.stringify(state.streak));
-  localStorage.setItem(LS.minions, JSON.stringify(state.minions));
-}
-
 // 現在正在處理哪一個穴道
 const curAcuName = () => state.selectedAcupoints[state.currentAcupointIndex];
-
-const todayStr = () => new Date().toISOString().split('T')[0];
-const daysBetween = (a, b) =>
-  Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
 
 // ── 小人顏色：依部位分四色系 ──────────────────────────────
 const FINGERTIP = new Set(['少商穴','商陽穴','少衝穴','少澤穴','關衝穴','中衝穴']);

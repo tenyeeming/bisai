@@ -105,7 +105,10 @@ function computeTwistTb(lm, W, H) {
 function drawTwistArrow(ctx, W, H, side, lm, mx) {
   if (!side || !isMobileWeb()) return;
   const indexX = mx(lm[5].x * W), pinkyX = mx(lm[17].x * W);
-  const towardPinky = side === 'pinky';
+  // 🔴 2026-09-24 用戶：「箭頭左右是不是用反了」。'pinky' ＝ 小指側被壓扁、要轉回來，
+  //    這時掌面朝鏡頭那一面是往**食指側**滑（轉門把），箭頭畫的是掌面滑的方向 → 指向食指。
+  //    判定（TwistTracker）不動，只翻畫的方向；與 App AcuCameraView 同步。
+  const towardPinky = side !== 'pinky';
   const dir = ((towardPinky ? pinkyX - indexX : indexX - pinkyX) >= 0) ? 1 : -1;
   const len = W * .30, cx = W / 2, cy = H / 2, x0 = cx - dir * len / 2;
   const tip = x0 + dir * len, neck = tip - dir * len * .36;

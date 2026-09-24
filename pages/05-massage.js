@@ -57,7 +57,7 @@ registerPage('massage', {
       <hr>
       <button type="button" role="menuitem" class="danger" onclick="endMassageEarly()">
         <span data-i18n="menu-end-early">提早結束</span>
-        <small data-i18n="menu-end-early-desc">本穴不計入紀錄與圖冊</small>
+        <small data-i18n="menu-end-early-desc">這一穴不算完成</small>
       </button>
     </div>`,
 
@@ -388,7 +388,7 @@ function onDocClickCloseMenu(e) {
   if (menu && !menu.contains(e.target) && gear && !gear.contains(e.target)) closeMassageMenu();
 }
 
-// 提早結束：不寫紀錄。
+// 提早結束：這一穴不算完成（不進完成頁、小人不慶祝、不列進總結）。
 // 「按滿計時才算數」是本系統的核心主張，讓人跳過還記一筆等於自己拆自己的台。
 function endMassageEarly() {
   closeMassageMenu();
@@ -554,7 +554,7 @@ function finishRound() {
     startSwitchCountdown();
     return;
   }
-  // 這一穴按完了，把實際時間留給總結頁（完成頁才會寫進長期紀錄）
+  // 這一穴按完了，記進本次療程清單給總結頁（網頁不存長期紀錄）
   sessionLog.push({ name: curAcuName(), ms: acuElapsedMs });
   completeMassage();
 }
