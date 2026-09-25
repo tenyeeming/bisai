@@ -19,8 +19,16 @@ const TICK_MS = 100;
 // 最後一次對準的時間。掉幀（手指遮住被按的手）時，PRESS_GRACE_MS（js/vision.js）內照樣計時，
 // 不讓計時與狀態文字每 0.1 秒閃一次。臉部也走這裡，一起受惠。
 let massageLastOnAt = 0;
+// 按壓判定關掉（齒輪選單，state.js pressCheck）時不看 onTarget，但開始計時前先給 3 秒準備 ——
+// 用戶：「一旦取消功能就要給他們三秒的準備時間」。開始、暫停後繼續、計時中途關掉判定都重給一次。
+const PRESS_OFF_PREP_MS = 3000;
+let pressOffPrepUntil = 0;
+function armPressOffPrep() { pressOffPrepUntil = performance.now() + PRESS_OFF_PREP_MS; }
+function onPressCheckOff() { if (massageRunning && !massageUserPaused) armPressOffPrep(); if (massageRunning) syncMassageControls(); }
+const pressOffPrepLeft = () => Math.max(0, pressOffPrepUntil - performance.now());
 function massageHeld() {
   const now = performance.now();
+  if (!pressCheck) return now >= pressOffPrepUntil;
   if (onTarget) massageLastOnAt = now;
   return onTarget || (now - massageLastOnAt < PRESS_GRACE_MS);
 }
@@ -63,6 +71,7 @@ registerPage('massage', {
     resetMassageSession();
     syncMassageControls();
     startMassageCamera();
+    startEntryCountdown();
   },
   onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
   onLanguage: () => {
@@ -475,8 +484,12 @@ function syncMassageControls() {
   btn.textContent = label;
   document.getElementById('fs-pause').textContent = label;
   const status = document.getElementById('timer-state');
-  const text = !massageRunning ? (isZh() ? '準備好了就開始' : 'Start when ready')
+  const text = !massageRunning && switchTickId ? (isZh() ? '倒數完自動開始' : 'Starting after countdown')
+    : !massageRunning ? (isZh() ? '準備好了就開始' : 'Start when ready')
     : massageUserPaused ? (isZh() ? '已暫停，保留剩餘時間' : 'Paused — remaining time saved')
+    : !pressCheck && pressOffPrepLeft() > 0
+      ? (isZh() ? `準備 ${Math.ceil(pressOffPrepLeft() / 1000)} 秒後開始計時` : `Get ready — timer starts in ${Math.ceil(pressOffPrepLeft() / 1000)}s`)
+    : !pressCheck ? (isZh() ? '按壓判定已關閉，計時中' : 'Press check off — timer running')
     : !massageHeld() ? (isZh() ? '等待位置對準，計時暫停' : 'Waiting for alignment — timer paused')
     : (isZh() ? '位置已對準，計時中' : 'Aligned — timer running');
   if (status.textContent !== text) status.textContent = text;
@@ -485,16 +498,19 @@ function syncMassageControls() {
 function toggleMassagePause() {
   if (!massageRunning) { stopSwitchCountdown(); startMassage(); return; }
   massageUserPaused = !massageUserPaused;
+  if (!massageUserPaused && !pressCheck) armPressOffPrep();
   syncMassageControls();
 }
 
 function startMassage() {
   if (massageRunning) return;
+  stopSwitchCountdown();   // 從別處直接開始（如測試、全螢幕鈕）時，倒數要收掉、開始鈕要回來
   document.getElementById('round-switch').hidden = true;
   massageRemainMs = parseInt(document.getElementById('timer-input').value, 10) * 1000;
   massageRunning = true;
   massageUserPaused = false;
   massageLastOnAt = 0;
+  if (!pressCheck) armPressOffPrep();
   document.getElementById('btn-massage-start').disabled = false;
   document.getElementById('timer-input').disabled = true;
   syncZoomBtn();
@@ -531,15 +547,33 @@ function finishRound() {
 // ── 換手倒數 ──────────────────────────────────────────────────────
 // 手還舉在鏡頭前，這時候要人再點一次「開始」是最難點的一下 ——
 // 所以倒數完自己開始。想快一點就按「立即開始」。
-function startSwitchCountdown() {
+// ⭐ 2026-09-25 用戶：「定位那裡開始按摩後，倒數三秒準備然後直接開始，不要再按一次開始」。
+//    進頁就用換手倒數同一套（提示列＋「立即開始」），固定 3 秒；計時照舊走按壓判定（pressCheck 預設開）。
+const ENTRY_PREP_SEC = 3;
+function startEntryCountdown() {
+  const box = document.getElementById('round-switch');
+  const base = hasRounds()
+    ? (isZh() ? `準備按${t(curHandKey())}。` : `Get ready: ${t(curHandKey()).toLowerCase()}.`)
+    : (isZh() ? '準備開始。' : 'Get ready.');
+  box.setAttribute('data-base', base);
+  box.textContent = base;
+  box.hidden = false;
+  startSwitchCountdown(ENTRY_PREP_SEC);
+  syncMassageControls();
+}
+
+function startSwitchCountdown(secOverride) {
   stopSwitchCountdown();
-  const sec = Number(flow.switchSec) || 0;
+  const sec = secOverride != null ? secOverride : (Number(flow.switchSec) || 0);
   const btn = document.getElementById('btn-switch-now');
 
   if (sec <= 0) { skipSwitchCountdown(); return; }
 
   switchRemain = sec;
   if (btn) btn.hidden = false;
+  // 倒數中「開始按摩」跟「立即開始」同義，藏起來只留一顆（2026-09-25 用戶）
+  const startBtn = document.getElementById('btn-massage-start');
+  if (startBtn) startBtn.hidden = true;
   renderSwitchCountdown();
 
   switchTickId = setInterval(() => {
@@ -553,6 +587,8 @@ function stopSwitchCountdown() {
   if (switchTickId) { clearInterval(switchTickId); switchTickId = null; }
   const btn = document.getElementById('btn-switch-now');
   if (btn) btn.hidden = true;
+  const startBtn = document.getElementById('btn-massage-start');
+  if (startBtn) startBtn.hidden = false;
 }
 
 function skipSwitchCountdown() {

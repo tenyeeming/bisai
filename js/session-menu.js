@@ -47,6 +47,7 @@ function sessionGearHtml(prefix, opts) {
       ${flip}
       <button type="button" role="menuitem" data-disc-label onclick="${opts.discFn}()">隱藏信心圓盤</button>
       <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
+      <button type="button" role="menuitem" data-presscheck-label onclick="togglePressCheck()">按壓判定：開</button>
       <hr>
       <button type="button" role="menuitem" class="danger" onclick="${opts.skipFn}()">
         <span data-i18n="menu-end-early">跳過這一穴</span>
@@ -66,6 +67,7 @@ function toggleGearMenu(e, prefix) {
 
 function openGearMenu(prefix) {
   syncFingerChips();
+  syncPressCheckLabels();
   document.getElementById(prefix + '-menu').hidden = false;
   document.getElementById(prefix + '-gear').setAttribute('aria-expanded', 'true');
   gearOpenPrefix = prefix;
@@ -103,6 +105,21 @@ function toggleFingerChip(e, finger) {
     alert(t('finger-need-one'));
   }
   syncFingerChips();
+}
+
+// ── 按壓判定開關 ─────────────────────────────────────────────────
+// 關掉時手指選擇沒意義，但不藏：之後打開還是照原本勾的。
+function togglePressCheck() {
+  setPressCheck(!pressCheck);
+  if (!pressCheck && typeof onPressCheckOff === 'function') onPressCheckOff();   // 計時中關掉 → 也給 3 秒準備
+  syncPressCheckLabels();
+  if (gearOpenPrefix) closeGearMenu(gearOpenPrefix);
+}
+
+function syncPressCheckLabels() {
+  document.querySelectorAll('[data-presscheck-label]').forEach(el => {
+    el.textContent = t(pressCheck ? 'menu-press-on' : 'menu-press-off');
+  });
 }
 
 function syncFingerChips() {

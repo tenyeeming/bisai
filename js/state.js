@@ -20,6 +20,7 @@ const LS = {
   presets: 'acuPresets',   // 預設流程：一組穴道＋一套節奏（見下）
   fontScale: 'fontScale',  // 'small' | 'medium' | 'large'（見下）
   pressFingers: 'pressFingers', // 按摩時算數的手指（見下）
+  pressCheck: 'pressCheck',     // 按壓判定開關（見下）
 };
 
 // localStorage 讀 JSON，壞掉就回預設值（不要讓一筆爛資料炸掉整頁）
@@ -176,6 +177,16 @@ function setPressFinger(finger, on) {
 
 /** 按壓判定要看的指尖 landmark 編號 */
 const pressTipIdx = () => pressFingers.map(f => FINGER_TIPS[f]);
+
+// ── 按壓判定開關（2026-09-25）────────────────────────────────────
+// 用戶：「在那個設定裏面加入取消按壓判定的功能」「一旦取消功能就要給他們三秒的準備時間」。
+// 關掉＝按摩計時不看手指有沒有對準，開始後照走（手部臉部共用，同 pressFingers 不放 flow）。
+// 3 秒準備在 pages/05-massage.js（PRESS_OFF_PREP_MS）。預設開。
+let pressCheck = jget(LS.pressCheck, true) !== false;
+function setPressCheck(on) {
+  pressCheck = !!on;
+  localStorage.setItem(LS.pressCheck, JSON.stringify(pressCheck));
+}
 
 // ── 預設流程（2026-09-08）────────────────────────────────────────
 // 常按的人每次都要重走一次「選症狀 → 勾穴道」，而每次勾的其實是同一組。
