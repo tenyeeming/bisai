@@ -310,16 +310,20 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
 
   // 指尖標記與導引線。距離已經在原始座標算完，這裡只是把畫的位置翻過去。
   if (faceHandLm && acuPts.length) {
-    const tip = { x: faceHandLm[8].x * W, y: faceHandLm[8].y * H };
+    // 2026-09-25：以前固定畫食指 —— 判定其實收好幾根，用拇指按時箭頭卻從食指出發。
+    //    改成跟判定一樣：設定裡勾的指尖中，離穴道最近的那根。
+    let tip = null, near = acuPts[0], best = Infinity;
+    for (const i of pressTipIdx()) {
+      const tp = { x: faceHandLm[i].x * W, y: faceHandLm[i].y * H };
+      for (const p of acuPts) {
+        const d = Math.hypot(tp.x - p.x, tp.y - p.y);
+        if (d < best) { best = d; near = p; tip = tp; }
+      }
+    }
     ctx.save();
     if (!faceHeld) {
       // 沒對準就指向穴道，使用者才知道要往哪邊移。
       // 2026-09-12：虛線改成箭頭，與手部（vision.js）共用 drawGuideArrow。
-      let near = acuPts[0], best = Infinity;
-      for (const p of acuPts) {
-        const d = Math.hypot(tip.x - p.x, tip.y - p.y);
-        if (d < best) { best = d; near = p; }
-      }
       drawGuideArrow(ctx, mx(tip.x), tip.y, mx(near.x), near.y);
     }
     ctx.fillStyle = faceHeld ? '#00e5a0' : '#e0a33c';

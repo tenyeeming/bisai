@@ -24,6 +24,7 @@ const MP_CDN = 'https://cdn.jsdelivr.net/npm/';
 const MP_PKG = {
   hands:        '@mediapipe/hands@0.4.1646424915',
   face_mesh:    '@mediapipe/face_mesh@0.4.1633559619',
+  pose:         '@mediapipe/pose@0.5.1675469404',      // 只有前臂實驗頁用
   camera_utils: '@mediapipe/camera_utils@0.3.1640029074',
 };
 

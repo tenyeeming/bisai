@@ -29,12 +29,12 @@ ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個
   ok(vendorSrcs.length === 3 && badVendor.length === 0,
      `外殼的 ${vendorSrcs.length} 支 vendor 腳本都在 下載.js 的清單裡` + (badVendor.length ? ': ' + badVendor : ''));
 
-  // 三個包的版本號要一致：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查
+  // 各包的版本號要一致（2026-09-25 加 pose，前臂實驗頁用）：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查
   const loader = read('js/mp-loader.js');
   const vers = [...dl.matchAll(/npm: '(@mediapipe\/[^']+)'/g)].map(x => x[1]);
   const badVer = vers.filter(v => !loader.includes(`'${v}'`));
-  ok(vers.length === 3 && badVer.length === 0,
-     '下載.js 與 mp-loader.js 的三個版本號一致' + (badVer.length ? ': ' + badVer : ''));
+  ok(vers.length === 4 && badVer.length === 0,
+     '下載.js 與 mp-loader.js 的四個版本號一致（hands／face_mesh／pose／camera_utils）' + (badVer.length ? ': ' + badVer : ''));
 
   // 要嘛整包都在、要嘛整包都不在。只有 .js 沒有 wasm 是最糟的狀態：
   // 本機 .js 讀得到 → 不會觸發 onerror → 資產仍指本機 → 404

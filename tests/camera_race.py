@@ -74,6 +74,7 @@ with sync_playwright() as p:
 
     # ⑤ 小海實驗頁：啟動中連切前後鏡頭 → 最後只剩 1 條、而且是最後選的那顆
     ctx = b.new_context(); pg = ctx.new_page()
+    pg.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))  # 09-25 小海頁改走 vendor
     pg.route('**/cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))
     pg.add_init_script(STUB)
     pg.goto(url.replace('acunavi-ideal.html', 'forearm-lab.html'), wait_until='networkidle')

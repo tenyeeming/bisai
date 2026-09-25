@@ -19,6 +19,7 @@ const LS = {
   flow:    'flowSettings', // 療程節奏（見下）
   presets: 'acuPresets',   // 預設流程：一組穴道＋一套節奏（見下）
   fontScale: 'fontScale',  // 'small' | 'medium' | 'large'（見下）
+  pressFingers: 'pressFingers', // 按摩時算數的手指（見下）
 };
 
 // localStorage 讀 JSON，壞掉就回預設值（不要讓一筆爛資料炸掉整頁）
@@ -145,6 +146,36 @@ function setFlow(k, v) {
   //    不擋的話，按摩頁那支滑桿會把流程自己的秒數靜靜地存成使用者的預設值。
   if (!flowSaved) saveFlow();
 }
+
+// ── 按摩手指（2026-09-25）───────────────────────────────────────
+// 用戶：「設定裏面可以調整想要按摩的手指」。以前手部（vision.js）與臉部（face-gate.js）
+// 寫死「食指尖 8 或拇指尖 4（手部 09-25 又加中指 12），取近的」—— 預設維持這三根，其他要自己勾。
+// ⚠️ 不放進 flow：flow 跑預設流程時會被那組流程自己的節奏整份蓋掉（見下方覆蓋層），
+//    手指是「這個人習慣用哪根」，不該跟著流程換。
+// 為什麼不預設五指全開：別的手指剛好靠近穴道也會被算成按到。
+const FINGER_TIPS = { thumb: 4, index: 8, middle: 12, ring: 16, pinky: 20 };  // MediaPipe 指尖編號
+const FINGER_ORDER = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+const PRESS_FINGERS_DEFAULT = ['thumb', 'index', 'middle'];   // 中指：73a3f2d（另一個對話）為「很難判定為對準」加的，保留
+
+function cleanPressFingers() {
+  const raw = jget(LS.pressFingers, null);
+  const list = Array.isArray(raw) ? FINGER_ORDER.filter(f => raw.includes(f)) : [];
+  return list.length ? list : PRESS_FINGERS_DEFAULT.slice();   // 一根都沒有＝壞資料，回預設
+}
+let pressFingers = cleanPressFingers();
+
+/** 勾／取消一根手指。會拒絕「取消最後一根」，回 false。 */
+function setPressFinger(finger, on) {
+  if (!FINGER_TIPS[finger]) return false;
+  const next = FINGER_ORDER.filter(f => f === finger ? on : pressFingers.includes(f));
+  if (!next.length) return false;
+  pressFingers = next;
+  localStorage.setItem(LS.pressFingers, JSON.stringify(pressFingers));
+  return true;
+}
+
+/** 按壓判定要看的指尖 landmark 編號 */
+const pressTipIdx = () => pressFingers.map(f => FINGER_TIPS[f]);
 
 // ── 預設流程（2026-09-08）────────────────────────────────────────
 // 常按的人每次都要重走一次「選症狀 → 勾穴道」，而每次勾的其實是同一組。

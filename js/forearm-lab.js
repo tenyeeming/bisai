@@ -334,13 +334,39 @@ function flMetrics(html) {
 }
 
 // ── 主流程 ──────────────────────────────────────────────────────────────
-function flStart() {
+// ⚡ 2026-09-25 用戶：「平板或手機要等很久攝像頭才開」。實測（bisai、桌機）第一幀要 60 秒，三個原因：
+//   ① 模型全走 jsDelivr，在用戶這邊很慢（Pose 6.4MB 要 30 秒）→ 改走本機 vendor（見 mp-loader.js）
+//   ② Pose 要等 Hands 第一次 send() 做完才開始下載（onFrame 裡是先 await Hands 再 await Pose）
+//      → 一開頁就兩個一起 initialize()，平行下載
+//   ③ 模型沒好之前畫布全黑，看起來像相機沒開 → 先把鏡頭原始畫面畫上去，並顯示「載入模型中」
+let flModelsReady = false;
+
+// vendor 讀不到時 mp-loader 會補插 CDN 的 <script>，那是非同步的 → DOMContentLoaded 時全域可能還沒有
+function flWaitGlobals(names, timeoutMs) {
+  const t0 = performance.now();
+  return new Promise((resolve, reject) => {
+    (function poll() {
+      if (names.every((n) => typeof window[n] !== "undefined")) return resolve();
+      if (performance.now() - t0 > timeoutMs) return reject(new Error("MediaPipe 腳本載入逾時：" + names.join("/")));
+      setTimeout(poll, 100);
+    })();
+  });
+}
+
+async function flStart() {
   const video = document.getElementById("fl-video");
   const canvas = document.getElementById("fl-canvas");
   const ctx = canvas.getContext("2d");
 
+  try {
+    await flWaitGlobals(["Hands", "Pose", "Camera"], 30000);
+  } catch (e) {
+    flStatus(String(e.message || e) + "（檢查網路後重新整理）", "bad");
+    return;
+  }
+
   flHandsModel = new Hands({
-    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+    locateFile: (f) => mpAsset("hands", f),
   });
   flHandsModel.setOptions({
     maxNumHands: 2, // demo網站版：兩隻手都抓，再用 Pose 手腕挑對的那隻（見 flHand）
@@ -353,7 +379,7 @@ function flStart() {
   });
 
   flPoseModel = new Pose({
-    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`,
+    locateFile: (f) => mpAsset("pose", f),
   });
   flPoseModel.setOptions({
     modelComplexity: 1,
@@ -374,7 +400,39 @@ function flStart() {
     flLastPoseResults = r;
   });
 
+  // 相機與模型同時開始：相機先出畫面，模型在背景載。
+  // ⚠️ 兩個模型的 initialize() 不能同時跑：Solutions API 的 wasm 載入器共用全域變數，
+  //    平行跑時 Pose 會去抓 hands_solution_packed_assets.data 然後整個 Abort（2026-09-25 實測）。
+  //    → 依序初始化，但 Pose 的大檔先用 fetch 預抓進 HTTP 快取，下載仍是平行的。
   flStartCamera(video, ctx, canvas);
+  const t0 = performance.now();
+  for (const f of ["pose_landmark_full.tflite", "pose_solution_packed_assets.data", "pose_solution_simd_wasm_bin.wasm"]) {
+    fetch(mpAsset("pose", f)).catch(() => {});
+  }
+  flHandsModel.initialize().then(() => flPoseModel.initialize()).then(
+    () => {
+      flModelsReady = true;
+      console.log("[forearm-lab] 模型就緒", Math.round(performance.now() - t0), "ms");
+    },
+    (e) => flStatus("模型載入失敗：" + e + "（檢查網路後重新整理）", "bad"),
+  );
+}
+
+// 模型還沒好：先畫鏡頭原始畫面，讓使用者知道相機是開的
+function flDrawPreview(ctx, canvas, video) {
+  if (video.videoWidth > 0 && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+  const W = canvas.width, H = canvas.height;
+  ctx.drawImage(video, 0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, H - 44, W, 44);
+  ctx.fillStyle = "#fff";
+  ctx.font = "20px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("載入辨識模型中…（第一次較久，之後會快）", W / 2, H - 15);
+  ctx.textAlign = "start";
 }
 
 // ── 鏡頭（demo網站版才有，2026-09-23）────────────────────────────────────
@@ -411,6 +469,7 @@ function flStartCamera(video, ctx, canvas) {
       // 2026-09-24「我移動會偏移」：Hands 改隔幀跑。手的資訊（朝向、小指側、同身寸）變得慢，
       // 已有快取可沿用；省下的時間讓 Pose（肘點＝位置本體）更新得更勤。
       // 沒跑 Hands 的那幀視為「這幀沒手」→ 由 StableLabelTracker 的寬限期（8 幀）撐住。
+      if (!flModelsReady) { flDrawPreview(ctx, canvas, video); return; }
       flFrameNo++;
       flHandFresh = flFrameNo % 2 === 0 || !flLastHandCache[flHand];
       if (flHandFresh) await flHandsModel.send({ image: video });
@@ -426,7 +485,7 @@ function flStartCamera(video, ctx, canvas) {
   flStartP = cam.start().then(
     () => {
       if (gen !== flGen) { cam.stop(); return; }   // 途中又切了：這條作廢
-      flStatus("相機已啟動", "ok");
+      flStatus(flModelsReady ? "相機已啟動" : "相機已啟動，載入辨識模型中…", flModelsReady ? "ok" : "warn");
     },
     (e) => {
       if (gen !== flGen) return;

@@ -131,10 +131,11 @@ function faceTouchGate(handLm, acuPts, ipdPx, W, H, wasOk) {
   if (!gm) { out.state = 'nohand'; return out; }
   out.R = gm / ipdPx;
 
-  // 2D 對準：食指尖(8) 或拇指尖(4) 離穴道多近，以 IPD 為單位
-  // （跟手部一樣收兩根指尖 —— 按臉的人未必用食指）
+  // 2D 對準：設定裡勾的指尖（預設拇指＋食指）離穴道多近，以 IPD 為單位
+  // （跟手部共用同一個設定 —— 按臉的人未必用食指）
+  // typeof 檢查：tests/face.js 單獨載這支、沒有 state.js，那時退回原本的 8、4
   let minD = Infinity;
-  for (const tipIdx of [8, 4]) {
+  for (const tipIdx of (typeof pressTipIdx === 'function' ? pressTipIdx() : [8, 4])) {
     const tp = { x: handLm[tipIdx].x * W, y: handLm[tipIdx].y * H };
     for (const p of acuPts) {
       const d = Math.hypot(tp.x - p.x, tp.y - p.y);

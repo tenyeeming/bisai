@@ -254,9 +254,40 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(w.eval('renderMode') === 'locate', 'renderMode = locate');
   ok($('back-btn').textContent === '← 停止', '定位頁的返回列標「停止」');
 
+  // ── 定位頁的齒輪（2026-09-25：圓盤開關收進來、加按摩手指與跳過這一穴）──
+  ok($('backbar-actions').querySelector('#locate-gear'), '定位頁返回列右邊有齒輪');
+  ok(!$('toggle-disc'), '取景框下面已經沒有圓盤按鈕');
+  $('locate-gear').click();
+  ok(!$('locate-menu').hidden, '點齒輪展開定位頁選單');
+  const lm = $('locate-menu').textContent;
+  ok(/按摩手指/.test(lm) && /隱藏信心圓盤/.test(lm) && /換穴/.test(lm) && /跳過這一穴/.test(lm),
+     '定位頁選單有：按摩手指、信心圓盤、換穴、跳過這一穴');
   w.toggleDisc();
-  ok(w.eval('showDisc') === false && $('toggle-disc').textContent === '顯示信心圓盤', '圓盤可切換，按鈕文字跟著換');
+  ok(w.eval('showDisc') === false && $('locate-menu').querySelector('[data-disc-label]').textContent === '顯示信心圓盤',
+     '圓盤可切換，選單文字跟著換');
   w.toggleDisc();
+
+  // 按摩手指：預設拇指＋食指＋中指；可多選；最後一根不能取消
+  const chip = f => $('locate-menu').querySelector(`[data-finger="${f}"]`);
+  ok(w.eval('pressFingers.join()') === 'thumb,index,middle', '預設按摩手指＝拇指、食指、中指');
+  ok(w.eval('pressTipIdx().join()') === '4,8,12', '判定用的指尖編號 4、8、12');
+  ok(chip('index').getAttribute('aria-pressed') === 'true' && chip('ring').getAttribute('aria-pressed') === 'false',
+     '手指按鈕狀態跟設定一致');
+  chip('ring').click();
+  ok(w.eval('pressTipIdx().join()') === '4,8,12,16' && !$('locate-menu').hidden, '勾無名指 → 判定多收 16，選單不收起');
+  ok(w.localStorage.getItem('pressFingers') === '["thumb","index","middle","ring"]', '手指設定有存檔');
+  let alerted = 0;
+  const oldAlert = w.alert;
+  w.alert = () => { alerted++; };
+  ['thumb', 'middle', 'ring'].forEach(f => chip(f).click());
+  ok(w.eval('pressFingers.join()') === 'index', '取消到只剩食指');
+  chip('index').click();
+  ok(w.eval('pressFingers.join()') === 'index' && alerted === 1, '最後一根不能取消，會跳提示');
+  w.alert = oldAlert;
+  ['thumb', 'middle'].forEach(f => chip(f).click());   // 還原預設，後面的測試照舊
+  ok(w.eval('pressFingers.join()') === 'thumb,index,middle', '還原成預設三根');
+  d.body.click();
+  ok($('locate-menu').hidden, '點別處收起定位頁選單');
 
   w.goToMassage(); await tick();
   ok(active().join() === 'massage', '進到按摩頁');
@@ -320,15 +351,17 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('massage-menu').hidden, '設定選單預設收起');
   $('massage-gear').click();
   ok(!$('massage-menu').hidden && $('massage-gear').getAttribute('aria-expanded') === 'true', '點齒輪展開選單');
-  ok(/提早結束/.test($('massage-menu').textContent) && /不算完成/.test($('massage-menu').textContent),
-     '選單有「提早結束」且註明這一穴不算完成');   // 批 68 拿掉紀錄後文案改了
+  ok(/跳過這一穴/.test($('massage-menu').textContent) && /不算完成/.test($('massage-menu').textContent),
+     '選單有「跳過這一穴」且註明這一穴不算完成');   // 09-25 從「提早結束」改名，跟 App 一致
   ok(/切換鏡頭/.test($('massage-menu').textContent), '選單有切換鏡頭');
-  // 選單裡的圓盤開關要跟定位頁那顆同步
+  ok(/按摩手指/.test($('massage-menu').textContent) &&
+     $('massage-menu').querySelectorAll('[data-finger]').length === 5, '按摩頁選單也能選手指（五顆）');
+  // 返回列一次只掛一頁的選單 → 按摩頁只有自己那顆圓盤開關；定位頁回來時 enterLocate 會重新同步文字
   const discBtns = () => [...d.querySelectorAll('[data-disc-label]')];
-  ok(discBtns().length === 2, '兩頁各有一顆圓盤開關');
-  discBtns()[1].click();
-  ok(discBtns().every(b => b.textContent === '顯示信心圓盤'), '在按摩頁切圓盤，定位頁那顆文字也跟著換');
-  discBtns()[1].click();
+  ok(discBtns().length === 1, '按摩頁只有選單裡那一顆圓盤開關');
+  discBtns()[0].click();
+  ok(discBtns()[0].textContent === '顯示信心圓盤' && w.eval('showDisc') === false, '在按摩頁切圓盤，文字跟著換');
+  discBtns()[0].click();
 
   d.body.click();
   ok($('massage-menu').hidden, '點畫面別處會收起選單');

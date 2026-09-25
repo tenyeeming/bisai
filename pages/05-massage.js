@@ -16,6 +16,14 @@ let massageUserPaused = false;
 let massageRemainMs = 30000;
 let massageTickId = null;
 const TICK_MS = 100;
+// 最後一次對準的時間。掉幀（手指遮住被按的手）時，PRESS_GRACE_MS（js/vision.js）內照樣計時，
+// 不讓計時與狀態文字每 0.1 秒閃一次。臉部也走這裡，一起受惠。
+let massageLastOnAt = 0;
+function massageHeld() {
+  const now = performance.now();
+  if (onTarget) massageLastOnAt = now;
+  return onTarget || (now - massageLastOnAt < PRESS_GRACE_MS);
+}
 
 // 第幾輪。手部是 2（左右手各一輪），手序由設定決定（預設先右後左）；
 // 臉部正中穴只有一個點，沒有左右之分 → 1 輪，也就沒有換手這回事。
@@ -41,25 +49,11 @@ registerPage('massage', {
   keepsCamera: true,
   keepsFaceCamera: true,   // 臉部項目在這頁跑 FaceMesh（＋Hands 供閘門用）
 
-  // 齒輪掛在返回列右邊（外殼的 #backbar-actions），不壓在取景框上
-  actions: `
-    <button class="gear-btn" id="massage-gear" onclick="toggleMassageMenu(event)"
-            aria-haspopup="true" aria-expanded="false">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5"/>
-      </svg>
-    </button>
-    <div class="gear-menu" id="massage-menu" hidden role="menu">
-      <button type="button" role="menuitem" onclick="flipMassageCamera()" data-i18n="btn-flip">切換鏡頭</button>
-      <button type="button" role="menuitem" data-disc-label onclick="toggleMassageDisc()">隱藏信心圓盤</button>
-      <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
-      <hr>
-      <button type="button" role="menuitem" class="danger" onclick="endMassageEarly()">
-        <span data-i18n="menu-end-early">提早結束</span>
-        <small data-i18n="menu-end-early-desc">這一穴不算完成</small>
-      </button>
-    </div>`,
+  // 齒輪掛在返回列右邊（外殼的 #backbar-actions），不壓在取景框上。
+  // 2026-09-25 起選單內容跟定位頁共用（js/session-menu.js），多了「按摩手指」。
+  actions: sessionGearHtml('massage', {
+    flip: true, flipFn: 'flipMassageCamera', discFn: 'toggleMassageDisc', skipFn: 'endMassageEarly',
+  }),
 
   onEnter: () => {
     document.getElementById('massage-title').textContent = itemLabel(curAcuName());
@@ -357,36 +351,10 @@ function showSwitchHint(doneHandKey) {
 }
 
 // ── 畫面上的設定選單 ──────────────────────────────────────────────
-function toggleMassageMenu(e) {
-  // 擋掉冒泡，否則這一下會馬上被下面的「點別處就關」接到，選單開了又關
-  if (e) e.stopPropagation();
-  const menu = document.getElementById('massage-menu');
-  if (!menu) return;
-  menu.hidden ? openMassageMenu() : closeMassageMenu();
-}
-
-function openMassageMenu() {
-  document.getElementById('massage-menu').hidden = false;
-  document.getElementById('massage-gear').setAttribute('aria-expanded', 'true');
-  document.addEventListener('click', onDocClickCloseMenu);
-}
-
-function closeMassageMenu() {
-  const menu = document.getElementById('massage-menu');
-  if (menu) menu.hidden = true;
-  const gear = document.getElementById('massage-gear');
-  if (gear) {
-    gear.setAttribute('aria-expanded', 'false');
-    gear.setAttribute('aria-label', t('menu-open'));
-  }
-  document.removeEventListener('click', onDocClickCloseMenu);
-}
-
-function onDocClickCloseMenu(e) {
-  const menu = document.getElementById('massage-menu');
-  const gear = document.getElementById('massage-gear');
-  if (menu && !menu.contains(e.target) && gear && !gear.contains(e.target)) closeMassageMenu();
-}
+// 開關邏輯搬到 js/session-menu.js（定位頁共用）；這幾個名字留著，其他地方與測試都用它們
+function toggleMassageMenu(e) { toggleGearMenu(e, 'massage'); }
+function openMassageMenu() { openGearMenu('massage'); }
+function closeMassageMenu() { closeGearMenu('massage'); }
 
 // 提早結束：這一穴不算完成（不進完成頁、小人不慶祝、不列進總結）。
 // 「按滿計時才算數」是本系統的核心主張，讓人跳過還記一筆等於自己拆自己的台。
@@ -509,7 +477,7 @@ function syncMassageControls() {
   const status = document.getElementById('timer-state');
   const text = !massageRunning ? (isZh() ? '準備好了就開始' : 'Start when ready')
     : massageUserPaused ? (isZh() ? '已暫停，保留剩餘時間' : 'Paused — remaining time saved')
-    : !onTarget ? (isZh() ? '等待位置對準，計時暫停' : 'Waiting for alignment — timer paused')
+    : !massageHeld() ? (isZh() ? '等待位置對準，計時暫停' : 'Waiting for alignment — timer paused')
     : (isZh() ? '位置已對準，計時中' : 'Aligned — timer running');
   if (status.textContent !== text) status.textContent = text;
 }
@@ -526,6 +494,7 @@ function startMassage() {
   massageRemainMs = parseInt(document.getElementById('timer-input').value, 10) * 1000;
   massageRunning = true;
   massageUserPaused = false;
+  massageLastOnAt = 0;
   document.getElementById('btn-massage-start').disabled = false;
   document.getElementById('timer-input').disabled = true;
   syncZoomBtn();
@@ -534,7 +503,7 @@ function startMassage() {
   massageTickId = setInterval(() => {
     const disp = document.getElementById('timer-display');
     syncMassageControls();
-    if (massageUserPaused || document.hidden || !onTarget) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
+    if (massageUserPaused || document.hidden || !massageHeld()) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
     disp.classList.remove('paused');
     massageRemainMs -= TICK_MS;
     acuElapsedMs += TICK_MS;                                   // 只算「真的對準」的時間

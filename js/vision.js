@@ -27,6 +27,38 @@ let onTarget = false;               // 指尖是否對準（按摩頁計時用�
 // 所以手離開畫面、閘門擋下、換頁都不會把舊狀態帶過去。
 let pressWasOn = false;
 const PRESS_TOL_OUT_RATIO = 1.6;    // 已對準時，離開要超出 tolIn × 1.6 才算離開
+// ⭐ 2026-09-25 用戶：「計時一直斷斷續續、很難判定為對準」。兩個原因：
+//   ① 手指壓上去會遮住被按的手，MediaPipe 常掉一兩幀 → 以前掉一幀就暫停、遲滯記憶也歸零。
+//      改成：最後一次對準後 PRESS_GRACE_MS 內仍算對準（計時與遲滯都吃這段寬限）。
+//   ② lm[8] 在指甲尖端、不是指腹 —— 指腹壓在穴上時，指尖點本來就離穴 5～10mm。
+//      同一天第一版把半徑放大到 0.6 寸來補，用戶說「怪怪的」：手指還沒碰到圓盤就變綠、
+//      移開約 1 寸（tolOut＝0.96 寸）還算按著。第二版改成**量指腹**（見 pressPoints），
+//      半徑縮回跟畫面上的信心圓盤一樣（CONF_DISC_CUN），看到的圈＝判定的圈。
+//   ⚠️ 這兩條還沒進 App（新功能先網頁流程），App 仍是只量指尖、無寬限。
+const PRESS_GRACE_MS = 600;
+// 指腹＝指尖往遠端指節（tip−1：拇指 IP、其他 DIP）退 35%。指尖與指腹都算，取近的 ——
+// 垂直戳的人靠指尖、平壓的人靠指腹，兩種按法都認。
+const PRESS_PAD_T = 0.35;
+function pressPoints(lm, tipIdx, W, H) {
+  const out = [];
+  tipIdx.forEach(i => {
+    const t = lm[i], d = lm[i - 1];
+    out.push({ x: t.x * W, y: t.y * H });
+    out.push({ x: (t.x + (d.x - t.x) * PRESS_PAD_T) * W, y: (t.y + (d.y - t.y) * PRESS_PAD_T) * H });
+  });
+  return out;
+}
+let pressLastOnAt = 0;
+// ⭐ 2026-09-25 遮擋推定（拇指按壓）：拇指按下去後按摩手整隻藏在被按的手後面，
+//    MediaPipe 只看到一隻手。條件全成立才繼續算「按著」：
+//      ① 按摩手消失前最後一次看到時是對準的（occludeAnchor 有值）
+//      ② 被按的手還在、穴位離當時的位置不超過離開判定圈（tol × PRESS_TOL_OUT_RATIO）
+//      ③ 距最後一次真的看到對準不超過 OCCLUDE_MAX_MS
+//    按摩手重新出現就回到正常量距離；沒對準立刻停。
+//    ⚠️ 代價：這段期間手指其實移開了也照算（只要被按的手沒動）。③ 是上限，
+//       超過就要讓按摩手露出一下重新確認。OCCLUDE_MAX_MS 是估的，沒實機調過。
+const OCCLUDE_MAX_MS = 15000;
+let occludeAnchor = null;           // { x, y, tol, at }：最後一次真的對準時的穴位與判定圈
 // 施密特遲滯：進入用 tolIn，已對準時要超出 tolOut 才判離開（同 App AcuMath.press）。
 function pressOnTarget(minD, tolIn, wasOn) {
   return wasOn ? minD <= tolIn * PRESS_TOL_OUT_RATIO : minD <= tolIn;
@@ -137,16 +169,20 @@ function getHands() {
 //   算完就丟 —— 而 landmark 推論是每幀最貴的一筆，手數砍半＝推論量砍半。
 //   按摩頁才真的需要兩隻（被按的手 + 按的手）。
 //   ⚠️ 這是純效能改動：定位頁本來就只用 best 那一隻，輸出座標完全不變。
+// ⭐ 2026-09-25 按摩頁門檻降到 0.4：用拇指按時，按摩手的手掌與四指繞到被按的手後面，
+//    鏡頭只看得到一根拇指 → 0.6 下整隻手偵測不到（用戶實測提示「請把另一隻手也放進畫面」）。
+//    降門檻只能救「露出一部分」的情況；整隻被擋住的由下面的遮擋推定（OCCLUDE_*）接手。
 let handsNumConfigured = null;
 function applyHandsOptions(h, mode) {
   const n = mode === 'massage' ? 2 : 1;
   if (handsNumConfigured === n) return;         // setOptions 會重配 graph，別每幀呼叫
+  const conf = n === 2 ? 0.4 : 0.6;
   h.setOptions({
     maxNumHands: n,
     modelComplexity: 1,           // ⚠️ 不要為了流暢降成 0：lite 模型的 landmark 誤差
                                   //    會直接進到 v35 公式，而本專案的閾值是 2mm。
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.6,
+    minDetectionConfidence: conf,
+    minTrackingConfidence: conf,
   });
   handsNumConfigured = n;
 }
@@ -260,6 +296,7 @@ function stopCamera() {
   camWanted = false;                // 啟動中的那次回來時會看到，自己收掉
   camRunning = false;
   onTarget = false;
+  occludeAnchor = null;
   acuPointSmoother.reset();
   twistTracker.reset();
   if (camera) { try { camera.stop(); } catch (e) {} camera = null; }
@@ -337,7 +374,7 @@ function onHandsResults(results) {
 
   const canvas = activeCanvas;
   if (!canvas || !camRunning) return;
-  const prevPressOn = pressWasOn;
+  const prevPressOn = pressWasOn || (performance.now() - pressLastOnAt < PRESS_GRACE_MS);
   pressWasOn = false;
 
   // 畫布尺寸必須跟著影像走，否則 landmark(0~1) × W/H 全部算錯位置。
@@ -594,13 +631,28 @@ function onHandsResults(results) {
   // ── 按摩模式：檢查「另一隻手」的指尖有沒有對準 ──
   const other = allHands.find((_, i) => i !== best.i);
   if (!other) {
+    // 遮擋推定（見 OCCLUDE_MAX_MS）：剛才對準、被按的手沒動 → 當作按摩手被擋住、仍在按
+    const a = occludeAnchor;
+    const still = a && performance.now() - a.at < OCCLUDE_MAX_MS &&
+      pts.some(p => Math.hypot(p.x - a.x, p.y - a.y) <= a.tol * PRESS_TOL_OUT_RATIO);
+    if (still) {
+      pressWasOn = true;              // 按摩手重新出現時仍吃遲滯；pressLastOnAt 不更新，上限從最後一次真的看到算
+      onTarget = true;
+      liveStats.distMm = null;
+      liveStats.on = true;
+      setGate('ok', isZh() ? '按摩手被擋住，依剛才的位置繼續計時' : 'Pressing hand hidden — still counting from last position');
+      return;
+    }
+    occludeAnchor = null;
     setGate('warn', isZh() ? '請把另一隻手也放進畫面' : 'Bring your other hand into frame');
     onTarget = false;
     return;
   }
 
-  // 食指尖(8) 與 拇指尖(4)：取最靠近穴道的那個當「按壓點」
-  const tips = [8, 4].map(i => ({ x: other[i].x * W, y: other[i].y * H }));
+  // 設定裡勾的指尖（state.js pressFingers，預設拇指＋食指＋中指 —— 中指是 73a3f2d 加的）：
+  // 取最靠近穴道的那個當「按壓點」
+  // （2026-09-25 第二版：每根手指同時量指尖與指腹，見 pressPoints）
+  const tips = pressPoints(other, pressTipIdx(), W, H);
   let minD = Infinity, hitPt = null, hitTip = null;
   pts.forEach(p => tips.forEach(tp => {
     const d = Math.hypot(tp.x - p.x, tp.y - p.y);
@@ -608,9 +660,11 @@ function onHandsResults(results) {
   }));
 
   // 沒有遲滯的話，手指在邊界抖一下計時就 on/off 反覆跳（App 早就有，網頁 09-21 盤點才發現分岔）。
-  const tol = Math.max(discR, 18);
+  const tol = Math.max(discR, 18);   // 判定圈＝畫面上的信心圓盤（第二版改回）
   const touching = pressOnTarget(minD, tol, prevPressOn);
   pressWasOn = touching;
+  if (touching) pressLastOnAt = performance.now();
+  occludeAnchor = touching && hitPt ? { x: hitPt.x, y: hitPt.y, tol, at: pressLastOnAt } : null;
   onTarget = touching;
   // 數據面板：距離用同一幀的 minD 換算成 mm（CUN_MM 是 acu-data.js 的換算常數）
   liveStats.distMm = cunPx > 0 ? (minD / cunPx) * CUN_MM : null;

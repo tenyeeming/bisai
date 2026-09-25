@@ -7,13 +7,13 @@
 
 <!-- MediaPipe：照專案慣例用普通 <script src>，不要用 ES module
      （Windows 的 python -m http.server 會把 .mjs 標成 text/plain，瀏覽器直接拒絕執行，整頁靜默失效）
-     Pose 是這頁新加的（原本網頁版只有 Hands），版本跟 hand_lab.html 用的 Hands 同一個 CDN 系列。 -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
-<!-- 版本沒特別釘死（跟 Hands/Camera 不同）：手上沒辦法先驗證 Pose 特定版號在 CDN 上一定存在，
-     用不釘版本的路徑拿最新版，避免打到不存在的版號整頁失效。如果之後要釘版本鎖定穩定性，
-     之後再補上實測過可用的版號。 -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+     2026-09-25 改成跟主站一樣「本機 vendor 優先、讀不到退 CDN」（規則與版本號在 js/mp-loader.js）：
+     原本全走 jsDelivr，實測 60 秒才出第一幀；bisai（GitHub Pages）上同樣的檔 1 秒內抓完。
+     Pose 釘在 0.5.1675469404（原本不釘版本時 CDN 解析出來的就是這版）。 -->
+<script src="js/mp-loader.js"></script>
+<script src="vendor/mediapipe/hands/hands.js" onerror="mpFallback(this,'hands','hands.js')"></script>
+<script src="vendor/mediapipe/pose/pose.js" onerror="mpFallback(this,'pose','pose.js')"></script>
+<script src="vendor/mediapipe/camera_utils/camera_utils.js" onerror="mpFallback(this,'camera_utils','camera_utils.js')"></script>
 
 <style>
   :root {

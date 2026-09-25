@@ -232,6 +232,23 @@ button { font-family: inherit; }
 .gear-menu button:hover { background: var(--surface-2); }
 .gear-menu hr { height: 1px; background: var(--line); border: 0; margin: 4px 2px; }
 .gear-menu .danger { color: var(--bad); }
+/* 按摩手指（2026-09-25）：五顆可多選，外觀照 .seg 的選中樣式 */
+.gear-menu .finger-pick { padding: 6px 6px 4px; }
+.gear-menu .finger-title {
+  margin: 0 0 6px; font-size: 0.6875rem; letter-spacing: .06em; color: var(--ink-soft);
+}
+.gear-menu .finger-chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.gear-menu .finger-chip {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 7px 0; min-height: 34px;
+  border: 1px solid var(--line); border-radius: var(--r-chip);
+  font-size: 0.75rem; color: var(--ink-soft); white-space: nowrap;
+}
+/* 選中＝實心底白字：.seg 那種淡底加底線在這麼小的鈕上看不出勾了沒（淺色模式幾乎同色） */
+.gear-menu .finger-chip.on {
+  background: var(--brass); border-color: var(--brass); color: #10202c; font-weight: 700;  /* 固定深字：--brass 兩種模式都是淡藍，白字或深色模式的 --ink（淺色）都看不清 */
+}
+.gear-menu { min-width: 248px; }
 .gear-menu .danger small {
   display: block; font-size: 0.65625rem; color: var(--ink-soft);
   font-weight: 400; margin-top: 2px;
@@ -520,6 +537,10 @@ body[data-page="home"] .device::before { display: block; }
       → 排除 .tabbar。它自己有 z-index:20，且 sticky 本來就會建立堆疊脈絡，
         站在背景之上不靠這條。桌面版（≥1024px）另有明確的 position:static，不受影響。 */
 .device > *:not(.tabbar) { position: relative; z-index: 1; }
+/* 🚨 2026-09-25：上一條讓返回列、進度條、頁面內容各自是 z-index:1 的圖層，同層照 DOM 順序疊 ——
+   返回列排在最前面，它的齒輪下拉選單（.gear-menu，往下長）被後面的進度條與取景框整個蓋住，
+   「跳過這一穴」根本點不到（加了按摩手指一排、選單變長才明顯）。返回列高一級；仍低於分頁列的 20。 */
+.device > .backbar { z-index: 2; }
 
 /* 深色模式：這張圖是大晴天，直接放在深色介面上太刺眼 —— 壓到 .3 當氛圍就好 */
 @media (prefers-color-scheme: dark) {

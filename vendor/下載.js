@@ -41,6 +41,19 @@ const PKGS = [
     ],
   },
   {
+    // 前臂實驗頁（forearm-lab.html）用。2026-09-25 從「不釘版本走 CDN」改成釘版本走本機：
+    // jsDelivr 在用戶那邊太慢（6.4MB 要 30 秒），頁面 60 秒才出第一幀。
+    dir: 'pose',
+    npm: '@mediapipe/pose@0.5.1675469404',
+    files: [
+      'pose.js', 'pose_web.binarypb',
+      'pose_landmark_full.tflite',       // modelComplexity: 1 用這個（lite／heavy 沒用到，不抓）
+      'pose_solution_packed_assets.data', 'pose_solution_packed_assets_loader.js',
+      'pose_solution_simd_wasm_bin.js', 'pose_solution_simd_wasm_bin.wasm',
+      'pose_solution_wasm_bin.js', 'pose_solution_wasm_bin.wasm',
+    ],
+  },
+  {
     dir: 'camera_utils',
     npm: '@mediapipe/camera_utils@0.3.1640029074',
     files: ['camera_utils.js'],

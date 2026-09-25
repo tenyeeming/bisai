@@ -13,8 +13,11 @@ registerPage('camera', {
   //    切到臉部項目時 nav 會在進頁的瞬間把剛開起來的臉部相機關掉
   keepsCamera: true,
   keepsFaceCamera: true,
-  onEnter: () => enterLocate(),
-  onLeave: () => { stopCamera(); stopFaceCamera(); },
+  // 2026-09-25 用戶：「從定位開始，返回那行的最右邊加入一個設定」——
+  // 跟按摩頁同一份選單（js/session-menu.js）；切換鏡頭留在取景框下面的按鈕列。
+  actions: sessionGearHtml('locate', { discFn: 'toggleLocateDisc', skipFn: 'skipFromLocate' }),
+  onEnter: () => { closeGearMenu('locate'); syncAdvanceLabels(); enterLocate(); },
+  onLeave: () => { closeGearMenu('locate'); stopCamera(); stopFaceCamera(); },
   onLanguage: () => {
     document.getElementById('camera-title').textContent = itemLabel(curAcuName());
     syncDiscLabels();
@@ -52,10 +55,8 @@ registerPage('camera', {
         <div class="ls-row"><span class="k" data-i18n="stats-angle">皮膚偏角 / 上限</span><span class="v" data-k="angle">—</span></div>
         <div class="ls-note" data-i18n="stats-note">數值每幀更新，全部在本機運算</div>
       </div>
-      <div class="btn-row">
-        <button class="btn ghost" id="toggle-facing" onclick="flipLocateCamera()" data-i18n="btn-flip">切換鏡頭</button>
-        <button class="btn ghost" id="toggle-disc" data-disc-label onclick="toggleLocateDisc()">隱藏信心圓盤</button>
-      </div>
+      <!-- 隱藏信心圓盤 09-25 收進右上角齒輪（用戶要求），這裡只剩切換鏡頭 -->
+      <button class="btn ghost wide" id="toggle-facing" onclick="flipLocateCamera()" data-i18n="btn-flip">切換鏡頭</button>
       <button class="btn wide" onclick="goToMassage()" data-i18n="btn-massage">現在開始按摩</button>
     </div>
   </div>`,
@@ -101,6 +102,20 @@ function syncLocateHint() {
 // 會去動手部那台已經關掉的相機（沒有反應，但看起來就是壞了）
 function flipLocateCamera() {
   if (locateDetector() === 'face') switchFaceCamera(); else switchCamera();
+}
+
+// 定位頁的「跳過這一穴」：還沒開始按，直接換下一穴（最後一穴就回首頁）。
+// 跟按摩頁的跳過一樣要確認、一樣不算完成 —— 同一個選單項目，行為不該因頁而異。
+// 確認文案不同：按摩頁的那句講「沒有按滿時間」，定位頁根本還沒開始按。
+function skipFromLocate() {
+  closeGearMenu('locate');
+  if (!confirm(t('confirm-skip-locate'))) return;
+  if (state.currentAcupointIndex < state.selectedAcupoints.length - 1) {
+    state.currentAcupointIndex++;
+    showPage('acu-detail');
+  } else {
+    goHome();
+  }
 }
 
 function toggleLocateDisc() {
