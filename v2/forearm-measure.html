@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>小海穴量測 — AcuNavi</title>
+<!-- 版本同 forearm-lab.html（普通 <script src>，不用 ES module） -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<style>
+  :root { --bg:#10141c; --panel:#1a2130; --line:#2c3550; --fg:#e8eef8; --dim:#8b98b0;
+          --ok:#00e5a0; --warn:#ffaa3c; --bad:#ff505a; --accent:#4da3ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:"Microsoft JhengHei","PingFang TC",system-ui,sans-serif; font-size:14px; }
+  header { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:1rem; margin:0; }
+  select, button, input { font-family:inherit; font-size:.9rem; }
+  select { background:#0e1420; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  .btn { background:#243049; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#06101f; font-weight:700; }
+  .btn.ghost { background:transparent; color:var(--dim); }
+  label.file { display:inline-flex; }
+  label.file input { display:none; }
+  .opt { color:var(--dim); display:inline-flex; align-items:center; gap:5px; }
+  main { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr); gap:14px; padding:14px; align-items:start; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; padding:10px; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; min-width:0; }
+  #fm-canvas { width:100%; border-radius:8px; background:#000; display:block; cursor:crosshair; }
+  .fl-status { margin-top:8px; padding:6px 10px; border-radius:6px; background:#0e1420; }
+  .fl-status.ok { color:var(--ok); } .fl-status.warn { color:var(--warn); } .fl-status.bad { color:var(--bad); }
+  #fm-frame { margin-top:6px; color:var(--dim); font-size:.84rem; line-height:1.8; }
+  #fm-frame b { color:var(--fg); }
+  .lv-ok { color:var(--ok); } .lv-bad { color:var(--bad); }
+  #fm-summary { font-size:.82rem; color:var(--dim); overflow-x:auto; }
+  #fm-summary h4 { margin:10px 0 4px; color:var(--fg); font-size:.85rem; }
+  .fm-t { border-collapse:collapse; width:100%; }
+  .fm-t th, .fm-t td { border-bottom:1px solid var(--line); padding:3px 5px; text-align:right; white-space:nowrap; }
+  .fm-t th:first-child, .fm-t td:first-child { text-align:left; }
+  .fm-t b { color:var(--fg); }
+  .note { background:#0e1420; border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--dim); font-size:.8rem; line-height:1.8; }
+  .note b { color:var(--fg); }
+  .fm-review { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+  .fm-review[hidden] { display:none; }
+  .fm-review .btn { padding:10px 14px; font-size:1rem; }
+  .dim { color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <a class="btn ghost" href="forearm-lab.html">← 即時頁</a>
+  <h1>📏 小海穴量測（照片／影片）</h1>
+  <select id="fm-side" onchange="FM.side = this.value" title="畫點的是哪一隻手">
+    <option value="auto" selected>自動（挑肘點離畫點近的那側）</option>
+    <option value="left">左手</option>
+    <option value="right">右手</option>
+  </select>
+  <label class="file btn primary">📷 載入照片<input type="file" accept="image/*" multiple onchange="fmOpenPhotos(this.files)" id="fm-photos" /></label>
+  <label class="file btn primary">🎬 載入影片<input type="file" accept="video/*" onchange="fmOpenVideo(this.files[0])" id="fm-videofile" /></label>
+  <button class="btn" onclick="fmCommitPhoto()">✔ 記下這張</button>
+  <select id="fm-fps" title="影片每秒取幾幀">
+    <option value="5" selected>每秒 5 幀</option>
+    <option value="10">每秒 10 幀</option>
+    <option value="15">每秒 15 幀</option>
+  </select>
+  <button class="btn primary" onclick="this.blur(); fmRunVideo(+document.getElementById('fm-fps').value, true)" title="程式猜、你按 Enter 確認（建議）">▶ 逐幀確認</button>
+  <button class="btn" onclick="fmRunVideo(+document.getElementById('fm-fps').value)" title="全自動追蹤，筆電鏡頭上常追錯，只當預覽">▶ 全自動（不可靠）</button>
+  <button class="btn ghost" onclick="FM.running = false; fmAct({ type: 'stop' })">■ 停止</button>
+  <label class="opt"><input type="checkbox" checked onchange="FM.snap = this.checked" />吸附到畫點中心</label>
+  <label class="opt">顏色容許 <input type="range" min="20" max="140" value="70" oninput="FM.tol = +this.value; this.nextElementSibling.textContent = this.value" /><span>70</span></label>
+  <button class="btn ghost" onclick="fmUndo()">↶ 刪最後一筆</button>
+  <button class="btn ghost" onclick="fmClear()">清空</button>
+  <button class="btn primary" onclick="fmExport()">⬇ 下載 JSON</button>
+</header>
+<main>
+  <div class="card">
+    <canvas id="fm-canvas" width="640" height="480"></canvas>
+    <!-- 逐幀確認時才出現（2026-09-24 用戶：「按錯了回上一幀我沒有看到」——原本只有鍵盤 ←） -->
+    <div id="fm-review-bar" class="fm-review" hidden>
+      <button class="btn" onclick="fmAct({ type: 'back' })">← 上一幀</button>
+      <button class="btn primary" onclick="fmAct({ type: 'accept' })">✔ 對，下一幀（Enter）</button>
+      <button class="btn" onclick="fmAct({ type: 'skip' })">看不到點（S）</button>
+      <button class="btn ghost" onclick="fmAct({ type: 'stop' })">■ 停（Esc）</button>
+      <span id="fm-review-n" class="dim"></span>
+    </div>
+    <div id="fm-status" class="fl-status">載入照片或影片</div>
+    <div id="fm-frame"></div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:14px; min-width:0">
+    <div class="card"><div id="fm-summary"></div></div>
+    <div class="card note">
+      <b>照片</b>：可以一次選多張 → 點你畫的點 → 「記下這張」→ 自動換下一張。<br />
+      <b>影片</b>：第一幀點一下畫的點 →「逐幀確認」：程式先猜（左上角放大鏡），
+      <b>Enter</b> 接受、<b>點畫面或放大鏡</b>改位置、<b>S</b> 這幀看不到點、<b>←</b> 回上一幀、<b>Esc</b> 停。<br />
+      <b>紅十字</b>＝你畫的點（GT）；<span style="color:#00e5ff">●</span> 即時邊緣　<span style="color:#6f6fff">●</span> 0.5 寸×同身寸
+      <span style="color:#d070ff">●</span> 0.5 寸×骨度　<span style="color:#9aa3b5">●</span> 肘點本身。<br />
+      mm 用中指同身寸換算（1 寸＝17.66mm），跟手部量測工具一樣。<br />
+      畫點建議：<b>深藍或綠色實心圓點</b>、約 5mm，紅色容易跟皮膚混。
+    </div>
+  </div>
+</main>
+<script>window.FL_NO_AUTOSTART = true;</script>
+<script src="js/acu-data.js"></script>
+<script src="js/acu-math.js"></script>
+<script src="js/forearm-lab.js"></script>
+<script src="js/forearm-measure.js"></script>
+</body>
+</html>

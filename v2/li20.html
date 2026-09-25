@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>迎香 LI20 — 單穴定位測試</title>
+<style>
+  :root{
+    --bg:#0d1117; --fg:#e6edf3; --dim:#8b949e; --acc:#00e5a0; --warn:#f0b849; --bad:#f2596d;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:14px/1.5 -apple-system,"Noto Sans TC","Segoe UI",sans-serif;
+    padding: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+  }
+  header{padding:12px 16px 8px}
+  h1{margin:0; font-size:17px; letter-spacing:.02em}
+  h1 small{color:var(--dim); font-weight:400; font-size:12px; margin-left:6px}
+  .stage{position:relative; width:100%; background:#000; overflow:hidden}
+  canvas#c{display:block; width:100%; height:auto}
+  .badge{
+    position:absolute; left:8px; top:8px; padding:4px 9px; border-radius:99px;
+    font-size:12px; font-weight:600; background:rgba(0,0,0,.6);
+    backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,.14);
+  }
+  .badge.ok{color:var(--acc)} .badge.warn{color:var(--warn)} .badge.bad{color:var(--bad)}
+  .readout{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(78px,1fr));
+    gap:1px; background:rgba(255,255,255,.08); margin:12px 0 0;
+  }
+  .readout div{background:var(--bg); padding:8px 10px}
+  .readout b{display:block; font-size:16px; font-variant-numeric:tabular-nums}
+  .readout span{color:var(--dim); font-size:11px}
+  .body{padding:0 16px 28px}
+  .note{
+    margin-top:16px; padding:12px 14px; border-left:3px solid var(--acc);
+    background:rgba(0,229,160,.06); border-radius:0 6px 6px 0; font-size:13px;
+  }
+  .note h2{margin:0 0 6px; font-size:13px; color:var(--acc)}
+  .note p{margin:5px 0; color:#c9d1d9}
+  .btn{
+    display:block; width:100%; margin-top:14px; padding:13px; border-radius:10px;
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+    color:var(--fg); font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .btn:active{background:rgba(255,255,255,.12)}
+  .foot{margin-top:18px; color:var(--dim); font-size:11.5px; line-height:1.7}
+  code{background:rgba(255,255,255,.08); padding:1px 5px; border-radius:4px; font-size:11.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>迎香 LI20 <small>單穴即時定位・測試頁</small></h1>
+</header>
+
+<div class="stage">
+  <canvas id="c" width="640" height="480"></canvas>
+  <div class="badge warn" id="gate">載入模型中…</div>
+</div>
+
+<div class="body">
+  <div class="readout">
+    <div><b id="r-fps">—</b><span>FPS</span></div>
+    <div><b id="r-ipd">—</b><span>瞳距 px</span></div>
+    <div><b id="r-face">—</b><span>正臉度</span></div>
+    <div><b id="r-roll">—</b><span>頭側傾</span></div>
+  </div>
+
+  <button class="btn" id="flip">切換前／後鏡頭</button>
+
+  <div class="note">
+    <h2>這一頁在測什麼</h2>
+    <p><b>穴位：</b>迎香 LI20 — 鼻唇溝中，與鼻翼外緣中點同高（WHO 定位）。</p>
+    <p><b>公式：</b>取鼻翼外緣 landmark（129／358），沿臉部橫軸<b>向外 0.0268 × 瞳距</b>。
+       全系統一致性最好的擬合參數（左右兩側量到 0.0250／0.0285，只差 0.0036）。</p>
+    <p><b>誤差：</b>右 0.35%／左 2.13% IPD（≈ 0.2mm／1.3mm）。</p>
+    <p><b>綠色圓盤</b>是信心度：臉越側，圓盤壓得越扁。不是裝飾，是把不確定性直接畫出來。</p>
+  </div>
+
+  <div class="foot">
+    影像<b>完全在你的裝置上處理</b>，不上傳、不儲存。<br>
+    尺度用瞳距（IPD），所以離鏡頭遠近、頭歪都不影響。<br>
+    ⚠️ 戴眼鏡請拿掉 —— 虹膜 landmark 是整把尺的來源，鏡框反光會毀掉尺度。<br>
+    模型：MediaPipe FaceMesh 478 點（<code>refineLandmarks</code> 開啟才有虹膜）。
+  </div>
+</div>
+
+<video id="v" playsinline muted style="display:none"></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+// 迎香 LI20 單穴定位 — 公式抄自 比賽專區/demo網站/js/face-math.js
+// 這一頁刻意獨立、不引用 js/ 底下任何檔案，方便單獨部署測試。
+// ══════════════════════════════════════════════════════════════
+
+var FLM = { irisR:468, irisL:473, alaR:129, alaL:358, noseTip:1, faceR:234, faceL:454 };
+var DX = 0.0268;            // 迎香：向外側 0.0268 × IPD
+
+var cv = document.getElementById('c');
+var ctx = cv.getContext('2d');
+var video = document.getElementById('v');
+var gateEl = document.getElementById('gate');
+
+var facing = 'user';        // 'user' = 前鏡頭（畫面鏡像）
+var lastLm = null;
+var frames = 0, fpsT = performance.now(), fps = 0;
+
+function setGate(cls, txt){ gateEl.className = 'badge ' + cls; gateEl.textContent = txt; }
+
+// ── 臉座標系：ex = 兩虹膜連線（已吃掉 roll），尺 = IPD ──────────
+function faceFrame(lm, W, H){
+  if (!lm || lm.length < 478) return null;
+  var ir = { x: lm[FLM.irisR].x * W, y: lm[FLM.irisR].y * H };
+  var il = { x: lm[FLM.irisL].x * W, y: lm[FLM.irisL].y * H };
+  var dx = il.x - ir.x, dy = il.y - ir.y;
+  var ipd = Math.hypot(dx, dy);
+  if (!(ipd > 1)) return null;
+  var ex = { x: dx / ipd, y: dy / ipd };
+  var ey = { x: -ex.y, y: ex.x };
+  return { ex: ex, ey: ey, ipd: ipd, irisR: ir, irisL: il };
+}
+
+// ── PT 法：落在 landmark 上，沿 ex 向外側位移 dx × IPD ──────────
+function li20(lm, W, H, fr, side){
+  var b = lm[side === 'R' ? FLM.alaR : FLM.alaL];
+  var bx = b.x * W, by = b.y * H;
+  var k = DX * (side === 'R' ? -1 : 1);     // canonical R 在 -ex 方向
+  return { x: bx + fr.ex.x * k * fr.ipd, y: by + fr.ex.y * k * fr.ipd };
+}
+
+function headPose(lm, W, H, fr){
+  var rollDeg = Math.atan2(fr.irisL.y - fr.irisR.y, fr.irisL.x - fr.irisR.x) * 180 / Math.PI;
+  var fR = lm[FLM.faceR].x * W, fL = lm[FLM.faceL].x * W, nose = lm[FLM.noseTip].x * W;
+  var half = (fL - fR) / 2;
+  var yaw = Math.abs(half) < 1 ? 0 : (nose - (fR + fL) / 2) / half;
+  return { rollDeg: rollDeg, yaw: yaw, facing: Math.max(0, 1 - Math.abs(yaw)) };
+}
+
+function drawDisc(x, y, r, pose){
+  var k = Math.max(0.08, pose.facing);
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * k, r, pose.rollDeg * Math.PI / 180, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,229,160,.85)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = 'rgba(0,229,160,.12)'; ctx.fill();
+  ctx.restore();
+}
+
+function onResults(res){
+  var W = cv.width, H = cv.height;
+
+  // 前鏡頭畫面鏡像（跟使用者的直覺一致）
+  ctx.save();
+  if (facing === 'user'){ ctx.scale(-1, 1); ctx.translate(-W, 0); }
+  ctx.drawImage(res.image, 0, 0, W, H);
+  ctx.restore();
+
+  frames++;
+  var now = performance.now();
+  if (now - fpsT >= 1000){ fps = frames * 1000 / (now - fpsT); frames = 0; fpsT = now; document.getElementById('r-fps').textContent = fps.toFixed(0); }
+
+  var lms = res.multiFaceLandmarks;
+  if (!lms || !lms.length){ setGate('bad', '沒看到臉'); lastLm = null; return; }
+  var lm = lms[0];
+  var fr = faceFrame(lm, W, H);
+  if (!fr){ setGate('bad', '虹膜沒抓到'); return; }
+  var pose = headPose(lm, W, H, fr);
+
+  document.getElementById('r-ipd').textContent  = fr.ipd.toFixed(0);
+  document.getElementById('r-face').textContent = (pose.facing * 100).toFixed(0) + '%';
+  document.getElementById('r-roll').textContent = pose.rollDeg.toFixed(0) + '°';
+
+  if (pose.facing < 0.45) setGate('warn', '臉太側了，轉正一點');
+  else if (fr.ipd < 40)   setGate('warn', '離近一點');
+  else                    setGate('ok', '定位中');
+
+  var mx = function(x){ return facing === 'user' ? W - x : x; };
+  var r = Math.max(7, fr.ipd * 0.045);
+
+  ['R','L'].forEach(function(side){
+    var p = li20(lm, W, H, fr, side);
+    var x = mx(p.x), y = p.y;
+    drawDisc(x, y, r, pose);
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#00e5a0'; ctx.fill();
+  });
+
+  // 標籤畫一次就好（畫在兩點中間下方）
+  var pR = li20(lm, W, H, fr, 'R'), pL = li20(lm, W, H, fr, 'L');
+  var cxp = mx((pR.x + pL.x) / 2), cyp = (pR.y + pL.y) / 2 + r + 16;
+  ctx.font = '600 15px -apple-system,"Noto Sans TC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)';
+  ctx.strokeText('迎香 LI20', cxp, cyp);
+  ctx.fillStyle = '#00e5a0'; ctx.fillText('迎香 LI20', cxp, cyp);
+}
+
+// ── 啟動 ────────────────────────────────────────────────────────
+var mesh = null, stream = null, raf = null;
+
+function buildMesh(){
+  mesh = new FaceMesh({ locateFile: function(f){
+    return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/' + f;
+  }});
+  mesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.6, minTrackingConfidence:0.6 });
+  mesh.onResults(onResults);
+}
+
+async function start(){
+  if (typeof FaceMesh === 'undefined'){ setGate('bad', '模型載入失敗（檢查網路）'); return; }
+  if (!mesh) buildMesh();
+  if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
+  setGate('warn', '啟動相機中…');
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+    });
+  }catch(e){
+    setGate('bad', '相機被拒絕：' + e.name);
+    return;
+  }
+  video.srcObject = stream;
+  await video.play();
+  cv.width = video.videoWidth || 640;
+  cv.height = video.videoHeight || 480;
+  setGate('warn', '偵測中…');
+
+  // 自己跑迴圈（不用 @mediapipe/camera_utils，少載一支）
+  // ⚠️ 一定要 await 完再送下一幀 —— wasm 是單執行緒佇列
+  if (raf) cancelAnimationFrame(raf);
+  var busy = false;
+  (function loop(){
+    raf = requestAnimationFrame(loop);
+    if (busy || video.readyState < 2) return;
+    busy = true;
+    mesh.send({ image: video }).catch(function(){}).finally(function(){ busy = false; });
+  })();
+}
+
+document.getElementById('flip').addEventListener('click', function(){
+  facing = facing === 'user' ? 'environment' : 'user';
+  start();
+});
+
+window.addEventListener('load', start);
+</script>
+
+</body>
+</html>

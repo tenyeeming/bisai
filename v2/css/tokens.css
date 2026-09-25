@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════════════════════════════
+   設計方向：量測儀器，不是養生 App。
+   產品論述是「精度誠實」—— 系統會講出自己何時不可信 —— 所以介面
+   走儀器語彙：黃銅鉻件、明體標穴名（中醫典籍的字）、等寬數字讀數。
+   強調色（黃銅）只用在結構鉻件；語意色（青/琥珀/朱）只用在狀態塊，
+   兩者角色不重疊，狀態才能一眼讀出來。
+
+   這支只放「色票與字體」。動到顏色、字型、圓角、深淺主題來這裡。
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light dark;
+
+  /* 亮色改純白（2026-09-02 用戶定）。
+     純白背景配白卡片就沒有層次了，所以層次改由「邊框」承擔，不用陰影 ——
+     陰影堆多了會顯得廉價，細邊框比較利落，也合這個產品的量測調性。
+     只有 surface-2（次級面，如輪次條底）留一格極淡的灰，用來分出「這塊被框起來了」。 */
+  --paper:      #FFFFFF;
+  --surface:    #FFFFFF;
+  --surface-2:  #F4F6F3;
+  --line:       #DCE1DA;   /* 2026-09-13 從 #C9D0C6 收淡：App 那邊加了卡片微陰影，
+                              陰影配深灰線會顯髒（兩套分界訊號打架）。兩邊要一致 */
+  --line-soft:  #E2E6DF;
+  --ink:        #1C2522;
+  --ink-soft:   #5A6560;
+
+  /* 強調色。只做鉻件（細線、標籤、刻度、焦點環）——「角色」不變，只換顏色。
+     ⭐ 2026-09-13 從黃銅換成藍色系（老師說介面不好看 → 介面沙盒定案）。
+        來源：比賽專區/介面討論/assets/藍色系配色_20260912.jpg（截圖取色，JPEG 壓縮過）。
+        變數名還是 brass —— 全站幾百處引用，改名的風險大於「名字對不上顏色」。
+     ⚠️ 這一組必須跟 App 的 ui/theme/Color.kt 一模一樣。改一邊要改兩邊。 */
+  --brass:      #A0C6D9;
+  --brass-lit:  #A5C6D7;
+
+  /* 頁首深藍帶（2026-09-18 用戶指定 #14487D，App 先做、2026-09-19 才同步回網頁）。
+     範圍：刻度條 → AcuNavi 標題列 → 首頁「最多選擇三個症狀…」那行為止。
+     ⭐ 刻意**不分亮暗**：它本來就是深色，放在深底上仍然讀得出來
+        （對應 App 的 HeroL == HeroD，見 ui/theme/Color.kt）。
+        所以下面三個主題區塊都不必重寫這三個值。
+     ⚠️ 沒有人在深色手機上看過，跟 App 那邊同一個但書。 */
+  --hero:          #14487D;
+  --hero-ink:      #FFFFFF;   /* 深藍底上的主文字 */
+  --hero-ink-soft: #C6D6E8;   /* 深藍底上的次要文字（lede） */
+
+  /* 語意色：只做狀態塊，絕不當強調色用 */
+  --good:       #2E7D5B;
+  --warn:       #B4700F;
+  --bad:        #B0402F;
+  --good-bg:    rgba(46, 125, 91, 0.12);
+  --warn-bg:    rgba(180, 112, 15, 0.13);
+  --bad-bg:     rgba(176, 64, 47, 0.12);
+
+  --font-ming: "Songti TC", "Noto Serif TC", "Noto Serif CJK TC", "PMingLiU", "MingLiU", Georgia, serif;
+  --font-sans: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  /* 圓角 —— 2026-09-19 從「全站單一 3px」改成分級，同步 App 2026-09-13 那批
+     （ui/theme/Theme.kt 的 AcuShapes，來源是介面沙盒 App介面沙盒.html）。
+     原本單一值的問題是**按鈕、格子、卡片、對話框變成同一個視覺重量** ——
+     那是 09-12 列出的「介面不好看」原因之一。
+
+     ⭐ --r 直接改成 8px 而不是逐處分派：實查 App 的用法，shapes.small(8dp)
+        是主力（格子、框、面板、提示幾乎全吃它），medium 只有兩處。
+        改這一個值就對上絕大多數，剩下少數在 shell.css / responsive.css 單獨指定。 */
+  --r:        8px;       /* ＝ App shapes.small，全站預設 */
+  --r-chip:   4px;       /* ＝ extraSmall：小泡泡、讀數標籤、齒輪與返回鈕 */
+  --r-card:  12px;       /* ＝ medium：警語條、完成卡 */
+  --r-sheet: 28px;       /* ＝ large：底部面板 */
+  --r-pill: 999px;       /* 按鈕膠囊（App 是 22dp ＝ 按鈕高度 44dp 的一半） */
+  --shadow: 0 1px 0 rgba(28,37,34,.06), 0 6px 20px -12px rgba(28,37,34,.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:     #101614;
+    --surface:   #17201D;
+    --surface-2: #202B27;
+    --line:      #2E3B36;
+    --line-soft: #263230;
+    --ink:       #E4EAE5;
+    --ink-soft:  #94A29C;
+    /* 暗色的藍是**推算的、沒有人挑過**（2026-09-13）：亮色那組直接放深底上會顯髒，
+       所以往「亮度略降、飽和略升」走。要調就改這兩行（App 的 BrassD/BrassLitD 同步）。 */
+    --brass:     #8FBEDA;
+    --brass-lit: #B3D6EC;
+    --good:      #4FBF8B;
+    --warn:      #E0A33C;
+    --bad:       #E0705C;
+    --good-bg:   rgba(79, 191, 139, 0.14);
+    --warn-bg:   rgba(224, 163, 60, 0.14);
+    --bad-bg:    rgba(224, 112, 92, 0.14);
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 24px -14px #000;
+  }
+}
+/* 觀看者的主題切換必須壓過 media query，兩個方向都要 */
+:root[data-theme="light"] {
+  --paper: #FFFFFF; --surface: #FFFFFF; --surface-2: #F4F6F3;
+  --line: #DCE1DA; --line-soft: #E2E6DF; --ink: #1C2522; --ink-soft: #5A6560;
+  --brass: #A0C6D9; --brass-lit: #A5C6D7;
+  --good: #2E7D5B; --warn: #B4700F; --bad: #B0402F;
+  --good-bg: rgba(46,125,91,.12); --warn-bg: rgba(180,112,15,.13); --bad-bg: rgba(176,64,47,.12);
+}
+:root[data-theme="dark"] {
+  --paper: #101614; --surface: #17201D; --surface-2: #202B27;
+  --line: #2E3B36; --line-soft: #263230; --ink: #E4EAE5; --ink-soft: #94A29C;
+  --brass: #8FBEDA; --brass-lit: #B3D6EC;
+  --good: #4FBF8B; --warn: #E0A33C; --bad: #E0705C;
+  --good-bg: rgba(79,191,139,.14); --warn-bg: rgba(224,163,60,.14); --bad-bg: rgba(224,112,92,.14);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brass-lit);
+  outline-offset: 2px;
+  border-radius: 1px;
+}

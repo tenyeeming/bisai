@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AcuNavi 理想版</title>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       這是「外殼」：只有 header、步驟軌、底部分頁列。
+       每一個畫面都在 pages/ 底下，一頁一個檔（長相 + 行為都在裡面）。
+       要改某一頁，開那一頁的檔就好，不用碰這裡。
+       新增一頁：建 pages/xx.js，在下面加一行 <script>。
+
+       ⚠️ 這份可以直接雙擊開（file://），所以不能用 fetch 載入片段
+       ——那會被 CORS 擋掉。片段一律寫在各頁 .js 的 html 欄位。
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- ⚡ 只在 vendor/ 沒下載、要退回 CDN 時才用得到：先把 DNS 查詢與 TLS 握手做掉，
+       等真的要抓那 16MB 時就不必再等連線建立（省數百 ms，手機網路上更明顯）。
+       vendor/ 有檔的時候這行是無害的閒置提示。 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
+  <script src="js/mp-loader.js"></script>
+
+  <!-- 本機優先，沒下載過就退回 CDN（onerror）。本機檔怎麼來：node vendor/下載.js
+       ⚠️ 版本號要與 mp-loader.js / vendor/下載.js 一致，
+          JS 與 wasm 資產版本不匹配會偶發載入失敗，而且很難查 -->
+  <script src="vendor/mediapipe/hands/hands.js"
+          onerror="mpFallback(this,'hands','hands.js')"></script>
+  <script src="vendor/mediapipe/camera_utils/camera_utils.js"
+          onerror="mpFallback(this,'camera_utils','camera_utils.js')"></script>
+  <!-- 臉部用另一個模型 -->
+  <script src="vendor/mediapipe/face_mesh/face_mesh.js"
+          onerror="mpFallback(this,'face_mesh','face_mesh.js')"></script>
+
+  <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
+  <script src="js/acu-data.js"></script>
+  <script src="js/acu-math.js"></script>
+
+  <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
+  <script src="js/face-data.js"></script>
+  <script src="js/face-sheet.js"></script>
+  <script src="js/face-math.js"></script>
+  <script src="js/face-anchor.js"></script>
+  <script src="js/forearm-data.js"></script>
+  <!-- 臉部按摩的對準判定（跨兩個模型，不是定位公式，所以獨立一支） -->
+  <script src="js/face-gate.js"></script>
+
+  <!-- 共用 -->
+  <script src="js/i18n.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/regions.js"></script>
+  <script src="js/minions.js"></script>
+  <script src="js/acu-ref.js"></script>
+  <script src="js/acu-video.js"></script>
+  <script src="js/splash.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/session-menu.js"></script>
+  <script src="js/vision.js"></script>
+  <script src="js/face-vision.js"></script>
+
+  <!-- 一頁一檔：順序＝療程順序 -->
+  <script src="pages/01-home.js"></script>
+  <script src="pages/02-recommend.js"></script>
+  <script src="pages/03-acu-detail.js"></script>
+  <script src="pages/04-camera.js"></script>
+  <script src="pages/05-massage.js"></script>
+  <script src="pages/06-complete.js"></script>
+  <script src="pages/07-face.js"></script>
+  <script src="pages/08-summary.js"></script>
+  <script src="pages/tab-gallery.js"></script>
+  <script src="pages/tab-gallery-info.js"></script>
+  <script src="pages/tab-settings.js"></script>
+  <!-- 設定的子頁：一個功能一頁，目錄在 tab-settings.js -->
+  <script src="pages/settings-lang.js"></script>
+  <script src="pages/settings-display.js"></script>
+  <script src="pages/settings-notify.js"></script>
+  <script src="pages/settings-accuracy.js"></script>
+  <script src="pages/settings-presets.js"></script>
+  <script src="pages/settings-flow.js"></script>
+</head>
+
+<body>
+  <div class="device">
+    <div class="bezel"></div>
+
+    <!-- 功能全在底部分頁列，語言在「設定」裡，所以 header 只剩品牌 -->
+    <header>
+      <div class="wordmark">Acu<span>Navi</span></div>
+    </header>
+
+    <!-- 返回列：在步驟軌上面。哪一頁要顯示、退到哪裡，看各頁註冊的 backTo。
+         右邊是動作區，各頁用 registerPage 的 actions 掛自己的按鈕（如按摩頁的齒輪） -->
+    <div class="backbar" id="backbar">
+      <button class="back" id="back-btn" onclick="goBack()" data-i18n="btn-back">← 返回</button>
+      <div class="backbar-actions" id="backbar-actions"></div>
+    </div>
+
+    <!-- 步驟軌由 js/nav.js 依各頁註冊的 step 欄位自動生成 -->
+    <ol class="steprail" id="steprail"></ol>
+    <div class="step-progress" id="step-progress" hidden>
+      <div class="step-heading"><strong id="step-title"></strong><span class="step-count" id="step-count"></span></div>
+      <div class="step-track" id="step-track" role="progressbar" aria-label="療程進度" aria-valuemin="0" aria-valuemax="4"><div class="step-fill" id="step-fill"></div></div>
+    </div>
+
+    <!-- MediaPipe 的 Camera 需要真的 video 元素，不能餵 canvas -->
+    <video id="hidden-video" playsinline muted></video>
+
+    <!-- 各頁的 html 會在開站時串起來塞進這裡（見 js/nav.js 的 boot） -->
+    <main id="pages"></main>
+
+    <!-- 2026-09-24：「個人」分頁拿掉（網頁不存紀錄，那頁全是連續天數／排行／等級），剩三個 -->
+    <!-- 2026-09-25（網頁v2 批 A）：照 App（AcuScaffold.TabBar）只留文字、拿掉圖示 -->
+    <nav class="tabbar" id="tabbar" aria-label="主功能">
+      <button type="button" data-tab="home" onclick="goTab('home')">
+        <span data-i18n="nav-home">首頁</span>
+      </button>
+      <button type="button" data-tab="gallery" onclick="goTab('gallery')">
+        <span data-i18n="nav-gallery">圖冊</span>
+      </button>
+      <button type="button" data-tab="settings" onclick="goTab('settings')">
+        <span data-i18n="nav-settings">設定</span>
+      </button>
+    </nav>
+  </div>
+</body>
+</html>

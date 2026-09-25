@@ -1,4 +1,17 @@
-# AcuNavi 比賽 demo 網站
+# AcuNavi 網頁 v2（對齊 App 改版中）
+
+> 🆕 **這是 `比賽專區/demo網站/` 在 2026-09-25 的整包複本**（備份點：commit `97992ac`、tag `web-before-v2-20260925`）。
+> 用途：照 App **全面改版**（批 A→D→B→C→E），由雲端 Claude 改、本機 Claude 檢查／部署；舊的 `demo網站` 照常跑、線上正式網址不動。
+> - 計劃：`比賽專區/介面討論/網頁對齊App與按壓判定重設計_規劃_20260925.md`
+> - 盤點：`比賽專區/介面討論/App功能盤點_20260925.md`
+> - 線上：`https://tenyeeming.github.io/bisai/v2/acunavi-ideal.html`（部署腳本加 `/v2/` 之後才有）
+> - ⚠️ **`demo網站` 之後的 bug 修正要手動同步過來**，兩份不會自己一致。
+> - `vendor/mediapipe/` 不進版控（同 demo網站）；換電腦跑 `node vendor/下載.js`。
+>
+> 以下是複製當時 demo網站 README 的原文。
+
+---
+
 
 資服競賽（InnoServe 第 31 屆）用的展示版。**手部穴道即時定位 + 雙手按壓確認 + 完成時小人慶祝**。
 

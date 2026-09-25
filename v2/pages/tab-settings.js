@@ -1,0 +1,101 @@
+// ══ 設定分頁 ═════════════════════════════════════════════════════
+//
+// 這一頁只是「目錄」：一個功能一列，點進去才調整（LINE 的設定就是這樣）。
+// 實際的開關都在子頁：
+//   settings-lang      語言
+//   settings-display   顯示（字體大小）
+//   settings-flow      療程節奏
+//   settings-presets   我的流程（一組穴道＋一套節奏，點一下直接開始）
+//   settings-notify    每日提醒（含每天要按什麼）
+//   （settings-data「資料與紀錄」2026-09-24 拿掉：網頁不再存按摩紀錄，沒有東西可清）
+//
+// ⚠️ settings-accuracy（定位精度）**不在目錄裡** —— App 2026-09-09 刪了這個選項，
+//    行為固定為嚴格。頁面檔還在，但沒有入口。
+//
+// 每列右邊那個灰字是「現在設成什麼」，不用點進去就看得到。
+
+registerPage('settings', {
+  tab: 'settings',
+  onEnter: () => renderSettingsMenu(),
+  onLanguage: () => renderSettingsMenu(),
+
+  html: `
+  <div id="page-settings" class="page">
+    <style>
+      #settings-menu { display: flex; flex-direction: column; gap: 18px; }
+      #settings-menu .grp-title {
+        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+        text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; padding-left: 2px;
+      }
+      #settings-menu .grp-rows {
+        border: 1px solid var(--line); border-radius: var(--r);
+        overflow: hidden; background: var(--surface);
+      }
+      #settings-menu button {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        padding: 12px; background: none; color: var(--ink); border: 0;
+        border-top: 1px solid var(--line-soft);
+        font-family: var(--font-sans); font-size: 13.5px; text-align: left; cursor: pointer;
+      }
+      #settings-menu button:first-child { border-top: 0; }
+      #settings-menu button:hover { background: var(--surface-2); }
+      #settings-menu .label { flex: 1; }
+      #settings-menu .value { color: var(--ink-soft); font-size: 12.5px; }
+      #settings-menu .chev { color: var(--ink-soft); font-size: 15px; line-height: 1; }
+      /* 右下角淡淡的手掌浮水印（2026-09-25 網頁v2 批 A，同 App SettingsMenuScreen 的 HandMark：
+         hand.png、13% 不透明、轉 −8°、寬 360、往右溢出 40／往下 6）。
+         ⚠️ overflow:hidden 在 #page-settings 上 —— 溢出的那 40px 不能造成橫向捲軸。 */
+      #page-settings { position: relative; overflow: hidden; }
+      #page-settings > .stack { position: relative; z-index: 1; }
+      #page-settings .hand-mark {
+        position: absolute; right: -40px; bottom: -6px; width: 360px; max-width: 90%;
+        opacity: .13; transform: rotate(-8deg); transform-origin: 100% 100%;
+        pointer-events: none; user-select: none; z-index: 0;
+      }
+    </style>
+    <img class="hand-mark" src="assets/hand.png" alt="" aria-hidden="true" loading="lazy">
+
+    <div class="stack">
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow-settings">校正</p>
+        <h2 data-i18n="settings-title">設定</h2>
+      </div>
+      <div id="settings-menu"></div>
+    </div>
+  </div>`,
+});
+
+// 目錄是渲染出來的，因為右邊的「現在設成什麼」要跟著設定跑
+function renderSettingsMenu() {
+  // 分組、順序、每組的內容都照 App 的 `SettingsScreen.kt` 排（2026-09-21 對齊）。
+  // 用戶：「設定那些好像還沒有同步到」。三處差異，一次補齊：
+  //   ① 一般組少了「顯示」（字體大小）—— 補上，見 pages/settings-display.js
+  //   ② 「每日提醒」原本掛在一般組，App 放在療程組 —— 搬過去
+  //   ③ 「定位精度」網頁還留著入口，**App 2026-09-09 就刪了**（行為固定嚴格，
+  //      用戶指定）—— 入口拿掉。頁面檔 pages/settings-accuracy.js 與
+  //      strictGate 的程式碼都留著沒動，只是目錄不再進得去（同 App 的處理）。
+  const groups = [
+    { title: t('settings-group-general'), rows: [
+      { page: 'settings-lang',    label: t('settings-lang'),    value: isZh() ? '中文' : 'English' },
+      { page: 'settings-display', label: t('settings-display'), value: t('font-' + fontScale) },
+    ]},
+    { title: t('settings-group-flow'), rows: [
+      { page: 'settings-flow',    label: t('settings-flow'),    value: flowSummary() },
+      { page: 'settings-presets', label: t('settings-presets'), value: presetsSummary() },
+      { page: 'settings-notify',  label: t('settings-notify'),  value: notifySummary() },
+    ]},
+  ];
+
+  document.getElementById('settings-menu').innerHTML = groups.map(g => `
+    <div>
+      <p class="grp-title">${g.title}</p>
+      <div class="grp-rows">
+        ${g.rows.map(r => `
+          <button type="button" onclick="showPage('${r.page}')">
+            <span class="label">${r.label}</span>
+            <span class="value">${r.value}</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+}

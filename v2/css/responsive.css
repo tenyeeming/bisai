@@ -1,0 +1,446 @@
+/* 2026-09-16：App 共用視覺與多端配置。頁面邏輯仍由各 pages/*.js 管理。 */
+:root { --tab-bg: #7198C1; --tab-on: #5C7D9E; --accent-text: #345e79; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --tab-bg: #1B2C3C; --tab-on: #2C4560; --accent-text: #B3D6EC; }
+}
+:root[data-theme="dark"] { --tab-bg: #1B2C3C; --tab-on: #2C4560; --accent-text: #B3D6EC; }
+html { font-size: 100%; }
+body { background: var(--surface-2); }
+body .device { max-width: 1120px; min-height: 100svh; border: 0; }
+.device header { padding: 16px clamp(16px, 3vw, 32px); }
+.device main { padding: 16px clamp(16px, 3vw, 32px) 24px; min-width: 0; }
+.device main > .page { min-width: 0; }
+.device main > .page > .stack { width: 100%; max-width: 760px; margin-inline: auto; }
+.device .backbar { padding-inline: clamp(16px, 3vw, 32px); }
+.device .tabbar {
+  display: flex; gap: 4px; width: calc(100% - 24px); max-width: 600px;
+  /* 2026-09-21 用戶「下面首頁那些選擇欄位幫我拉低一點點」：離底邊的留白 12px → 6px。
+     ⚠️ margin-bottom 與 bottom **兩個都要改，而且要同一個值**：
+        bottom 決定 sticky 貼在視窗底多高，margin-bottom 決定文件流底部留多少白。
+        只改一個 → 捲到底時膠囊會自己跳一下。
+     ⚠️ env(safe-area-inset-bottom) 那層不要拿掉：iPhone 的home indicator 會壓到膠囊。 */
+  margin: 0 auto max(6px, env(safe-area-inset-bottom)); padding: 5px;
+  bottom: max(6px, env(safe-area-inset-bottom)); border: 0; border-radius: 32px;
+  background: var(--tab-bg); box-shadow: 0 6px 22px #162e4326;
+}
+.device .tabbar button {
+  flex: 1 1 0; min-width: 0; min-height: 48px; padding: 8px 4px;
+  font-size: .8125rem; line-height: 1.3; letter-spacing: 0; color: #fff;
+  border-radius: 26px; transition: flex-grow .3s cubic-bezier(.34,.9,.3,1), background .2s;
+}
+/* 選中那顆比別顆寬 2.4 倍（同 App AcuScaffold.TabBar 的 weight 2.4、300ms） */
+.device .tabbar button.on { flex-grow: 2.4; background: var(--tab-on); box-shadow: none; color: #fff; }
+.device .tabbar button:hover { color: #fff; background: var(--tab-on); }
+.step-progress { padding: 8px clamp(16px, 3vw, 32px) 14px; }
+.step-progress[hidden] { display: none; }
+.step-progress .step-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: .9375rem; }
+.step-progress .step-count { color: var(--ink-soft); font-family: var(--font-mono); }
+.step-track { height: 5px; background: var(--line-soft); border-radius: 9px; overflow: hidden; }
+.step-fill { height: 100%; background: var(--tab-bg); width: 0; transition: width .25s; }
+/* 保留語意化的完整步驟清單給輔助科技。視覺改為當前步驟與進度。 */
+.device .steprail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; border: 0; }
+.device .btn, .device .ghost, .device .seg button, .device .cover-chip { min-height: 44px; }
+.device .btn { font-size: .9375rem; white-space: normal; color: var(--ink); }
+.device .btn-row { flex-wrap: wrap; }
+.device .btn-row > button { min-width: 0; flex: 1 1 130px; }
+.device :is(.eyebrow, .meter .label, .sheet .field .k, .cover-chip .n) { color: var(--accent-text); }
+.device :is(.small, .lede, .notice, .readout, .hint, .mono-sm) { overflow-wrap: anywhere; }
+.device .notice, .device .small, .device .readout { font-size: .875rem; }
+.device .hint, .device .mono-sm { font-size: .8125rem; }
+.device .lede { font-size: .9375rem; max-width: none; }
+.device h2 { max-width: 100%; font-size: clamp(1.5rem, 3vw, 1.875rem); overflow-wrap: anywhere; word-break: break-word; }
+.device button:disabled { cursor: not-allowed; opacity: .45; }
+.device input[type="range"] { min-height: 44px; }
+
+/* ── 頁首深藍帶的下半段（2026-09-19 同步 App 的 HomeScreen HeroBand）────────
+   上半段是 header（底色在 shell.css）。這一塊把帶延伸到首頁的 lede 為止。
+
+   ⭐ 負 margin 出血：main 有 16px 直 / clamp(16px,3vw,32px) 橫的內距，
+      直接上底色會在左右和上方各留一條白邊、帶就接不上 header。
+      對應 App 用 drawBehind 把矩形畫到內距外面（HomeScreen.kt:137 那段註解）。
+   ⚠️ 這兩個數字跟上面 `.device main` 的內距綁死 —— 那邊改了這裡要跟。 */
+.hero-band {
+  margin: -16px calc(-1 * clamp(16px, 3vw, 32px)) 0;
+  padding: 16px clamp(16px, 3vw, 32px) 12px;
+  background: var(--hero);
+}
+/* 帶內的字色改成在深藍上讀得到的那組（外面那份 .eyebrow 吃 --accent-text，
+   在深藍底上對比不夠）。小人是去背 PNG，放在藍底上不用處理。
+
+   ⚠️ 選擇器**必須帶 #page-home**（2026-09-19 實測才發現）：上面那條
+   `.device :is(.eyebrow, .meter .label, .sheet .field .k, .cover-chip .n)` 的特異性
+   是 (0,4,0) —— `:is()` 取括號內**最高**的那一項（`.sheet .field .k` 有三個 class），
+   不是取 `.eyebrow` 那一項。只寫 `.device .hero-band .eyebrow` 是 (0,3,0)，會輸，
+   「主訴」兩字就留在深藍底上的暗藍色、幾乎看不見。加 id 變 (1,3,0) 才蓋得過。 */
+#page-home .hero-band .eyebrow { color: var(--hero-ink); }
+#page-home .hero-band h2 { color: var(--hero-ink); }
+#page-home .hero-band .lede { color: var(--hero-ink-soft); }
+
+/* ── 卡片微陰影補完（2026-09-19）────────────────────────────────────
+   App 只有四處吃 AcuCardElevation：首頁症狀格、選穴頁穴道格（這兩處本檔上面已有）、
+   圖冊格、個人頁統計卡。補後兩處。
+   ⚠️ 個人頁在 App 是一格一張獨立卡片，網頁是「1px 間隙當分隔」的連體表格 ——
+      這次只給整塊加圓角與陰影，**沒有拆成獨立卡片**（那是版面改動，不在本批）。 */
+#page-gallery .collection-item { box-shadow: var(--shadow); }
+#page-profile .stat-grid { border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+/* 深色不給陰影 —— 深底上的黑影看不見，只會讓邊緣糊掉（App 的 cardElevation 深色是 0dp） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #page-gallery .collection-item,
+  :root:not([data-theme="light"]) #page-profile .stat-grid { box-shadow: none; }
+}
+:root[data-theme="dark"] #page-gallery .collection-item,
+:root[data-theme="dark"] #page-profile .stat-grid { box-shadow: none; }
+
+/* 首頁：小人只代表選擇數，不擠壓標題；聲明與下一步留在底部。 */
+#page-home > .stack { gap: 16px; min-height: calc(100svh - 184px); }
+/* ⚠️ 2026-09-20：這裡原本有 `background: var(--surface)` —— **不透明白底**，
+   作用是把下方那隻手掌底圖擋在外面（同 App 的症狀區）。
+   現在白底換成草地背景、手掌也拿掉了，這一層再上底色就會把背景蓋掉
+   （截圖上看到的就是「只有邊緣有草地」）—— **不要加回來**。 */
+#page-home .home-top { display: flex; flex-direction: column; flex: 1; gap: 12px; }
+.home-heading { display: flex; align-items: end; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+/* 2026-09-25（網頁v2 批 A）：標題旁的站位小人拿掉（網頁小人只留慶祝），.home-cast 規則一併刪。 */
+/* 兩欄症狀格：**看得到六列，其餘往下捲**（2026-09-21 用戶：「病症選項要和 app
+   一樣給我可以下滑」「病症選擇的格子拉高些，如果有必要甚至可以變成病症先顯示六行」）。
+   對應 App `HomeScreen.kt` 的 SymptomGrid —— 那邊 BASELINE_ROWS 也是 6、
+   超出就 verticalScroll，這裡是同一個意思的 CSS 版。
+   ⚠️ 列高是**算出來的**不是固定值：(容器高 − 5 個 8px 格距) / 6，
+      所以畫面越高格子越高、永遠六列，跟 App 的 weight(1f) 同一個道理。
+   ⚠️ 可見列數只改 --sym-rows，別去動 calc。
+   ⭐ 2026-09-21 用戶「病症選擇的格子拉高些，如果有必要甚至可以變成病症先顯示六行」
+      → 七列改六列。這同時**跟 App 的 BASELINE_ROWS 對上了**（那邊本來就是 6）。
+      列高跟著從 42px 變約 55px，保底值也回到 48px（觸控目標的下限）。
+   ⚠️ min-height:0 不能拿掉：flex item 預設 min-height:auto 會「不縮到比內容小」，
+      那樣 overflow 永遠不觸發，整塊還是把頁面撐長。 */
+#page-home .symptom-grid {
+  --sym-rows: 6;
+  --sym-gap: 8px;
+  /* 列高保底 ＝ 觸控目標下限。
+     🔴 歷史（同一天走過的彎路，別再走一次）：先做七列時這個值必須壓到 42px ——
+        iPhone 390×844 的症狀區只有 343px，(343 − 6×8)/7 = 42.1px，
+        保底寫 48px 的話七列算出來共 384px > 343px，**第七列被擠出捲動區、只剩六列**。
+        改成六列之後高度夠了（約 55px/列），保底才回得到 48px。 */
+  --sym-row-min: 48px;
+  display: grid;
+  flex: 1 1 0;
+  /* 至少留四列的高度：320×568 這種小螢幕上，上面的標題區吃完之後
+     flex 只剩 29px 給症狀區 —— 壓成一列，整頁看不到東西可選。
+     撐不下就讓整頁變長、往下捲（分頁列是 sticky，捲了也還在）。 */
+  min-height: calc(var(--sym-row-min) * 4 + var(--sym-gap) * 3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--sym-gap);
+  grid-auto-rows: max(var(--sym-row-min), calc((100% - var(--sym-gap) * (var(--sym-rows) - 1)) / var(--sym-rows)));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* 玻璃格（2026-09-20，同步 App 批 47/48）：用戶「透明度拉高點點，有點玻璃感」。
+   半透明白 + 亮白邊框 + **不上陰影**（陰影是「浮在白紙上」的語言，
+   透明底上只會畫出一圈灰霧）。.44 / .66 與 App 的 GLASS_IDLE / GLASS_ON 同一組數字。
+   ⚠️ 這三個值（背景 .55、未選 .44、已選 .66）是一組的：
+      底圖越淡、玻璃越濃 = 字越好讀但越看不到背景。 */
+#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; min-width: 0; overflow-wrap: anywhere; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r); background: rgba(255,255,255,.44); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
+#page-home .symptom-btn.selected { border-color: var(--brass); background: rgba(255,255,255,.66); font-weight: 600; box-shadow: inset 3px 0 var(--brass); }
+#page-home .symptom-btn[aria-disabled="true"] { opacity: .45; }
+#page-home .home-foot { position: relative; display: flex; flex-direction: column; margin: 0; padding: 12px 0 0; gap: 12px; overflow: hidden; }
+/* ⚠️ 2026-09-20：手掌底圖（.handmark）拿掉了——用戶「我之前有讓你把手的
+   照片透明度拉低放到首頁不是嗎，去掉他」（App 批 48 同步）。
+   背景換成草地之後兩張圖疊在一起太雜。素材 assets/hand.png 留著沒刪。 */
+/* 選滿再點的警示條（2026-09-25 網頁v2 批 B，App LimitToast）：浮在藍帶頂端、不佔位、2 秒收掉 */
+.home-head { position: relative; }
+.home-limit { position: absolute; top: 4px; left: 0; right: 0; z-index: 5; margin: 0; padding: 8px 12px; border-radius: var(--r); background: var(--warn); color: #fff; font-size: .8125rem; line-height: 1.45; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.home-limit[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) { .home-limit:not([hidden]) { animation: limit-in .16s ease-out; } @keyframes limit-in { from { opacity: 0; } } }
+
+/* 選穴、詳情與認穴：觸控目標、換行、窄螢幕抽屜。 */
+#page-recommend .acupoint-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 10px; }
+#page-recommend .seg button { min-width: 0; overflow-wrap: anywhere; }
+#page-recommend .acu-item { min-width: 0; padding: 8px; gap: 5px; min-height: 64px; box-shadow: var(--shadow); }
+#page-recommend .acu-item > span:nth-child(2) { min-width: 0; flex: 1; overflow-wrap: anywhere; word-break: break-word; }
+#page-recommend .acu-item { overflow: hidden; }
+#page-recommend .acu-item .info { width: 40px; height: 44px; border: 0; font-size: 1.125rem; }
+#page-recommend .acu-item .secs { font-size: .75rem; }
+#page-recommend .acu-item .tick { margin-left: 0; }
+#page-recommend .acu-item.checked .secs:not(:empty) + .tick { display: none; }
+#page-recommend .start-warn .row { flex-wrap: wrap; }
+#page-recommend .start-warn .row button { flex: 1 1 120px; min-height: 44px; }
+/* 底部面板 ＝ App 的 shapes.large(28dp)（2026-09-19 對齊；原本吃全站的 --r） */
+#page-recommend .sheet { max-width: 600px; max-height: 85svh; overscroll-behavior: contain; border-radius: var(--r-sheet); }
+#page-recommend .sheet-head { flex-wrap: wrap; }
+#page-recommend .sheet-head .x { min-height: 44px; }
+#page-recommend .sheet .field .k { font-weight: 700; font-size: .8125rem; }
+#page-recommend .sheet .field .v { font-size: .9375rem; }
+#page-acu-detail .ref-row > p { flex: 1; min-width: 0; font-size: 1rem; }
+#page-acu-detail .readybar { flex-wrap: wrap; }
+#page-acu-detail .readybar .txt { flex: 1; min-width: 120px; }
+#page-acu-detail .readybar button { min-height: 44px; }
+
+/* 相機保持完整畫面；畫布像素與定位座標不變，只調 CSS 呈現。 */
+#page-camera canvas.cam, #page-massage canvas.cam, #page-face canvas.cam { width: 100%; object-fit: contain; }
+#page-massage .timer-display { display: table; margin: 12px auto; padding: 10px 16px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font-size: 3rem; }
+#page-massage .timer-display.paused { color: #594100; background: #ffe69b; }
+#page-massage .roundbar { flex-wrap: wrap; }
+/* 2026-09-24 拿掉 `.meter { align-self: start }`：平板直式時 .stack 是直式 flex，
+   align-self:start 讓計時面板縮成內容寬、只佔左半邊（用戶：「時間那裏爲什麽要只佔一半」）。
+   橫式雙欄 grid 那邊 .stack 本來就有 align-items:start，不需要它。 */
+#page-massage .timer-state { min-height: 1.5em; margin-bottom: 8px; font-size: .875rem; color: var(--ink-soft); }
+#page-massage .fs-bottom .timer-display { flex: none; margin: 0; color: #1c2522; background: #fff; text-shadow: none; }
+#page-massage .fs-bottom .timer-display.paused { background: #ffe69b; color: #594100; }
+#page-massage .fs-bottom { flex-wrap: wrap; }
+#page-massage .fs-bottom .readout { min-width: 130px; }
+#page-massage .fs-btn { min-height: 44px; font-size: .875rem; }
+#page-massage .fs-pause { margin-left: 0; }
+body.massage-fs #massage-viewport { width: 100vw; height: 100dvh; }
+body.massage-fs #massage-canvas { aspect-ratio: auto; }
+
+/* 總結舞台（2026-09-25 網頁v2 批 D，照 App MinionStage：高 196、每隻 96×122、站位與遠近由 js/minions.js 算） */
+.reward-stage { position: relative; height: 196px; width: 100%; max-width: 560px; margin-inline: auto; }
+.reward-stage[hidden] { display: none; }
+.reward-stage .fig { position: absolute; width: 96px; height: 122px; margin-left: -48px; transform: scale(var(--s, 1)); transform-origin: 50% 100%; }
+.reward-stage .fig img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; transform-origin: 50% 100%; }
+/* 紙屑：蓋整個視窗、不吃點擊、播完由 JS 移除 */
+.confetti-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 60; }
+.confetti-layer i { position: absolute; top: -10px; width: 6px; height: 10px; opacity: 0; animation-name: confetti-fall; animation-timing-function: linear; animation-fill-mode: both; }
+@keyframes confetti-fall {
+  0%   { translate: 0 0; rotate: 0deg; opacity: var(--a); }
+  100% { translate: 0 calc(100vh + 20px); rotate: var(--spin); opacity: 0; }
+}
+.device .page-enter { animation: page-arrive .22s ease-out; }
+@keyframes page-arrive { from { opacity: .35; translate: var(--enter-x, 0px) 8px; } to { opacity: 1; translate: 0 0; } }
+/* 含固定定位面板的頁面不套移動動畫，避免改變覆蓋層的定位基準。 */
+.device .page:has(.sheet-mask:not([hidden])), .device .page:has(#massage-viewport) { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  /* 淡入上浮 → 跳兩下（跳 25% 身高、落地壓扁）→ 晃兩個來回（6°、振幅漸小回正）。延遲 --d 照遠近錯開 */
+  .reward-stage.celebrate .fig img {
+    animation: stage-rise .34s linear both, stage-hop .9s ease-out var(--d) both, stage-tilt .8s linear calc(var(--d) + 40ms) both;
+  }
+  @keyframes stage-rise { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+  @keyframes stage-hop {
+    0%, 30%, 60%, 100% { transform: none; }
+    15%, 45% { transform: translateY(-30px) scale(.95, 1.08); }
+  }
+  @keyframes stage-tilt {
+    0% { rotate: 0deg; } 12% { rotate: 5deg; } 37% { rotate: -3.5deg; } 62% { rotate: 2deg; } 87% { rotate: -.6deg; } 100% { rotate: 0deg; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .device *, .device *::before, .device *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media (max-width: 599px) {
+  #page-recommend .sheet-mask { padding: 0; align-items: end; }
+  #page-recommend .sheet { border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+}
+@media (min-width: 760px) and (orientation: landscape) {
+  .device .tabbar button { flex-direction: row; gap: 9px; font-size: .9375rem; }
+  /* 2026-09-25（網頁v2 批 A）：首頁右欄（系統概要卡）拿掉 → 回到單欄，同 App。
+     以前的兩欄、藍帶往右欄出血、帶內容限寬那三條規則一併刪。 */
+  #page-home > .stack { min-height: calc(100svh - 210px); }
+  #page-recommend .acupoint-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  #page-camera > .stack, #page-massage > .stack { max-width: none; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr); align-items: start; gap: 16px 24px; }
+  #page-camera > .stack > :first-child, #page-massage > .stack > :first-child { grid-column: 1 / -1; }
+  #page-camera .camera-preview, #page-massage .massage-preview { grid-column: 1; grid-row: 2 / span 4; }
+  #page-camera > .stack > :nth-child(n+3), #page-massage > .stack > :nth-child(n+3) { grid-column: 2; }
+  /* 2026-09-25（網頁v2，用戶：限高「都可以」）：桌面橫向時取景框 4:3 吃滿左欄會超出一屏，
+     讀數條掉到畫面外。限高到一屏內，影像等比置中（兩側留黑），canvas 內容不變形。 */
+  #page-camera canvas.cam, body:not(.massage-fs) #page-massage canvas.cam {
+    max-height: calc(100svh - 300px); min-height: 240px; object-fit: contain;
+  }
+}
+@media (max-width: 380px) {
+  .device .tabbar button { font-size: .75rem; }
+  #page-recommend .acupoint-list { grid-template-columns: minmax(0, 1fr); }
+  .summary-stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 540px) and (orientation: landscape) {
+  #page-home > .stack { min-height: 0; }
+  .device .tabbar { position: static; }
+  #page-massage .fs-bottom .timer-display { font-size: 2rem; padding: 6px 12px; }
+  #page-recommend .sheet { max-height: 90svh; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   桌面版型（≥1024px）：左側固定導覽欄
+   2026-09-20 用戶：「網頁版本的界面需要重新設計 / 就版型沒有適配電腦界面」，
+   方向定為**比賽評審導向** —— 評審是用電腦開的。
+
+   改動前的問題（1440×900 實際截圖，`介面討論\桌面版型重設計_20260920\before\`）：
+     ① `.device` 限 1120px 置中 ⇒ 左右各一條 160px 灰邊，整頁像一個「殼」
+     ② `.stack` 又限 760px 置中 ⇒ 內容被夾第二次，選穴頁卡片只佔中間一半
+     ③ 底部膠囊分頁列是手機的東西，原封不動擺在桌面正下方 ⇒ 一眼就是手機截圖
+     ④ 高度沒用滿：按摩頁相機下方、首頁右欄上方都是大片空白
+
+   ⭐ **DOM 一個字都沒動**，純 grid 重排 —— 所以 418 項 e2e 完全不受影響。
+      `.device` 原本是 flex column（shell.css），這裡覆蓋成 grid 並用具名區域重排。
+   ⚠️ `#hidden-video`（position:fixed）與 `.steprail`（absolute）不佔 grid 格，
+      `.step-progress[hidden]` 是 display:none ⇒ 那一列自動塌成 0。三者都不必特別處理。
+   ══════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) and (orientation: landscape) {
+  body .device {
+    --rail: 232px;
+    max-width: none;
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    grid-template-rows: 3px auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "bezel bezel"
+      "brand backbar"
+      "nav   steps"
+      "nav   main";
+  }
+  .device .bezel   { grid-area: bezel; }
+  .device header   { grid-area: brand; }
+  .device .backbar { grid-area: backbar; }
+  .device .step-progress { grid-area: steps; }
+  .device main     { grid-area: main; }
+  .device .tabbar  { grid-area: nav; }
+
+  /* 左欄整條深藍：品牌在上、導覽在下，兩塊同底色才連得起來
+     （header 本來就是 var(--hero)，這裡只補 tabbar 那一段） */
+  .device header {
+    padding: 18px 20px;
+    align-items: center;
+  }
+
+  /* 底部膠囊 → 左側直排。position 從 sticky 改掉：
+     grid item 預設 stretch，sticky 在被拉伸的格子裡不會作用，
+     所以這裡讓它單純填滿左欄，跟著頁面捲。 */
+  .device .tabbar {
+    position: static;
+    flex-direction: column;
+    justify-content: flex-start;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 8px 12px 20px;
+    gap: 2px;
+    border-radius: 0;
+    /* 淺色用 --hero：左欄要跟正上方的品牌帶（header 也是 --hero）連成**一整條**藍，
+       中間有色差就又變成「殼中殼」。深色見下面那兩條。 */
+    background: var(--hero);
+    box-shadow: none;
+  }
+  .device .tabbar button {
+    flex: none;                 /* 蓋掉手機版的 flex:1 與 .on 的 flex-grow:1.8 —— 直排時那會把選中項拉高 */
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: .9375rem;
+  }
+  .device .tabbar button.on { flex: none; }
+
+  /* 內容區：拿掉第二道 760px 夾心。靠左不置中 —— 桌面應用的內容是貼著導覽欄排的，
+     置中會在左欄右邊再多一條空白，看起來像「殼中殼」。
+     仍留上限，否則 1920 螢幕上一行字會長到讀不動。 */
+  .device main > .page > .stack {
+    max-width: 1180px;
+    margin-inline: 0;
+  }
+
+  /* 定位／按摩：相機是這個系統的賣點，桌面上給它更多寬度，右側資訊欄跟著加寬 */
+  #page-camera > .stack, #page-massage > .stack {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: 20px 32px;
+  }
+
+  /* 圖冊在桌面可以多排幾格，不要只有手機的兩三格 */
+  #page-gallery .collection-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+/* 深色模式的左欄：回到分頁列原本那組深色（--tab-bg #1B2C3C）。
+   ⚠️ 不要圖「一條藍到底」就在深色也用 --hero —— 那是固定的 #14487D，
+      深色模式下等於整條導覽不跟著換色，而 tests/browser_ui.py 有一條斷言正是在看這個
+      （2026-09-20 我第一版就是這樣被抓到的：desktop dark theme navigation FAIL）。 */
+@media (min-width: 1024px) and (orientation: landscape) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .device .tabbar { background: var(--tab-bg); }
+}
+@media (min-width: 1024px) and (orientation: landscape) {
+  :root[data-theme="dark"] .device .tabbar { background: var(--tab-bg); }
+}
+
+/* 療程流程中（認穴／定位／按摩／完成）分頁列是藏起來的 —— 左欄要一起收掉，
+   否則桌面上會多出一條 232px 的白帶（2026-09-20 第一版截圖就是這樣）。
+   收掉之後流程頁是**全寬單欄**：頂部品牌帶 → 返回列 → 步驟進度 → 內容。
+   ⭐ 這也符合流程頁的性質：正在做事，不需要導覽在旁邊分心。
+   class 由 js/nav.js 的 updateTabbar 掛上。 */
+@media (min-width: 1024px) and (orientation: landscape) {
+  body .device.in-flow {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 3px auto auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "bezel"
+      "brand"
+      "backbar"
+      "steps"
+      "main";
+  }
+  /* 單欄時品牌帶是橫的一條，內距回到跟 main 對齊 */
+  .device.in-flow header { padding: 14px clamp(16px, 3vw, 32px); }
+}
+
+/* 桌面的相機：寬度給滿之後，4/3 的畫面會高到超出視窗（1440×900 上要捲才看得到讀數條）。
+   評審是站著看示範的，捲動 = 看不到重點。所以限制**寬度**讓高度回到視窗內 ——
+   不直接限 max-height 是因為 canvas 吃 aspect-ratio，限高只會讓它自己被壓扁。
+   減掉的 255px = 品牌帶 + 返回列 + 步驟進度 + 標題 + 本輪列的概估。
+
+   ⭐ 2026-09-22：原本是 **300px**，含「下方狀態條」那一項。
+   讀數條改成疊在畫面上之後（shell.css 的 `.camera-preview > .readout`），
+   它已經不佔版面高度了，所以這裡要一起把那 45px 還回來 ——
+   不然畫面會白白比需要的小一圈。**這兩處是綁在一起的，改一邊記得改另一邊。** */
+@media (min-width: 1024px) and (orientation: landscape) {
+  #page-camera .viewport, #page-massage .viewport {
+    max-width: min(100%, calc((100svh - 255px) * 4 / 3));
+  }
+}
+
+/* 2026-09-25（網頁v2 批 A）：桌面「即時判定」面板照 App 拿掉，.live-stats 規則一併刪。 */
+
+/* 超寬螢幕（≥1600px）：內容整體置中。
+   不置中的話 2560 螢幕上內容全部擠在左邊、右側一大片空 —— 那比留白更難看。 */
+@media (min-width: 1600px) and (orientation: landscape) {
+  .device main > .page > .stack { margin-inline: auto; }
+}
+
+/* 🚨 首頁玻璃格在深色模式要改成**半透明黑**（2026-09-20）：
+   深色主題的字是淺色的，再配半透明白底就是淺字配淺底 —— 對比不足（截圖看得出來）。
+   ⚠️ 兩份寫法都要留：@media 那條給「跟隨系統」，:root[data-theme] 那條給設定頁手動切的。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: rgba(255,255,255,.3); }
+  :root:not([data-theme="light"]) #page-home .symptom-btn.selected { background: rgba(0,0,0,.5); border-color: var(--brass); }
+}
+:root[data-theme="dark"] #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: rgba(255,255,255,.3); }
+:root[data-theme="dark"] #page-home .symptom-btn.selected { background: rgba(0,0,0,.5); border-color: var(--brass); }
+
+/* ── iPad 直式：直接套手機版型（2026-09-21）───────────────────────
+   用戶：「ipad 版本我的想法是直接（套用手機的那個模板），橫屏我考慮下」。
+
+   ⭐ 判準用 **orientation 而不是寬度**：iPad 直式是 820×1180，寬度上跟小筆電差不多，
+      用 min-width 分不開。改成「直式一律走手機那套」，上面的 760／1024 兩組寬版型
+      都加了 `and (orientation: landscape)`。
+   ⚠️ **橫式一個字都沒改** —— 用戶說再考慮。所以 iPad 橫放仍會落到 ≥1024 的桌面版型。
+
+   這一條做的是「手機模板置中放大」：不限寬的話 `body .device` 是 1120px，
+   單欄內容被拉成一條很寬的帶子，比兩欄還難看。 */
+@media (orientation: portrait) and (min-width: 600px) {
+  body .device {
+    /* 2026-09-21（批 54）：560px 在 820×1180 的平板上兩側各空 130px 灰底，
+       用戶反應「很多留白」。放寬到 900px：iPad 直式（820）滿寬、
+       iPad Pro（1024）還留一道窄邊。內文仍由 .stack 的 760px 控寬度，
+       所以只有藍帶、草地背景、分頁列變滿寬，段落不會被拉成一條帶子。 */
+    max-width: 900px;
+  }
+  /* 大直式螢幕上字可以大一點點，但不要照 vw 長 —— 那會在 iPad 上大到不像 App */
+  .device header { padding: 16px 18px; }
+  .device main { padding: 16px 18px 24px; }
+  /* 🔴 2026-09-21（批 56）：藍帶下半段比 header 窄，中間出現一道白縫。
+     兩個原因疊加：
+     ① `.hero-band` 的負 margin 出血寫死 `clamp(16px, 3vw, 32px)`，
+        跟這個斷點改成 18px 的內距對不上（批 50 改了內距卻沒跟這邊）；
+     ② `#page-home > .stack` 還吃著 760px 上限，820 寬的平板上左右各再縮 30px。
+     實測：tablet 帶 809 vs header 820；iPad Pro 帶 821 vs header 900。
+     ↓ 兩條一起改，帶才恰好齊 header。只改一條都還是會差。 */
+  #page-home > .stack { max-width: none; }
+  #page-home .hero-band { margin-inline: -18px; padding-inline: 18px; }
+}
