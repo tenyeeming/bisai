@@ -406,15 +406,24 @@ async function flStart() {
   //    → 依序初始化，但 Pose 的大檔先用 fetch 預抓進 HTTP 快取，下載仍是平行的。
   flStartCamera(video, ctx, canvas);
   const t0 = performance.now();
+  window.addEventListener("error", (ev) => flStatus("錯誤：" + (ev.message || ev.error), "bad"));
+  window.addEventListener("unhandledrejection", (ev) => flStatus("錯誤：" + (ev.reason && ev.reason.message || ev.reason), "bad"));
   for (const f of ["pose_landmark_full.tflite", "pose_solution_packed_assets.data", "pose_solution_simd_wasm_bin.wasm"]) {
     fetch(mpAsset("pose", f)).catch(() => {});
   }
-  flHandsModel.initialize().then(() => flPoseModel.initialize()).then(
+  edgeLoadStage = "Hands 模型";
+  const edgeTick = setInterval(() => {
+    if (flModelsReady) return clearInterval(edgeTick);
+    flStatus(`載入 ${edgeLoadStage} 中… 已等 ${Math.round((performance.now() - t0) / 1000)} 秒`, "warn");
+  }, 1000);
+  flHandsModel.initialize().then(() => { edgeLoadStage = "Pose 模型（含分割遮罩）"; return flPoseModel.initialize(); }).then(
     () => {
+      clearInterval(edgeTick);
+      flStatus(`模型就緒（${Math.round((performance.now() - t0) / 1000)} 秒）`, "ok");
       flModelsReady = true;
       console.log("[forearm-lab] 模型就緒", Math.round(performance.now() - t0), "ms");
     },
-    (e) => flStatus("模型載入失敗：" + e + "（檢查網路後重新整理）", "bad"),
+    (e) => { clearInterval(edgeTick); flStatus(`${edgeLoadStage}載入失敗：` + e + "（檢查網路後重新整理）", "bad"); },
   );
 }
 
@@ -1018,6 +1027,8 @@ function flMeasureProfile(maskImg, elbow, axis, u, cun, W, H) {
 
 if (!window.FL_NO_AUTOSTART) window.addEventListener("DOMContentLoaded", flStart);
 
+
+let edgeLoadStage = "";
 
 // ══ 邊界實驗頁專用（2026-09-26，實驗完拆掉）════════════════════════
 // 用戶：「我現在要在平板實測加入了邊界檢測的手肘定位做法」「這次的邊界檢測我要可以看得到，別藏起來」。
