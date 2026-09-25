@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>前臂穴道（Pose錨定）網頁實驗 — AcuNavi</title>
+
+<!-- MediaPipe：照專案慣例用普通 <script src>，不要用 ES module
+     （Windows 的 python -m http.server 會把 .mjs 標成 text/plain，瀏覽器直接拒絕執行，整頁靜默失效）
+     2026-09-25 改成跟主站一樣「本機 vendor 優先、讀不到退 CDN」（規則與版本號在 js/mp-loader.js）：
+     原本全走 jsDelivr，實測 60 秒才出第一幀；bisai（GitHub Pages）上同樣的檔 1 秒內抓完。
+     Pose 釘在 0.5.1675469404（原本不釘版本時 CDN 解析出來的就是這版）。 -->
+<script src="js/mp-loader.js"></script>
+<script src="vendor/mediapipe/hands/hands.js" onerror="mpFallback(this,'hands','hands.js')"></script>
+<script src="vendor/mediapipe/pose/pose.js" onerror="mpFallback(this,'pose','pose.js')"></script>
+<script src="vendor/mediapipe/camera_utils/camera_utils.js" onerror="mpFallback(this,'camera_utils','camera_utils.js')"></script>
+
+<style>
+  :root {
+    --bg: #10141c;
+    --panel: #1a2130;
+    --line: #2c3550;
+    --fg: #e8eef8;
+    --dim: #8b98b0;
+    --ok: #00e5a0;
+    --warn: #ffaa3c;
+    --bad: #ff505a;
+    --accent: #4da3ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1rem; margin: 0; letter-spacing: .5px; }
+  header .ver { color: var(--dim); font-size: .8rem; }
+  select, button { font-family: inherit; font-size: .9rem; }
+  select {
+    background: #0e1420; color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  }
+  .opt { color: var(--dim); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .btn {
+    background: #243049; color: var(--fg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  .btn:hover { background: #2e3c5c; }
+  .btn.ghost { background: transparent; color: var(--dim); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #06101f; font-weight: 700; }
+  .spacer { margin-left: auto; }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(360px, 1.15fr) minmax(280px, .85fr);
+    gap: 14px;
+    padding: 14px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 10px; } }
+  @media (max-width: 599px) { header { gap: 8px; padding: 8px 10px; } header h1 { font-size: .92rem; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: .88rem; color: var(--dim); font-weight: 600; }
+
+  #fl-canvas { width: 100%; border-radius: 8px; background: #000; display: block; }
+  .fl-status { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #0e1420; }
+  .fl-status.ok { color: var(--ok); }
+  .fl-status.warn { color: var(--warn); }
+  .fl-status.bad { color: var(--bad); }
+  #fl-metrics { margin-top: 6px; color: var(--dim); font-size: .82rem; line-height: 1.8; }
+  #fl-metrics b { color: var(--fg); }
+  .lv-ok { color: var(--ok); } .lv-edge { color: var(--warn); } .lv-bad { color: var(--bad); }
+  .dim { color: var(--dim); }
+
+  .note-block {
+    background: #0e1420; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; color: var(--dim); font-size: .78rem; line-height: 1.8;
+  }
+  .note-block b { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<!-- 2026-09-23 從 网页版_2d/forearm_lab.html 複製進 demo網站，由圖冊「小海穴 → 練習（實驗）」開啟。
+     跟原版的差別只有：返回圖冊鈕、前／後鏡頭切換（手機拿一手、拍另一手的手肘，後鏡頭比較好拍）。
+     定位邏輯（js/forearm-lab.js）與原版相同，一行沒改。 -->
+<header>
+  <!-- 主站沒有 hash 路由：從圖冊點進來就 history.back()（bfcache 會還原到圖冊），直接開這頁才回首頁 -->
+  <a class="btn ghost" href="acunavi-ideal.html"
+     onclick="if (document.referrer.startsWith(location.origin)) { history.back(); return false; }">← 返回</a>
+  <h1>🦴 小海穴 · 即時邊界檢測（臨時實驗頁）</h1>
+  <select id="fl-hand" title="只判定哪一隻手" onchange="flSetHand(this.value)">
+    <option value="left" selected>限定左手</option>
+    <option value="right">限定右手</option>
+  </select>
+  <select id="fl-offset" title="小海從肘點往尺側偏多少" onchange="flOffsetMode = this.value">
+    <option value="edge" selected>偏移：即時邊緣（學長公式，每幀量）</option>
+    <option value="tip">偏移：肘尖錨定（每幀量）</option>
+    <option value="fixed">偏移：固定 0.5 寸</option>
+  </select>
+  <select id="fl-scale" title="1 寸用哪一把尺" onchange="flScaleMode = this.value">
+    <option value="hand" selected>尺：同身寸（手）</option>
+    <option value="forearm">尺：骨度（前臂÷12）</option>
+  </select>
+  <select id="fl-facing" title="用哪一顆鏡頭" onchange="flSwitchFacing(this.value)">
+    <option value="environment" selected>後鏡頭</option>
+    <option value="user">前鏡頭</option>
+  </select>
+  <label class="opt" title="灰色前臂線、黃色手部 21 點、青色邊緣線（除錯用）">
+    <input type="checkbox" checked onchange="flShowAux = this.checked" />顯示輔助線</label>
+  <label class="opt" title="青色＝Pose 認為是身體的範圍，它的邊緣就是邊界檢測找的邊">
+    <input type="checkbox" checked onchange="edgeShowMask = this.checked" />顯示遮罩
+  </label>
+  <label class="opt" title="不勾＝原始每幀判定，抖動較明顯；勾起來＝跟Python版一樣的跨幀穩定化＋Hand資料快取">
+    <input type="checkbox" id="fl-stable" checked onchange="flUseStable = this.checked" />跨幀穩定化
+  </label>
+  <select id="fl-smooth" title="肘/腕點的平滑方式" onchange="flSmoothMode = this.value; flResetSmoothers();">
+    <option value="none">不平滑</option>
+    <option value="one_euro" selected>One Euro Filter</option>
+  </select>
+  <select id="fl-lenref" title="判斷前臂有沒有變短用哪把尺" onchange="flLenMode = this.value">
+    <option value="auto" selected>長度尺：自動（肩膀看得到用上臂）</option>
+    <option value="upper">長度尺：上臂（要肩膀入鏡）</option>
+    <option value="hand">長度尺：同身寸（舊）</option>
+  </select>
+  <button class="btn primary" onclick="flRememberPose()" title="擺好標準姿勢再按；之後姿勢差太多就不出點">📌 記住姿勢</button>
+  <button class="btn ghost" onclick="flClearPose()" title="清掉這隻手記住的姿勢">清除姿勢</button>
+  <a class="btn" href="forearm-measure.html" title="用照片或影片跟你畫的點比對誤差">📏 量測</a>
+  <button class="btn primary" onclick="flSaveShot()" title="存下目前畫面＋演算法的點，之後跟你畫的點比對">📸 存圖</button>
+  <span class="spacer"></span>
+  <button class="btn ghost" onclick="flResetTracker()">⟲ 重設穩定化狀態</button>
+</header>
+
+<main>
+  <div class="card">
+    <video id="fl-video" width="640" height="480" autoplay playsinline style="display:none"></video>
+    <canvas id="fl-canvas" width="640" height="480"></canvas>
+    <div id="fl-status" class="fl-status">初始化中…</div>
+    <div id="edge-perf" style="font-weight:700;margin-top:6px">—</div>
+    <div id="fl-metrics">—</div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:14px;">
+    <div class="card">
+      <h3>這頁在測什麼</h3>
+      <p class="note-block">
+        <b>拍法：手肘微彎，手肘背面（手背那一側）對著鏡頭。</b><br />
+        1️⃣ 找手肘：Pose 只看上方選的那隻手的肘/腕；肘被認到手那一側的幀直接不用<br />
+        2️⃣ 看手：只採用接在這隻手臂上的手，<b>手背朝鏡頭</b>才顯示（小海在肘後內側），並看出小指在哪一邊<br />
+        3️⃣ 找邊緣：Pose 順便描出人體輪廓，從手肘往小指那側走到皮膚邊緣（勾「顯示輔助線」可看到青色邊緣點）<br />
+        4️⃣ 定點：小海＝手肘與邊緣的正中間（學長的公式），綠點＋「小海」字樣（跟手部、臉部同款）<br />
+        5️⃣ 防抖：點平滑移動，小指那側要明確才換邊<br />
+        6️⃣ 姿勢：<b>一定要先</b>手背朝鏡頭擺好、<b>肩膀入鏡</b>，按「📌 記住姿勢」才會出點；之後上臂／前臂方向差超過 20°、手腕扭轉跟記住時不一樣、
+        或前臂變短到 85% 以下（朝鏡頭傾斜或手肘點滑掉）就不出點
+      </p>
+    </div>
+    <div class="card">
+      <h3>已知限制</h3>
+      <p class="note-block">
+        🚨 只有 1 人（用戶左手）的畫點實測：手背朝鏡頭、姿勢不變時約 6～7mm；手掌朝鏡頭時會推錯邊（見 前臂/小海GT_量測記錄_20260924.md）<br />
+        🚨 「小指在哪邊」看的是手腕附近，手肘那端的朝向沒有另外算（前臂轉動時會偏）。<br />
+        🚨 穿長袖或手肘貼著身體時，輪廓可能連在一起，邊緣會找錯。<br />
+        🚨 Pose 手肘可見度在側身/部分入鏡時常常低於 0.5 門檻，會直接不顯示。
+      </p>
+    </div>
+  </div>
+</main>
+
+<!-- 公式與資料照原樣重用，這頁沿用 isDorsalView / computeCunPx，一行都沒改 -->
+<script src="js/acu-data.js"></script>
+<script src="js/acu-math.js"></script>
+<script src="js/forearm-lab-edge.js"></script>
+</body>
+</html>
