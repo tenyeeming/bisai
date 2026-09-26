@@ -446,4 +446,18 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
   /* 2026-09-26 用戶：「bisai 病症的字體太小，換大一點的」「只針對平板版本」。
      手機 .9375rem（15px）不動；平板直式格子約 820 寬、列高 ~120px，15px 顯得很空。 */
   #page-home .symptom-btn { font-size: 1.25rem; padding: 12px 16px; }
+  /* 2026-09-26（續）用戶：「字體大小起來給我到框框高度的 3 分之二大小」（在平板）。
+     列高是動態的（grid 高 ÷ 6 列），所以用 container query：grid 當容器，
+     字級 ＝ 列高 × 2/3 ＝ (100cqh − 5 個 gap) / 6 × 2/3。820×1180 約 80px。
+     ⚠️ 寬度上限：最長的中文病症 6 個字（緩解感冒症狀、緩解喉嚨痛…）要一行塞得下，
+        所以再跟「(格寬 − 左右 padding) / 6.3 字」取小 —— 820 寬時卡在這條（約 57px），
+        到不了 2/3。要真到 2/3 就得讓長的換行或縮字，等用戶看過再說。
+     只對中文；英文字長，維持上面 1.25rem。 */
+  #page-home .symptom-grid { container-type: size; }
+  :root[lang^="zh"] #page-home .symptom-btn {
+    font-size: min(calc((100cqh - var(--sym-gap) * 5) / 6 * 2 / 3),
+                   calc(((100cqw - var(--sym-gap)) / 2 - 32px) / 6.3));
+    line-height: 1.1; padding-block: 0;
+    display: flex; align-items: center;
+  }
 }
