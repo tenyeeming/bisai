@@ -45,10 +45,11 @@ def no_overflow(page, name):
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        sizes = [('phone',390,844), ('small',320,568), ('tablet',820,1180),
+        sizes = [('phone',390,844), ('small',320,568), ('tablet',820,1180), ('tablet-land',1180,820),
                  ('desktop',1440,900), ('landscape',844,390), ('large-text',390,844), ('zoom-layout',720,450)]
         for name, width, height in sizes:
-            context = browser.new_context(viewport={'width':width,'height':height}, reduced_motion='reduce')
+            # tablet-land：iPad 橫放。has_touch 讓 (pointer: coarse) 成立，才分得出平板與桌機（2026-09-26）
+            context = browser.new_context(viewport={'width':width,'height':height}, reduced_motion='reduce', has_touch=(name == 'tablet-land'))
             page = context.new_page()
             page.on('pageerror', lambda e: errors.append(str(e)))
             page.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))

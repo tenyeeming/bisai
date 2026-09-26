@@ -461,3 +461,18 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
     display: flex; align-items: center;
   }
 }
+
+/* 2026-09-26 用戶：「我説的是橫屏的字體」「我默認穴道按摩的時候用橫屏幕」——
+   平板橫放（iPad 1180×820）落在上面 ≥1024 的桌面版型，病症框列高約 55px、字只有 15px。
+   同直式那條：字級 ＝ 列高 × 2/3（約 37px），寬度上限照樣留（橫屏格寬 ~440，卡不到）。
+   (pointer: coarse) 用來分開平板和桌機：桌機滑鼠是 fine，1440×900 那組一個字都不變。
+   browser_ui.py 的 tablet-land 開了 has_touch 才會吃到這條。 */
+@media (min-width: 1024px) and (orientation: landscape) and (pointer: coarse) {
+  #page-home .symptom-grid { container-type: size; }
+  :root[lang^="zh"] #page-home .symptom-btn {
+    font-size: min(calc((100cqh - var(--sym-gap) * 5) / 6 * 2 / 3),
+                   calc(((100cqw - var(--sym-gap)) / 2 - 24px) / 6.3));
+    line-height: 1.1; padding-block: 0;
+    display: flex; align-items: center;
+  }
+}
