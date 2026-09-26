@@ -105,6 +105,8 @@ function applyFontScale() {
   // 整數百分比：0.85 → 85%、1.15 → 115%。
   // ⚠️ 不要寫 toFixed(1)（115.0%）—— 瀏覽器與 jsdom 會各自正規化，讀回來的字串對不上。
   document.documentElement.style.fontSize = s === 1 ? '' : `${Math.round(s * 100)}%`;
+  // 給不吃 rem 的字用（平板病症格是 cqh 算的 px，見 responsive.css 2026-09-26）
+  document.documentElement.style.setProperty('--font-scale', String(s));
 }
 
 function setFontScale(key) {

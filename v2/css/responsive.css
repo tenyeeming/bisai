@@ -452,11 +452,16 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
      ⚠️ 寬度上限：最長的中文病症 6 個字（緩解感冒症狀、緩解喉嚨痛…）要一行塞得下，
         所以再跟「(格寬 − 左右 padding) / 6.3 字」取小 —— 820 寬時卡在這條（約 57px），
         到不了 2/3。要真到 2/3 就得讓長的換行或縮字，等用戶看過再說。
-     只對中文；英文字長，維持上面 1.25rem。 */
+     只對中文；英文字長，維持上面 1.25rem。
+     ⭐ 2026-09-26（續 2）用戶：「字體的大中小不會影響到他們改一下，然後最大從本來的三分之二改成五分之三」
+        → 2/3 改 3/5，而且**「大」才是 3/5**，中／小照設定頁倍率往下縮（× 字級倍率 / 1.15）。
+        cqh 算出來是 px、不吃 rem，所以設定頁的字級要靠 state.js 另外寫進 --font-scale。
+        寬度上限也一起乘：否則直屏（卡在寬度那條）大中小會長得一樣。 */
   #page-home .symptom-grid { container-type: size; }
   :root[lang^="zh"] #page-home .symptom-btn {
-    font-size: min(calc((100cqh - var(--sym-gap) * 5) / 6 * 2 / 3),
-                   calc(((100cqw - var(--sym-gap)) / 2 - 32px) / 6.3));
+    font-size: calc(min(calc((100cqh - var(--sym-gap) * 5) / 6 * 3 / 5),
+                        calc(((100cqw - var(--sym-gap)) / 2 - 32px) / 6.3))
+                    * var(--font-scale, 1) / 1.15);
     line-height: 1.1; padding-block: 0;
     display: flex; align-items: center;
   }
@@ -468,10 +473,12 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
    (pointer: coarse) 用來分開平板和桌機：桌機滑鼠是 fine，1440×900 那組一個字都不變。
    browser_ui.py 的 tablet-land 開了 has_touch 才會吃到這條。 */
 @media (min-width: 1024px) and (orientation: landscape) and (pointer: coarse) {
+  /* 3/5 與跟隨字級：同直式那條（2026-09-26 續 2） */
   #page-home .symptom-grid { container-type: size; }
   :root[lang^="zh"] #page-home .symptom-btn {
-    font-size: min(calc((100cqh - var(--sym-gap) * 5) / 6 * 2 / 3),
-                   calc(((100cqw - var(--sym-gap)) / 2 - 24px) / 6.3));
+    font-size: calc(min(calc((100cqh - var(--sym-gap) * 5) / 6 * 3 / 5),
+                        calc(((100cqw - var(--sym-gap)) / 2 - 24px) / 6.3))
+                    * var(--font-scale, 1) / 1.15);
     line-height: 1.1; padding-block: 0;
     display: flex; align-items: center;
   }
