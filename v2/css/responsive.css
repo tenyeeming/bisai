@@ -443,4 +443,7 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
      ↓ 兩條一起改，帶才恰好齊 header。只改一條都還是會差。 */
   #page-home > .stack { max-width: none; }
   #page-home .hero-band { margin-inline: -18px; padding-inline: 18px; }
+  /* 2026-09-26 用戶：「bisai 病症的字體太小，換大一點的」「只針對平板版本」。
+     手機 .9375rem（15px）不動；平板直式格子約 820 寬、列高 ~120px，15px 顯得很空。 */
+  #page-home .symptom-btn { font-size: 1.25rem; padding: 12px 16px; }
 }
