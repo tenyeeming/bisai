@@ -15,21 +15,13 @@ registerPage('settings-flow', {
   html: `
   <div id="page-settings-flow" class="page">
     <style>
-      .seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
-      .seg button {
-        flex: 1; padding: 10px 8px; background: none; color: var(--ink-soft);
-        border: 0; border-left: 1px solid var(--line);
-        font-family: var(--font-sans); font-size: 13px; cursor: pointer;
-      }
-      .seg button:first-child { border-left: 0; }
-      .seg button.on { background: var(--surface-2); color: var(--ink); font-weight: 600; }
-      .seg button:hover { background: var(--surface-2); }
+      /* .seg 的樣式在 css/shell.css */
       .fieldrow { margin-bottom: 18px; }
       .fieldrow .k {
-        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.65625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
       }
-      .fieldrow .d { font-size: 12px; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
+      .fieldrow .d { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
     </style>
 
     <div class="stack">

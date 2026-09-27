@@ -38,10 +38,7 @@ registerPage('recommend', {
       }
       .acu-item.checked .tick { opacity: 1; }
 
-      /* ── ⓘ 詳情（2026-09-02 用戶提）─────────────────────────
-         原本要選完、按「開始療程」進到認穴頁才看得到穴道說明，
-         等於「先選再看」。這顆 ⓘ 讓人在勾之前就看得到，
-         而且點它不會順手把穴道勾起來（onclick 有 stopPropagation）。 */
+      /* ── ⓘ 詳情：勾選前就能看穴道說明；點它不會勾選（onclick 有 stopPropagation） */
       .acu-item .info {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
@@ -53,10 +50,7 @@ registerPage('recommend', {
       .acu-item .tick { margin-left: auto; }
       .acu-item .tick + .info { margin-left: 0; }
 
-      /* ── ▾ 展開：這一穴按幾秒（2026-09-08 用戶要）─────────────
-         以前只有一個全域「單手秒數」，而且設定頁只給 15/30/45/60 四個選項。
-         合谷跟少商需要的時間本來就不一樣 → 每一格旁邊多一顆 ▾，
-         往下展開一條滑桿，逐穴拉。 */
+      /* ── ▾ 展開：逐穴調整按壓秒數的滑桿 */
       .acu-item .expand {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
@@ -105,10 +99,7 @@ registerPage('recommend', {
       .acu-time .reset:hover { border-color: var(--brass); color: var(--brass); }
       .acu-time .reset[hidden] { display: none; }
 
-      /* 詳情面板：置中（2026-09-02 用戶定，原本貼在畫面下緣）。
-         ⚠️ App 那邊不照抄這一版 —— 用戶要的是「從下往上滑出」的行動裝置作法。
-            網頁在桌機上開的機率高，置中比較穩；手機是單手持握，下緣才好按。
-            見 記錄控制/PROGRESS.md 2026-09-02 條的 App 待辦。 */
+      /* 詳情面板（寬螢幕基準樣式；底部面板的覆寫在 css/responsive.css） */
       .sheet-mask {
         position: fixed; inset: 0; z-index: 40;
         background: rgba(28, 37, 34, .42);
@@ -163,29 +154,12 @@ registerPage('recommend', {
         font-size: 0.71875rem; color: var(--ink-soft);
       }
 
-      /* 臉部詳情：2026-09-25（網頁v2 批 B）起版面照手部，參考圖與定位並排、吃上面同一個 42%。
-         以前單獨一塊 62% 的寬度規則、逐條用法（.face-use*）的樣式一併刪。 */
+      /* 臉部詳情與手部同版面：參考圖與定位並排 */
 
-      /* 手機版跟 App 一樣從底部拉出；桌面仍保留原本的置中視窗。 */
-      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
-        .sheet-mask { align-items: flex-end; padding: 0; }
-        .sheet {
-          max-width: none; max-height: 90dvh;
-          border-left: 0; border-right: 0; border-bottom: 0;
-          border-radius: 14px 14px 0 0;
-          padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
-        }
-        @media (prefers-reduced-motion: no-preference) {
-          .sheet { animation: sheet-up .2s ease-out; }
-          @keyframes sheet-up { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
-        }
-      }
+      /* 底部面板的樣式在 css/responsive.css「ⓘ 詳情」 */
 
-      /* ── 症狀覆蓋條（2026-09-14）─────────────────────────────
-         用戶提的問題：「選了 a 和 b 兩個症狀，穴道全列在一起，
-         萬一我不小心只勾到治 a 的怎麼辦」。
-         → 一個症狀一顆膠囊，右邊數字 = 這個症狀現在被幾個已勾的穴道覆蓋。
-         點膠囊 = 只看這個症狀的穴道。0 的那顆標警示色。 */
+      /* ── 症狀覆蓋條：一個症狀一顆膠囊，數字＝已勾穴道中能治這個症狀的數量。
+         點膠囊只看該症狀的穴道；0 的那顆標警示色。 */
       .cover-row { display: flex; flex-wrap: wrap; gap: 6px; }
       .cover-chip {
         display: inline-flex; align-items: center; gap: 6px;

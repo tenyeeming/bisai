@@ -1649,3 +1649,32 @@ App 側的對應改動見 `比賽專區/AcuNavi/README.md` 的〈批 59〉。
 
 **驗證**：run.js 只剩既有素髎紅燈；browser_ui 0 FAIL；截圖 `比賽專區/介面討論/平板病症字級3比5_20260926/` 打開看過（中）。**實機沒驗**；大／小只有 Playwright 量字級，沒截圖。
 **不確定**：直屏「大」仍卡寬度上限到不了 3/5（要到就得讓「緩解感冒症狀」換行）。
+
+---
+
+## 2026-09-27 — 全站統一成手機版型＋彈性排版
+
+只改 CSS（`css/*.css` 與各頁 `<style>`）；`pages/*.js`、`js/*.js`、`acunavi-ideal.html` 去掉 `<style>` 後與前一版相同。
+
+### 版型
+- 全站一套手機版型：單欄、深藍帶、底部膠囊分頁列。寬螢幕置中，`.device` 最寬 900px。
+- 移除 ≥1024 桌面左側導覽 grid、≥760 橫式相機雙欄、≥1600 置中（要還原請取 09-26 版 `css/responsive.css`）。
+- 矮橫螢幕（`landscape and max-height ≤ 600px`）：取景框在左、按鈕在右。
+- 左右留白統一為 `.device` 的 `--gutter: clamp(16px, 3vw, 24px)`，header、返回列、進度條、內容、首頁藍帶出血共用。
+- 取景框依視窗高度限寬置中：`max-width = (100svh − --cam-chrome) × 4/3`（定位頁 410、按摩頁 370、矮橫螢幕 200）；全螢幕按摩不受影響。
+- 選穴格：兩欄（≤380 一欄），最多三欄。圖冊：三欄，最多五欄，縮圖比例 6:5。
+- ⓘ 詳情、圖冊詳情：所有尺寸皆為底部面板。
+
+### 修正
+- 圖冊詳情面板背景 `var(--bg)`、`var(--r-cell)` 未定義 → `--surface`、`--r`。
+- `.seg` 樣式原本在 `settings-flow.js` 另有一份並覆蓋全站 → 合併至 `shell.css`。
+- `.back` 規則限定在 `.backbar` 內（影片倒退鈕 `.vid-seek.back` 不再吃到）。
+- 新 token `--on-brass`：淡藍實心底上的文字色（按鈕、流程「開始」、按摩手指）。
+- `--brass` 當文字色處改用 `--accent-text`（對比不足）。
+- 選穴格勾選狀態加強；齒輪鈕 30 → 36px。
+- 設定、圖冊各頁 px 字級改 rem（跟隨設定頁字級）；圖冊穴名可斷行。
+- 刪除無作用規則：`.meter`、`#page-profile`、`.summary-stats`、`.timer-display`／`.fs-bottom`、重複的 `#round-switch[hidden]`、`.tabbar` 四欄 grid。
+
+### 驗證
+- `run.js`：check 35 過；e2e 537 過，「沒對準 → 計時暫停且變灰」一項前一版即失敗。
+- `browser_ui.py`：522/522。

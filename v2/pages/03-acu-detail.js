@@ -32,7 +32,7 @@ registerPage('acu-detail', {
         padding: 4px;
       }
       .ref-frame img { width: 100%; height: auto; display: block; border-radius: 2px; }
-      /* 桌面寬度下 42% 會把圖放到半個螢幕大（臉部圖尤其明顯，批 B 加上限） */
+      /* 寬螢幕上限制參考圖寬度 */
       #page-acu-detail .ref-frame, #page-acu-detail .ref-none { max-width: 260px; }
       .ref-frame .cap {
         font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: .1em;
@@ -44,9 +44,7 @@ registerPage('acu-detail', {
         padding: 18px 8px; text-align: center;
         font-size: 0.71875rem; color: var(--ink-soft);
       }
-      /* ── 認穴倒數（2026-09-02）─────────────────────────────
-         倒數到 0 就自己翻到定位頁，使用者不必點。但人可能還在讀定位說明，
-         所以「手指按住畫面就停住」—— 不另外做暫停鈕，按住是最不用學的動作。 */
+      /* ── 認穴倒數：到 0 自動進定位頁；按住畫面暫停 */
       .readybar {
         display: flex; align-items: center; gap: 10px;
         border: 1px solid var(--brass); border-radius: var(--r);
@@ -60,14 +58,12 @@ registerPage('acu-detail', {
       .readybar.held { border-color: var(--line); }
       .readybar.held .num { color: var(--ink-soft); }
       #ready-bar[hidden], #detail-sec[hidden] { display: none; }
-      /* 這一穴按幾秒（App 批 72 從按摩頁搬來） */
+      /* 這一穴按幾秒 */
       #detail-sec .label { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .08em; color: var(--brass); }
       #detail-sec input { width: 100%; accent-color: var(--brass); }
 
       #tutorial-box { display: none; }
-      /* ── 教學影片（2026-09-05）─────────────────────────────
-         內嵌小框試過，用戶說「不太好」（手機上那塊只有一指寬）→ 改成
-         這顆按鈕點了開全螢幕播放器，播放器本身是 .vid-overlay。 */
+      /* ── 教學影片：按鈕開全螢幕播放器（.vid-overlay） */
       .vid-open {
         display: flex; align-items: center; gap: 9px; width: 100%;
         border: 1px solid var(--brass); border-radius: var(--r);

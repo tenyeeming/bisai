@@ -87,7 +87,7 @@ registerPage('massage', {
   html: `
   <div id="page-massage" class="page">
     <style>
-      /* ── 輪次條（2026-09-25 網頁v2 批 C，App RoundBar）：一行小字 ● ○ 1/2 本輪 · 右手 ── */
+      /* ── 輪次條（App RoundBar）：● ○ 1/2 本輪 · 右手 ── */
       .roundbar {
         display: flex; align-items: center; gap: 8px;
         margin-bottom: 8px; font-size: 0.8125rem; color: var(--ink-soft);
@@ -124,14 +124,10 @@ registerPage('massage', {
         background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.5);
       }
       .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-      #round-switch[hidden] { display: none; }      #round-switch[hidden] { display: none; }
+      #round-switch[hidden] { display: none; }
 
-      /* ── 全螢幕按摩（2026-08-13）────────────────────────────────
-         按下「開始按摩」之後滑桿與按鈕都鎖住了，底下那塊面板就變成佔位子的死角；
-         而這時使用者真正要盯的只剩兩件事：穴道圓盤、指尖有沒有對準。
-         所以整個取景框跳出手機外框鋪滿視窗，計時與讀數條**搬**進畫面下緣
-         （搬 DOM 而不是複製一份，才不會有兩個計時器要同步）。
-         一輪結束時 stopMassageTimer() 會自動退回，Esc 或「縮小」也能手動退。 */
+      /* ── 全螢幕按摩：取景框鋪滿視窗，計時、讀數條與暫停鈕疊在畫面上。
+         一輪結束時 stopMassageTimer() 自動退出，Esc 或縮小鈕也可退出。 */
       #massage-viewport { position: relative; }
       .fs-hud { display: none; }
 

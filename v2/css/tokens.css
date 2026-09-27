@@ -10,33 +10,24 @@
 :root {
   color-scheme: light dark;
 
-  /* 亮色改純白（2026-09-02 用戶定）。
-     純白背景配白卡片就沒有層次了，所以層次改由「邊框」承擔，不用陰影 ——
-     陰影堆多了會顯得廉價，細邊框比較利落，也合這個產品的量測調性。
-     只有 surface-2（次級面，如輪次條底）留一格極淡的灰，用來分出「這塊被框起來了」。 */
+  /* 亮色：純白底，層次靠邊框；surface-2 是次級面的淡灰 */
   --paper:      #FFFFFF;
   --surface:    #FFFFFF;
   --surface-2:  #F4F6F3;
-  --line:       #DCE1DA;   /* 2026-09-13 從 #C9D0C6 收淡：App 那邊加了卡片微陰影，
-                              陰影配深灰線會顯髒（兩套分界訊號打架）。兩邊要一致 */
+  --line:       #DCE1DA;   /* 與 App 一致；卡片有微陰影，線色要淡 */
   --line-soft:  #E2E6DF;
   --ink:        #1C2522;
   --ink-soft:   #5A6560;
 
-  /* 強調色。只做鉻件（細線、標籤、刻度、焦點環）——「角色」不變，只換顏色。
-     ⭐ 2026-09-13 從黃銅換成藍色系（老師說介面不好看 → 介面沙盒定案）。
-        來源：比賽專區/介面討論/assets/藍色系配色_20260912.jpg（截圖取色，JPEG 壓縮過）。
-        變數名還是 brass —— 全站幾百處引用，改名的風險大於「名字對不上顏色」。
-     ⚠️ 這一組必須跟 App 的 ui/theme/Color.kt 一模一樣。改一邊要改兩邊。 */
+  /* 強調色：細線、標籤、刻度、焦點環與按鈕底色。
+     變數名沿用 brass（實際是淡藍），全站引用太多，不改名。
+     ⚠️ 必須與 App 的 ui/theme/Color.kt 一致。 */
   --brass:      #A0C6D9;
   --brass-lit:  #A5C6D7;
+  /* 淡藍實心底上的文字色。不分亮暗：--brass 在兩種模式都是淡藍 */
+  --on-brass:   #10202C;
 
-  /* 頁首深藍帶（2026-09-18 用戶指定 #14487D，App 先做、2026-09-19 才同步回網頁）。
-     範圍：刻度條 → AcuNavi 標題列 → 首頁「最多選擇三個症狀…」那行為止。
-     ⭐ 刻意**不分亮暗**：它本來就是深色，放在深底上仍然讀得出來
-        （對應 App 的 HeroL == HeroD，見 ui/theme/Color.kt）。
-        所以下面三個主題區塊都不必重寫這三個值。
-     ⚠️ 沒有人在深色手機上看過，跟 App 那邊同一個但書。 */
+  /* 頁首深藍帶（header 與首頁 .hero-band）。不分亮暗，同 App 的 HeroL == HeroD */
   --hero:          #14487D;
   --hero-ink:      #FFFFFF;   /* 深藍底上的主文字 */
   --hero-ink-soft: #C6D6E8;   /* 深藍底上的次要文字（lede） */
@@ -53,14 +44,7 @@
   --font-sans: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 
-  /* 圓角 —— 2026-09-19 從「全站單一 3px」改成分級，同步 App 2026-09-13 那批
-     （ui/theme/Theme.kt 的 AcuShapes，來源是介面沙盒 App介面沙盒.html）。
-     原本單一值的問題是**按鈕、格子、卡片、對話框變成同一個視覺重量** ——
-     那是 09-12 列出的「介面不好看」原因之一。
-
-     ⭐ --r 直接改成 8px 而不是逐處分派：實查 App 的用法，shapes.small(8dp)
-        是主力（格子、框、面板、提示幾乎全吃它），medium 只有兩處。
-        改這一個值就對上絕大多數，剩下少數在 shell.css / responsive.css 單獨指定。 */
+  /* 圓角分級，對應 App ui/theme/Theme.kt 的 AcuShapes */
   --r:        8px;       /* ＝ App shapes.small，全站預設 */
   --r-chip:   4px;       /* ＝ extraSmall：小泡泡、讀數標籤、齒輪與返回鈕 */
   --r-card:  12px;       /* ＝ medium：警語條、完成卡 */
@@ -78,8 +62,7 @@
     --line-soft: #263230;
     --ink:       #E4EAE5;
     --ink-soft:  #94A29C;
-    /* 暗色的藍是**推算的、沒有人挑過**（2026-09-13）：亮色那組直接放深底上會顯髒，
-       所以往「亮度略降、飽和略升」走。要調就改這兩行（App 的 BrassD/BrassLitD 同步）。 */
+    /* 與 App 的 BrassD／BrassLitD 同步 */
     --brass:     #8FBEDA;
     --brass-lit: #B3D6EC;
     --good:      #4FBF8B;

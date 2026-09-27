@@ -22,28 +22,26 @@ registerPage('acu-info', {
         overflow: hidden; position: relative;
       }
       .info-code {
-        font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .1em;
         color: var(--brass);
       }
-      .info-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+      .info-meta { font-size: 0.78125rem; color: var(--ink-soft); margin-top: 3px; }
 
       .info-sec + .info-sec { margin-top: 13px; }
       .info-sec h3 {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
         text-transform: uppercase; color: var(--brass); font-weight: 500;
         margin-bottom: 5px;
       }
-      .info-sec p { font-size: 13px; color: var(--ink); }
+      .info-sec p { font-size: 0.8125rem; color: var(--ink); }
 
       .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
       .tag {
-        font-size: 12px; padding: 4px 9px;
+        font-size: 0.75rem; padding: 4px 9px;
         border: 1px solid var(--line); border-radius: 999px;
         color: var(--ink-soft); background: var(--surface);
       }
-      /* 可點的主治標籤（2026-09-04，補上 App 已有的互動）：
-         點下去＝以那個症狀開一次療程。長得像 # 標籤，所以要讓人看出「這是能按的」——
-         用 <button> 而不是 <span>，鍵盤 Tab 得到、螢幕閱讀器唸得出來。 */
+      /* 可點的主治標籤：點下去以該症狀開始療程。用 <button> 才能鍵盤操作與報讀 */
       button.tag {
         font-family: inherit; cursor: pointer;
         display: inline-flex; align-items: center; gap: 2px;
@@ -53,9 +51,7 @@ registerPage('acu-info', {
       button.tag:hover { border-color: var(--brass); color: var(--ink); background: var(--surface-2); }
       button.tag:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 
-      /* 臉部的「頭像」（2026-09-20）：臉部沒有小人，用代號圓標。
-         字從 13px 起跳、太長的代號（EX-HN7）縮到 11px —— 用 clamp 而不是寫死，
-         不然 92px 的圓圈裝不下七個字，在手機上會溢出。 */
+      /* 臉部用代號圓標；字級用 clamp，長代號（EX-HN7）才放得進 92px 圓圈 */
       .info-portrait .code-badge-lg {
         font-family: var(--font-mono); font-weight: 700; color: #fff;
         font-size: clamp(11px, 3.4vw, 15px); letter-spacing: .02em;
@@ -65,30 +61,28 @@ registerPage('acu-info', {
       #info-ref .ref-frame, #info-ref .ref-none { width: 100%; }
       #info-ref .ref-frame img { max-height: 340px; object-fit: contain; }
       .info-use {
-        border: 1px solid var(--line-soft); border-radius: var(--r-cell);
+        border: 1px solid var(--line-soft); border-radius: var(--r);
         padding: 9px 11px; display: grid; gap: 4px;
       }
-      .info-use strong { color: var(--brass); font-size: 13px; }
-      .info-use p { font-size: 12.5px; color: var(--ink-soft); }
-      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
-        #page-acu-info {
-          position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
-          max-height: 90dvh; overflow-y: auto;
-          /* 2026-09-23 修：底部膠囊分頁列（約 58px ＋ 離底 6px）疊在這張 sheet 上面，
-             捲到底時「練習」鈕整顆被它蓋住、按下去會按到「圖冊」分頁（手部／臉部都中）。
-             留白多墊 76px，讓最後一顆鈕停在分頁列上方。 */
-          padding: 18px 16px calc(22px + 76px + env(safe-area-inset-bottom));
-          border-radius: 22px 22px 0 0; background: var(--bg);
-          box-shadow: 0 -18px 60px rgba(10,28,42,.28);
-        }
-        #page-acu-info::before {
-          content: ''; display: block; width: 42px; height: 4px; margin: -7px auto 14px;
-          border-radius: 999px; background: var(--line);
-        }
-        #page-acu-info .info-head { align-items: flex-end; }
-        #page-acu-info .info-portrait { display: none; }
-        #page-acu-info .stack { gap: 13px; }
+      .info-use strong { color: var(--brass); font-size: 0.8125rem; }
+      .info-use p { font-size: 0.78125rem; color: var(--ink-soft); }
+      /* 所有尺寸都是底部面板，寬螢幕最寬 900 置中（left/right 0 ＋ margin auto） */
+      #page-acu-info {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+        max-width: 900px; margin-inline: auto;
+        max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain;
+        /* 底部多留 76px，最後一顆按鈕才不會被浮動分頁列蓋住 */
+        padding: 18px var(--gutter, 16px) calc(22px + 76px + env(safe-area-inset-bottom));
+        border-radius: var(--r-sheet) var(--r-sheet) 0 0; background: var(--surface);
+        box-shadow: 0 -18px 60px rgba(10,28,42,.28);
       }
+      #page-acu-info::before {
+        content: ''; display: block; width: 42px; height: 4px; margin: -7px auto 14px;
+        border-radius: 999px; background: var(--line);
+      }
+      #page-acu-info .info-head { align-items: flex-end; }
+      #page-acu-info .info-portrait { display: none; }
+      #page-acu-info .stack { gap: 13px; }
     </style>
 
     <div class="stack">

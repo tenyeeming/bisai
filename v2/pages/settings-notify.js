@@ -20,9 +20,9 @@ registerPage('settings-notify', {
   <div id="page-settings-notify" class="page">
     <style>
       #notify-time-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
-      #notify-time-row .grow { flex: 1; font-size: 13.5px; }
+      #notify-time-row .grow { flex: 1; font-size: 0.84375rem; }
       #notify-time {
-        font-family: var(--font-mono); font-size: 14px;
+        font-family: var(--font-mono); font-size: 0.875rem;
         background: var(--surface); color: var(--ink);
         border: 1px solid var(--line); border-radius: var(--r); padding: 5px 7px;
       }

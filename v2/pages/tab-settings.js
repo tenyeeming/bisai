@@ -24,7 +24,7 @@ registerPage('settings', {
     <style>
       #settings-menu { display: flex; flex-direction: column; gap: 18px; }
       #settings-menu .grp-title {
-        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.65625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; padding-left: 2px;
       }
       #settings-menu .grp-rows {
@@ -35,16 +35,15 @@ registerPage('settings', {
         display: flex; align-items: center; gap: 10px; width: 100%;
         padding: 12px; background: none; color: var(--ink); border: 0;
         border-top: 1px solid var(--line-soft);
-        font-family: var(--font-sans); font-size: 13.5px; text-align: left; cursor: pointer;
+        font-family: var(--font-sans); font-size: 0.84375rem; text-align: left; cursor: pointer;
       }
       #settings-menu button:first-child { border-top: 0; }
       #settings-menu button:hover { background: var(--surface-2); }
       #settings-menu .label { flex: 1; }
-      #settings-menu .value { color: var(--ink-soft); font-size: 12.5px; }
-      #settings-menu .chev { color: var(--ink-soft); font-size: 15px; line-height: 1; }
-      /* 右下角淡淡的手掌浮水印（2026-09-25 網頁v2 批 A，同 App SettingsMenuScreen 的 HandMark：
-         hand.png、13% 不透明、轉 −8°、寬 360、往右溢出 40／往下 6）。
-         ⚠️ overflow:hidden 在 #page-settings 上 —— 溢出的那 40px 不能造成橫向捲軸。 */
+      #settings-menu .value { color: var(--ink-soft); font-size: 0.78125rem; }
+      #settings-menu .chev { color: var(--ink-soft); font-size: 0.9375rem; line-height: 1; }
+      /* 右下角手掌浮水印（App SettingsMenuScreen HandMark）。
+         ⚠️ 會往右溢出，#page-settings 的 overflow:hidden 防止橫向捲軸。 */
       #page-settings { position: relative; overflow: hidden; }
       #page-settings > .stack { position: relative; z-index: 1; }
       #page-settings .hand-mark {

@@ -32,51 +32,51 @@ registerPage('settings-presets', {
       #preset-list .open {
         flex: 1; display: block; padding: 11px 12px; min-width: 0;
         background: none; border: 0; color: var(--ink); cursor: pointer;
-        font-family: var(--font-sans); font-size: 13.5px; text-align: left;
+        font-family: var(--font-sans); font-size: 0.84375rem; text-align: left;
       }
       #preset-list .open:hover { background: var(--surface-2); }
       #preset-list .nm { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       #preset-list .sub {
-        display: block; margin-top: 2px; font-size: 11.5px; color: var(--ink-soft);
+        display: block; margin-top: 2px; font-size: 0.71875rem; color: var(--ink-soft);
         font-variant-numeric: tabular-nums;
       }
       #preset-list .go {
         flex: none; margin-right: 10px; padding: 7px 13px; cursor: pointer;
-        font-family: var(--font-sans); font-size: 12.5px;
+        font-family: var(--font-sans); font-size: 0.78125rem;
         border: 1px solid var(--brass); border-radius: var(--r);
-        background: var(--brass); color: #fff;
+        background: var(--brass); color: var(--on-brass);
       }
 
       /* 編輯區：新增與修改共用同一塊，差別只在標題與有沒有刪除鈕 */
       #preset-edit[hidden] { display: none; }
       #preset-name {
         width: 100%; padding: 9px 10px;
-        font-family: var(--font-sans); font-size: 14px;
+        font-family: var(--font-sans); font-size: 0.875rem;
         background: var(--surface); color: var(--ink);
         border: 1px solid var(--line); border-radius: var(--r);
       }
       .pfield { margin-bottom: 16px; }
       .pfield .k {
-        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.65625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
       }
-      .pfield .d { font-size: 12px; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
+      .pfield .d { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
       /* 穴道清單很長，收在固定高度裡捲動，不然節奏設定會被推到看不見的地方 */
       .picker { max-height: 232px; overflow-y: auto; }
       #preset-edit .btnrow { display: flex; flex-direction: column; gap: 9px; }
       #preset-edit .btnrow button {
         width: 100%; padding: 11px 16px; cursor: pointer;
-        font-family: var(--font-sans); font-size: 14px;
+        font-family: var(--font-sans); font-size: 0.875rem;
         border: 1px solid var(--brass); border-radius: var(--r);
-        background: var(--brass); color: #fff;
+        background: var(--brass); color: var(--on-brass);
       }
       #preset-edit .btnrow button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
       #preset-edit .btnrow button.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
-      /* 逐穴秒數（批 E）：一列 = 勾選 label ＋ 右邊 ▾；展開的面板接在那一列下面 */
+      /* 逐穴秒數：一列＝勾選 label ＋ 右邊 ▾；展開的面板接在該列下面 */
       #preset-acu-list > .prow { display: flex; align-items: stretch; padding: 0; cursor: default; }
       #preset-acu-list .prow label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
       #preset-acu-list > .ptime { display: block; cursor: default; }
-      #preset-acu-list .psec { font-family: var(--font-mono); font-size: 12px; color: var(--brass); }
+      #preset-acu-list .psec { font-family: var(--font-mono); font-size: 0.75rem; color: var(--brass); }
       #preset-acu-list .pexp {
         flex: none; width: 40px; cursor: pointer; background: none; color: var(--ink-soft);
         border: 0; border-left: 1px solid var(--line-soft);
@@ -86,16 +86,16 @@ registerPage('settings-presets', {
         margin: 0; padding: 10px 12px; border: 0; border-top: 1px solid var(--line-soft);
         border-radius: var(--r); background: var(--surface-2);
       }
-      #preset-acu-list .ptime .k { font-size: 11.5px; color: var(--ink-soft); margin: 4px 0; }
+      #preset-acu-list .ptime .k { font-size: 0.71875rem; color: var(--ink-soft); margin: 4px 0; }
       #preset-acu-list .ptime-top { display: flex; align-items: baseline; justify-content: space-between; }
       #preset-acu-list .ptime-top b { font-size: 1.25rem; color: var(--brass); }
       #preset-acu-list .ptime input { width: 100%; accent-color: var(--brass); }
       #preset-acu-list .ptime button {
-        width: 100%; margin-top: 6px; padding: 8px; cursor: pointer; font-size: 13px;
+        width: 100%; margin-top: 6px; padding: 8px; cursor: pointer; font-size: 0.8125rem;
         background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-pill);
       }
       #preset-est {
-        font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-soft);
         font-variant-numeric: tabular-nums;
       }
     </style>
