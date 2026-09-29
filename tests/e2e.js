@@ -737,6 +737,17 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(d.querySelector('#font-seg button[data-font="large"]').classList.contains('on'), '勾勾跟著跳到「大」');
   w.setFontScale('medium');
   ok(d.documentElement.style.fontSize === '', '回到「中」就把 inline style 清掉');
+  // 手機版三檔上移一格（2026-09-29）：小 1 / 中 1.15 / 大 1.3；平板桌面不變（上面那幾條）
+  const mmOrig = w.matchMedia;
+  w.matchMedia = () => ({ matches: true });
+  w.setFontScale('medium');
+  ok(d.documentElement.style.fontSize === '115%', '手機的「中」= 115%');
+  w.setFontScale('large');
+  ok(d.documentElement.style.fontSize === '130%', '手機的「大」= 130%');
+  w.setFontScale('small');
+  ok(d.documentElement.style.fontSize === '', '手機的「小」= 原本的中（不留 inline style）');
+  w.matchMedia = mmOrig;
+  w.setFontScale('medium');
   w.showPage('settings');
 
   // ── 設定 › 療程節奏（2026-09-02 補：換穴與單手秒數多開一個入口）──

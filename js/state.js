@@ -87,15 +87,21 @@ let strictGate = jget(LS.strict, true);
 //    這也是為什麼 css 裡的字級一律用 rem：寫 px 的字不會跟著這個設定跑。
 // ⚠️ 不要改成縮放 body：<html> 的 font-size 才是 rem 的基準，
 //    改 body 只會讓 em 動、rem 不動，畫面會只縮一半。
+// ⭐ 2026-09-29 手機版三檔整組上移一格（用戶：「只同步到手機版本，平板和電腦版本別動」），
+//    跟 App 同一天改的 1 / 1.15 / 1.3 對齊；平板／桌面維持舊的 0.85 / 1 / 1.15。
+//    「手機」的判定跟 vision.js 的 isMobileWeb 同一條 media query（含橫拿的手機）。
 const FONT_SCALES = { small: 0.85, medium: 1, large: 1.15 };
+const FONT_SCALES_PHONE = { small: 1, medium: 1.15, large: 1.3 };
+const PHONE_MQ = '(max-width: 599px), ((max-height: 599px) and (pointer: coarse))';
+const isPhoneWeb = () => typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches;
 let fontScale = (() => {
   const v = localStorage.getItem(LS.fontScale);
   return FONT_SCALES[v] ? v : 'medium';
 })();
 
-/** 把目前的字級套到整頁。中等就把 inline style 清掉，不留 100% 這種噪音 */
+/** 把目前的字級套到整頁。倍率 1 就把 inline style 清掉，不留 100% 這種噪音 */
 function applyFontScale() {
-  const s = FONT_SCALES[fontScale] || 1;
+  const s = (isPhoneWeb() ? FONT_SCALES_PHONE : FONT_SCALES)[fontScale] || 1;
   // 整數百分比：0.85 → 85%、1.15 → 115%。
   // ⚠️ 不要寫 toFixed(1)（115.0%）—— 瀏覽器與 jsdom 會各自正規化，讀回來的字串對不上。
   document.documentElement.style.fontSize = s === 1 ? '' : `${Math.round(s * 100)}%`;
@@ -112,6 +118,11 @@ function setFontScale(key) {
 //    這時候 <html> 已經在了但畫面還沒畫 —— 等到 DOMContentLoaded 才套，
 //    設「大」的人每次開站都會先看到一眼中等字再跳大。
 applyFontScale();
+// 轉向／拖視窗跨過手機斷點時重套（手機橫拿、桌面縮窄都會觸發）
+if (typeof matchMedia === 'function') {
+  const mq = matchMedia(PHONE_MQ);
+  if (mq.addEventListener) mq.addEventListener('change', applyFontScale);
+}
 
 // ── 療程節奏（2026-09-02）────────────────────────────────────────
 // 原本每換一次手、每換一個穴道都要手動點一下。手還舉在鏡頭前的時候，
