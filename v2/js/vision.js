@@ -198,6 +198,9 @@ function applyHandsOptions(h, mode) {
 //    ⚠️ 這不會開啟相機，也不會畫任何東西（onHandsResults 開頭就擋掉 camRunning=false）。
 //    ⚠️ 純載入時機改動，跟定位公式與精度完全無關。
 let handsWarmed = false;
+// 預熱那次 initialize 的 promise：前臂內關（js/forearm-vision.js）要等它做完才能載 Pose
+// （Solutions API 兩個模型同時 initialize 會互相打架）
+let handsInitP = null;
 function warmUpHands() {
   if (handsWarmed || typeof Hands === 'undefined') return;
   handsWarmed = true;
@@ -206,7 +209,8 @@ function warmUpHands() {
     try {
       const h = getHands();
       if (typeof h.initialize === 'function') {
-        h.initialize().catch(() => {});          // 失敗就算了，等使用者真的進定位頁再載一次
+        handsInitP = h.initialize();
+        handsInitP.catch(() => {});              // 失敗就算了，等使用者真的進定位頁再載一次
       }
     } catch (e) { /* 預熱失敗不能影響 UI */ }
   };
@@ -347,6 +351,11 @@ function onHandsResults(results) {
   if (typeof faceMode !== 'undefined' && faceMode === 'massage' && faceCamRunning) {
     const hs = results.multiHandLandmarks || [];
     faceHandLm = hs.length ? hs[0] : null;
+    return;
+  }
+  // 前臂內關（2026-10-01）：同上，手只交給 js/forearm-vision.js，畫面由那邊畫
+  if (typeof faCamRunning !== 'undefined' && faCamRunning) {
+    faHandResults = results;
     return;
   }
 

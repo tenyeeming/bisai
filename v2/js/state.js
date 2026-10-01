@@ -255,11 +255,16 @@ function cleanPresets() {
     name:      (typeof p.name === 'string' ? p.name : '').trim().slice(0, PRESET_NAME_MAX),
     acupoints: strList(p.acupoints).filter(n => IMPLEMENTED.has(n)),
     face:      strList(p.face).filter(c => FACE_IMPLEMENTED.has(c)),
+    // 手肘（2026-10-01 我的流程簡化，用戶：「手肘要」）：舊存檔沒有這欄 → 空
+    forearm:   strList(p.forearm).filter(n => typeof isForearmItem === 'function' && isForearmItem(n)),
     flow:      cleanPresetFlow(p.flow),
     // 逐穴秒數（2026-09-25 網頁v2 批 E，App Preset.perAcuSec）：只留勾著的手部穴、只留合法範圍
     perAcuSec: cleanPerAcuSec(p.perAcuSec, strList(p.acupoints)),
-  })).filter(p => p.acupoints.length + p.face.length > 0).slice(0, PRESET_MAX);
+  })).filter(p => presetCount(p) > 0).slice(0, PRESET_MAX);
 }
+
+/** 一組裡有幾穴（手部＋手肘＋臉部） */
+const presetCount = (p) => p.acupoints.length + (p.forearm || []).length + p.face.length;
 
 let presets = cleanPresets();
 const savePresets = () => localStorage.setItem(LS.presets, JSON.stringify(presets));
@@ -285,7 +290,7 @@ function presetSeconds(p) {
   // 關掉的那一段不算秒數（App 批 93）
   const ready = f.readyAuto ? f.readySec : 0, sw = f.switchAuto ? f.switchSec : 0;
   return p.acupoints.reduce((s, n) => s + ready + presetSecOf(p, n) * 2 + sw, 0)
-       + p.face.length * (ready + f.pressSec);
+       + (p.face.length + (p.forearm || []).length) * (ready + f.pressSec);   // 手肘同臉部：1 輪
 }
 
 // ── 節奏覆蓋層 ───────────────────────────────────────────────

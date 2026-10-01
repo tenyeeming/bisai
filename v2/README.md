@@ -1718,3 +1718,39 @@ App 側的對應改動見 `比賽專區/AcuNavi/README.md` 的〈批 59〉。
 - 檔案：`js/vision.js`、`js/acu-math.js`（drawAcupoint、screenScale）、`js/face-vision.js`。
 
 **驗證**：`run.js` 547＋mirror 13 過（face 素髎那項原本就壞）；`browser_ui.py` 522/522；用真實合谷標注（`測試記錄/`，v28）畫了一張定位頁截圖看過。截圖在 `比賽專區/介面討論/網頁穴位畫法照App與手肘激活_20261001/`。沒用真鏡頭、真手機看。
+
+## 2026-10-01（續 2）— 內關開放定位（照 App 批 89／90）
+
+用戶：「激活內關的網頁版本穴道定位」。回退點 private `17e7844`。其他 14 個手肘穴仍是黑畫面。
+
+- `itemDetector('內關穴')` ＝ `'forearm'`（`FOREARM_IMPLEMENTED = {內關穴}`）。認穴頁「開始定位」→ 按摩頁，開 Hands（兩隻手）＋Pose（肘點＋人體遮罩）。
+- 新檔 `js/forearm-vision.js`：公式、檢測、扭轉閘門、按壓判定逐式照抄 App `locate/ForearmMath.kt`（常數同一份），流程與畫法照 `ForearmScreen.kt`：
+  ① 正方形框（取景框短邊 86%），手腕＋手肘在框內、手心、Tb 穩 2 秒 → 框變綠 1.2 秒 ② 才開始進頁倒數 3 秒（檢測中主按鈕鎖住）③ 另一隻手指尖在 0.7 寸內扣秒（出圈 1.0 寸、寬限 400ms）④ 扭超過 30° 擋點並提示往哪邊轉回。
+- 畫法：綠點＋0.7 寸判定圈（圓盤開關管）＋白字穴名；設定 › 顯示骨架 開著時畫遮罩切刀（黃線）、Pose 肘點、頂端「r = x 寸（遮罩 n 刀）」。按的指尖用網頁既有的引導箭頭（`drawPresserTip`）。
+- 換鏡頭＝重新檢測（計時歸零）。圖冊手肘那邊本來就走療程，內關跟著有定位。
+- 平台差異：Hands 共用 `vision.js` 的實例（`onHandsResults` 轉交）；Pose 另建，認穴頁預熱（`warmUpForearm`，等 Hands 預熱完才載，兩個 Solutions 模型不能同時 initialize）；遮罩縮到 320 邊長再讀（App 全幅）。
+- 其他檔：`acunavi-ideal.html`（加 pose.js、forearm-vision.js）、`js/regions.js`、`js/forearm-data.js`、`js/vision.js`（handsInitP、轉交）、`js/nav.js`（離頁關前臂相機）、`js/i18n.js`（fa-* 13 條中英）、`pages/05-massage.js`、`pages/03-acu-detail.js`、`js/mp-loader.js`（註解）。
+- 測試：新 `tests/forearm.js` 16 項（照抄 App `ForearmMathTest.kt` 的輸入與期望值，全過）；e2e 加內關流程 13 項；`check.js` vendor 腳本數 3→4。`run.js` 只剩 face 素髎那項舊失敗。`browser_ui.py` 522/522。
+- 真 Chromium＋假鏡頭（`數據影片/前臂_內關_紫貼紙_左掌心_20260928.mp4` 第 0 幀定格）：三個模型一起載沒衝突，檢測收滿、出點，逐幀抖動約 0.5px，遮罩 4 刀、r＝1.74 寸。截圖 `比賽專區/介面討論/網頁內關定位_20261001/`。
+- ⚠️ 沒驗：真手機／真鏡頭的 fps（無頭瀏覽器約 1 幀／秒，動態影片收不滿 2 秒檢測）；兩隻手同時在畫面時的配對與按壓；沒對 GT 算誤差（公式跟 App 同一份，App／Python 那邊是 2.27mm，1 人）。
+
+## 2026-10-01（續 3）— 拿掉臉部參數聲明
+
+選穴頁本來就沒有；認穴頁臉部項目的提示框（「臉部定位的參數只建立在 1 人 1 張照片上…」）藏起來，`face-honest-short` key 刪掉。同 App 批 95。
+
+## 2026-10-01（續 4）— 我的流程簡化（網頁先行，App 還沒改）
+
+用戶確認：預設直接選穴、「依病症選」另一顆鈕、順序手部 → 手肘 → 臉部、手肘可排、不做總結頁一鍵存。規劃 `比賽專區/介面討論/我的流程簡化_規劃_20261001.md`。回退點 private `c70c64e`。
+- 新增流程畫面：頂端常駐「已選（按療程順序）」，每穴有 ✕；「依病症選」展開症狀格子，點一個把推薦的手部／手肘／臉部穴加進已選（不重複，告訴你加了幾穴）；下面依手背／手心／手肘／臉部分組、可收合（新增時只開手背）；名稱移到最下面。
+- 新增時**不出現節奏與逐穴秒數 ▾**（帶目前全域設定，一行字說存好再點進去調）；編輯既有流程才出現。
+- 沒勾穴：儲存鈕停用（原本跳 alert，跟 App 統一）。
+- 資料：`Preset` 加 `forearm` 欄（舊存檔讀成空）；手肘時長算 1 輪（同臉部）；開始時帶進 `selectedForearm`。
+- 檔案：`pages/settings-presets.js`、`js/state.js`、`js/i18n.js`（加 7 條、刪 5 條沒用到的）、`tests/e2e.js`（我的流程那段照新流程改寫）。
+- 驗證：e2e 572 全過、check 全過；Playwright 截 phone／tablet／desktop × 淺深色共 6 張，沒有橫向捲軸、沒有頁面錯誤，已看過 phone 版。截圖 `比賽專區/介面討論/我的流程簡化_20261001/`。
+- ⏸️ **App 等用戶說可以再改**（`PresetsScreen.kt` 等）。
+
+### ⏸️ 待辦（2026-10-01 晚）
+- **還沒部署 bisai `/v2/`**：用戶在 `https://tenyeeming.github.io/bisai/v2/acunavi-ideal.html` 看不到「依病症選」就是因為這個。部署 = `比賽專區/發布/部署.ps1`（public repo，連 demo網站 正式網址一起推），等用戶說。
+- 本機看新版：雙擊 `網頁v2/啟動.bat`，設定 › 我的流程 › ＋新增流程 →「已選」下面那顆「依病症選」；舊畫面就 Ctrl+F5。
+- 我的流程簡化：用戶試過說可以才進 App。
+- 臉部按摩錄製（App）：用戶說還是沒有；程式有接（批 84），要接手機開設定 › 錄製、看 logcat 才查得到。

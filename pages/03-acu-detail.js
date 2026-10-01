@@ -323,11 +323,7 @@ function renderFaceAcuDetail(code) {
   // 臉部目前沒有安全警語資料（ACUPOINT_DETAIL 是手部的表），但誠實話要講：
   // 這條線只有 1 人 1 張照片的資料基礎
   const noteBox = document.getElementById('acu-note');
-  noteBox.innerHTML = '';
-  const d = document.createElement('p');
-  d.className = 'notice';
-  d.textContent = t('face-honest-short');
-  noteBox.appendChild(d);
+  noteBox.innerHTML = '';   // 2026-10-01 用戶：參數聲明刪掉
 
   // 參考圖區塊換成「臉部沒有參考圖」的說明，不要借手部的圖
   const none = document.createElement('div');

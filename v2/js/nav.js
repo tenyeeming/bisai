@@ -149,6 +149,7 @@ function showPage(name) {
   // 「啟動中」也要關（2026-09-23）：權限視窗還沒按就切頁，不關的話啟動完會在背景佔住鏡頭
   if (typeof camRunning !== 'undefined' && (camRunning || camStarting) && !cfg.keepsCamera) stopCamera();
   if (typeof faceCamRunning !== 'undefined' && (faceCamRunning || faceCamStarting) && !cfg.keepsFaceCamera) stopFaceCamera();
+  if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting) && !cfg.keepsCamera) stopForearmCamera();
 
   const previous = currentPage;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active', 'page-enter'));

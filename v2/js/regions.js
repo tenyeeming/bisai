@@ -79,7 +79,9 @@ const itemGated = (id) => true;
 
 /** 這一項要用哪一套偵測（'hand' | 'face'）。相機頁據此決定開哪個模型 */
 // 'none'＝前臂：不開相機、取景框全黑、計時不看對準（App 批 94 ForearmScreen blackout）
-const itemDetector = (id) => isFaceItem(id) ? 'face' : isForearmItem(id) ? 'none' : 'hand';
+// 'forearm'＝前臂有公式的（內關）：Hands＋Pose 定位（js/forearm-vision.js，App 批 89／90）
+const itemDetector = (id) => isFaceItem(id) ? 'face'
+  : isForearmItem(id) ? (FOREARM_IMPLEMENTED.has(id) ? 'forearm' : 'none') : 'hand';
 
 /**
  * 這一項的代表色。手部走 `acuColor()`（依指尖／腕／掌分群），

@@ -15,7 +15,7 @@ registerPage('acu-detail', {
   backTo: 'recommend',
   // 下一步就是定位頁，趁使用者在這頁讀說明時，先把 MediaPipe 在背景載好
   // （~16MB，不預熱的話會卡在「開始定位」那一下）。見 js/vision.js warmUpHands。
-  onEnter: () => { closeTutorial(); renderAcuDetail(); renderDetailSec(); warmUpHands(); startReadyCountdown(); },
+  onEnter: () => { closeTutorial(); renderAcuDetail(); renderDetailSec(); warmUpHands(); if (itemDetector(curAcuName()) === 'forearm') warmUpForearm(); startReadyCountdown(); },
   onLeave: () => { stopReadyCountdown(); closeTutorial(); },
   onLanguage: () => { renderAcuDetail(); renderReadyBar(); },
 
@@ -334,6 +334,7 @@ function renderAcuDetail() {
     acu && acu.locate ? acu.locate : (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
   const dorsal = acu && acu.side === 'dorsal';
+  document.getElementById('acu-side-hint').hidden = false;
   document.getElementById('acu-side-hint').textContent = BILATERAL_ACUPOINTS.has(name)
     ? (isZh() ? '此穴在手側緣，手背或手心朝鏡頭都可定位。' : 'Side-edge point: either hand side works.')
     : (isZh() ? `請將${dorsal ? '手背' : '手心'}朝向鏡頭。` : `Face your ${dorsal ? 'back of hand' : 'palm'} to the camera.`);
@@ -363,7 +364,10 @@ function renderFaceAcuDetail(code) {
   document.getElementById('acu-detail').textContent =
     (det && det.locate) || faceWho(code) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
-  document.getElementById('acu-side-hint').textContent = t('face-honest-short');
+  // 2026-10-01 用戶：「臉部定位的參數什麼的刪掉」→ 臉部不放提示框
+  const hint = document.getElementById('acu-side-hint');
+  hint.textContent = '';
+  hint.hidden = true;
   document.getElementById('tutorial-box').style.display = 'none';
 }
 
@@ -384,6 +388,7 @@ function renderForearmAcuDetail(name) {
   swapRefBlock(forearmRefBlock(name));
   document.getElementById('acu-detail').textContent =
     (acu && acu.locate) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
+  document.getElementById('acu-side-hint').hidden = false;
   document.getElementById('acu-side-hint').textContent = FOREARM_PRESS;
   document.getElementById('tutorial-box').style.display = 'none';
 }

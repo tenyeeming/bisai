@@ -32,7 +32,8 @@ const FOREARM_SYMPTOM_MAP = {
   '便祕':['外關穴','支溝穴'], '肩頸痠痛':['支正穴'], '中暑':['曲澤穴'],
   '改善失眠':['大陵穴'], '緩解腕痛':['大陵穴'], '口腔衛生':['大陵穴'],
 };
-const FOREARM_IMPLEMENTED = new Set();
+// 有相機定位公式的前臂穴（2026-10-01 內關，同 App ForearmData.IMPLEMENTED；公式在 js/forearm-vision.js）
+const FOREARM_IMPLEMENTED = new Set(['內關穴']);
 const forearmAcu = name => FOREARM_ACUPOINTS.find(a => a.name === name);
 const isForearmItem = id => !!forearmAcu(id);
 const forearmRecommend = names => {

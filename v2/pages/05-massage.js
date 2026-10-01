@@ -73,7 +73,8 @@ registerPage('massage', {
     resetMassageSession();
     syncMassageControls();
     startMassageCamera();
-    startEntryCountdown();
+    // 內關要先做放平檢測（js/forearm-vision.js），量好才開始進頁倒數（同 App ForearmScreen）
+    if (massageDetector() === 'forearm') holdForForearmCalib(); else startEntryCountdown();
   },
   onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
   onLanguage: () => {
@@ -286,7 +287,29 @@ function syncMassageHints() {
   // 讀數條：這裡寫的是「還沒偵測到之前」的那句。模型一活起來，
   // setGate / setFaceGate 每幀都會蓋掉它，所以不必判斷現在是不是空的。
   const gate = document.getElementById('massage-gate');
-  if (gate) gate.textContent = t(massageDetector() === 'face' ? 'massage-hint-face' : 'massage-hint');
+  if (gate) gate.textContent = massageDetector() === 'face' ? t('massage-hint-face')
+    : massageDetector() === 'forearm' ? t('fa-calib-title') : t('massage-hint');
+}
+
+// ── 前臂內關：先檢測，再倒數（App ForearmScreen：wasCalibrated → entryRemain）────
+// 檢測中主按鈕按不下去：沒有基準就沒有扭轉閘門（App 同，前臂沒有「略過檢測」可退）。
+function holdForForearmCalib() {
+  stopSwitchCountdown();
+  document.getElementById('round-switch').hidden = true;
+  document.getElementById('btn-massage-start').disabled = true;
+}
+function onForearmCalibrated() {
+  if (currentPage !== 'massage' || massageDetector() !== 'forearm' || massageRunning) return;
+  document.getElementById('btn-massage-start').disabled = false;
+  startEntryCountdown();
+}
+// 換鏡頭＝重新檢測：計時歸零、回到等檢測（App recalib）
+function restartForearmCalib() {
+  stopMassageTimer();
+  acuElapsedMs = 0;
+  armTimer();
+  holdForForearmCalib();
+  syncMassageControls();
 }
 
 // 全螢幕時輪次條被蓋住了，所以那個資訊要在 HUD 左上角再出現一次
@@ -390,6 +413,14 @@ const massageDetector = () => itemDetector(curAcuName());
 
 function startMassageCamera() {
   const id = curAcuName();
+  if (itemDetector(id) !== 'forearm' && typeof stopForearmCamera === 'function') stopForearmCamera();
+  if (itemDetector(id) === 'forearm') {
+    // 前臂內關（App 批 89／90）：Hands＋Pose，自己開相機（會先關掉手部／臉部那兩套）
+    recalibForearm();
+    syncMassageHints();
+    startForearmCamera('massage-canvas', 'massage-gate', onForearmCalibrated);
+    return;
+  }
   if (itemDetector(id) === 'none') {
     // 前臂（App 批 94 blackout）：兩邊相機都關，取景框塗黑，讀數條清空
     stopCamera();
@@ -415,11 +446,13 @@ function startMassageCamera() {
 // 齒輪選單那兩顆要分流，否則在臉部項目上按會去動已經關掉的手部相機
 function flipMassageCamera() {
   if (massageDetector() === 'none') return;
+  if (massageDetector() === 'forearm') { restartForearmCalib(); switchForearmCamera(); return; }
   if (massageDetector() === 'face') switchFaceCamera(); else switchCamera();
 }
 
 function toggleMassageDisc() {
   if (massageDetector() === 'none') return;
+  if (massageDetector() === 'forearm') { toggleDisc(); return; }
   if (massageDetector() === 'face') { toggleFaceDisc(); syncDiscLabels(); return; }
   toggleDisc();
 }

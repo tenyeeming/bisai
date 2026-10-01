@@ -1058,7 +1058,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('acu-name').textContent === '印堂', '認穴頁顯示印堂');
   ok($('acu-progress').textContent === '2 / 2', '進度是 2 / 2');
   ok(/眉頭/.test($('acu-detail').textContent), '定位說明用 WHO 原文：' + $('acu-detail').textContent);
-  ok(/1 人 1 張照片/.test($('acu-note').textContent), '有標明資料基礎只有 1 人 1 張照片');
+  ok(!/1 人 1 張照片/.test($('acu-note').textContent), '認穴頁不顯示參數聲明（2026-10-01 用戶要刪）');
   ok(!!$('page-acu-detail').querySelector('.ref-none'), '臉部沒有參考圖 → 顯示說明，不借手部的圖');
   ok(!$('page-acu-detail').querySelector('.ref-frame img'), '確認真的沒畫出手部參考圖');
   // 🚨 迴歸：ⓘ 面板裡也有 .ref-row，原本的全域 querySelector 會把 id 蓋過去

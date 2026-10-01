@@ -26,7 +26,8 @@ ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個
     const [, , pkg, file] = s.split('/');
     return !dl.includes(`dir: '${pkg}'`) || !dl.includes(`'${file}'`);
   });
-  ok(vendorSrcs.length === 3 && badVendor.length === 0,
+  // 2026-10-01 加 pose（前臂內關）→ 4 支
+  ok(vendorSrcs.length === 4 && badVendor.length === 0,
      `外殼的 ${vendorSrcs.length} 支 vendor 腳本都在 下載.js 的清單裡` + (badVendor.length ? ': ' + badVendor : ''));
 
   // 各包的版本號要一致（2026-09-25 加 pose，前臂實驗頁用）：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查

@@ -47,7 +47,7 @@ registerPage('settings-presets', {
         background: var(--brass); color: var(--on-brass);
       }
 
-      /* 編輯區：新增與修改共用同一塊，差別只在標題與有沒有刪除鈕 */
+      /* 編輯區：新增與修改共用同一塊，差別只在有沒有節奏／逐穴秒數與刪除鈕 */
       #preset-edit[hidden] { display: none; }
       #preset-name {
         width: 100%; padding: 9px 10px;
@@ -56,13 +56,60 @@ registerPage('settings-presets', {
         border: 1px solid var(--line); border-radius: var(--r);
       }
       .pfield { margin-bottom: 16px; }
-      .pfield .k {
+      .pfield[hidden], #preset-later[hidden] { display: none; }
+      .pfield .k, #preset-chosen-box .k {
         font-family: var(--font-mono); font-size: 0.65625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
       }
       .pfield .d { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
-      /* 穴道清單很長，收在固定高度裡捲動，不然節奏設定會被推到看不見的地方 */
-      .picker { max-height: 232px; overflow-y: auto; }
+
+      /* ── 已選（2026-10-01 我的流程簡化）：常駐頂端，順序＝療程順序（手部 → 手肘 → 臉部）── */
+      #preset-chosen-box {
+        position: sticky; top: 0; z-index: 2;
+        padding: 10px 12px; margin-bottom: 12px;
+        background: var(--surface); border: 1px solid var(--brass); border-radius: var(--r);
+      }
+      #preset-chosen { display: flex; flex-wrap: wrap; gap: 6px; }
+      #preset-chosen .chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 3px 3px 9px; border-radius: var(--r-pill);
+        background: var(--surface-2); border: 1px solid var(--line);
+        font-size: 0.8125rem; color: var(--ink);
+      }
+      #preset-chosen .chip .no { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft); }
+      #preset-chosen .chip button {
+        width: 26px; height: 26px; border: 0; border-radius: 50%; cursor: pointer;
+        background: none; color: var(--ink-soft); font-size: 0.875rem; line-height: 1;
+      }
+      #preset-chosen .chip button:hover { color: var(--bad); }
+      #preset-chosen .none { font-size: 0.78125rem; color: var(--ink-soft); }
+
+      /* ── 依病症選：按鈕展開症狀格子，點一個就把推薦穴加進已選（不重複）── */
+      #preset-sym-btn {
+        width: 100%; margin-bottom: 10px; padding: 10px 16px; cursor: pointer;
+        font-family: var(--font-sans); font-size: 0.875rem; font-weight: 600;
+        background: transparent; color: var(--ink); border: 1px solid var(--brass); border-radius: var(--r);
+      }
+      #preset-sym[hidden] { display: none; }
+      #preset-sym { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin-bottom: 8px; }
+      #preset-sym button {
+        padding: 8px 6px; cursor: pointer; font-family: var(--font-sans); font-size: 0.78125rem; font-weight: 600;
+        background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r);
+      }
+      #preset-sym button:hover { border-color: var(--brass); }
+      #preset-sym-msg { font-size: 0.75rem; color: var(--ink-soft); min-height: 1em; margin: 0 0 8px; }
+
+      /* ── 依部位分組（手背／手心／手肘／臉部），可收合 ── */
+      .pgroup { margin-bottom: 8px; }
+      .pgroup > summary {
+        display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+        padding: 8px 2px; font-size: 0.875rem; font-weight: 700; color: var(--ink);
+      }
+      .pgroup > summary::-webkit-details-marker { display: none; }
+      .pgroup > summary::after { content: '▾'; margin-left: auto; color: var(--ink-soft); }
+      .pgroup:not([open]) > summary::after { content: '▸'; }
+      .pgroup > summary .n { font-family: var(--font-mono); font-size: 0.71875rem; font-weight: 400; color: var(--brass); }
+
       #preset-edit .btnrow { display: flex; flex-direction: column; gap: 9px; }
       #preset-edit .btnrow button {
         width: 100%; padding: 11px 16px; cursor: pointer;
@@ -70,27 +117,28 @@ registerPage('settings-presets', {
         border: 1px solid var(--brass); border-radius: var(--r);
         background: var(--brass); color: var(--on-brass);
       }
+      #preset-edit .btnrow button:disabled { opacity: .45; cursor: not-allowed; }
       #preset-edit .btnrow button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
       #preset-edit .btnrow button.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
-      /* 逐穴秒數：一列＝勾選 label ＋ 右邊 ▾；展開的面板接在該列下面 */
-      #preset-acu-list > .prow { display: flex; align-items: stretch; padding: 0; cursor: default; }
-      #preset-acu-list .prow label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
-      #preset-acu-list > .ptime { display: block; cursor: default; }
-      #preset-acu-list .psec { font-family: var(--font-mono); font-size: 0.75rem; color: var(--brass); }
-      #preset-acu-list .pexp {
+      /* 逐穴秒數（只在編輯既有流程時有 ▾）：一列＝勾選 label ＋ 右邊 ▾；展開的面板接在該列下面 */
+      .pgroup .optlist > .prow { display: flex; align-items: stretch; padding: 0; cursor: default; }
+      .pgroup .prow label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
+      .pgroup .optlist > .ptime { display: block; cursor: default; }
+      .pgroup .psec { font-family: var(--font-mono); font-size: 0.75rem; color: var(--brass); }
+      .pgroup .pexp {
         flex: none; width: 40px; cursor: pointer; background: none; color: var(--ink-soft);
         border: 0; border-left: 1px solid var(--line-soft);
       }
-      #preset-acu-list .pexp:disabled { opacity: .3; cursor: not-allowed; }
-      #preset-acu-list .ptime {
+      .pgroup .pexp:disabled { opacity: .3; cursor: not-allowed; }
+      .pgroup .ptime {
         margin: 0; padding: 10px 12px; border: 0; border-top: 1px solid var(--line-soft);
         border-radius: var(--r); background: var(--surface-2);
       }
-      #preset-acu-list .ptime .k { font-size: 0.71875rem; color: var(--ink-soft); margin: 4px 0; }
-      #preset-acu-list .ptime-top { display: flex; align-items: baseline; justify-content: space-between; }
-      #preset-acu-list .ptime-top b { font-size: 1.25rem; color: var(--brass); }
-      #preset-acu-list .ptime input { width: 100%; accent-color: var(--brass); }
-      #preset-acu-list .ptime button {
+      .pgroup .ptime .k { font-size: 0.71875rem; color: var(--ink-soft); margin: 4px 0; }
+      .pgroup .ptime-top { display: flex; align-items: baseline; justify-content: space-between; }
+      .pgroup .ptime-top b { font-size: 1.25rem; color: var(--brass); }
+      .pgroup .ptime input { width: 100%; accent-color: var(--brass); }
+      .pgroup .ptime button {
         width: 100%; margin-top: 6px; padding: 8px; cursor: pointer; font-size: 0.8125rem;
         background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-pill);
       }
@@ -117,24 +165,33 @@ registerPage('settings-presets', {
       <div id="preset-edit" hidden>
         <hr class="rule">
 
-        <div class="pfield">
-          <p class="k" data-i18n="preset-name">名稱</p>
-          <input type="text" id="preset-name" maxlength="20" oninput="onPresetNameInput()">
+        <!-- 2026-10-01 我的流程簡化（用戶確認：預設直接選穴、依病症選是另一顆鈕、手肘可排、順序手部→手肘→臉部）。
+             規劃：比賽專區/介面討論/我的流程簡化_規劃_20261001.md -->
+        <div id="preset-chosen-box">
+          <p class="k" data-i18n="preset-chosen">已選（按療程順序）</p>
+          <div id="preset-chosen"></div>
         </div>
 
-        <div class="pfield">
-          <p class="k" data-i18n="preset-acu">手部穴道</p>
-          <div class="optlist picker" id="preset-acu-list"></div>
-          <p class="d" data-i18n="preset-acu-desc">只列得出算得出位置的穴道 —— 排一個定位不了的穴，等於自己排一個失敗。</p>
-        </div>
+        <button type="button" id="preset-sym-btn" onclick="togglePresetSym()"
+                aria-expanded="false" data-i18n="preset-by-symptom">依病症選</button>
+        <div id="preset-sym" hidden></div>
+        <p id="preset-sym-msg" aria-live="polite"></p>
 
-        <div class="pfield">
-          <p class="k" data-i18n="preset-face">臉部穴道</p>
-          <div class="optlist picker" id="preset-face-list"></div>
-          <p class="d" data-i18n="preset-face-desc">臉部一律排在療程最後：手部與臉部用不同模型、共用同一個鏡頭，中途來回切換要重載。</p>
-        </div>
+        <details class="pgroup" data-grp="dorsal" ontoggle="onPresetGroupToggle(this)">
+          <summary><span data-i18n="preset-grp-dorsal">手背</span><span class="n"></span></summary>
+          <div class="optlist" id="preset-acu-dorsal"></div></details>
+        <details class="pgroup" data-grp="palm" ontoggle="onPresetGroupToggle(this)">
+          <summary><span data-i18n="preset-grp-palm">手心</span><span class="n"></span></summary>
+          <div class="optlist" id="preset-acu-palm"></div></details>
+        <details class="pgroup" data-grp="elbow" ontoggle="onPresetGroupToggle(this)">
+          <summary><span data-i18n="region-elbow">手肘</span><span class="n"></span></summary>
+          <div class="optlist" id="preset-forearm-list"></div></details>
+        <details class="pgroup" data-grp="face" ontoggle="onPresetGroupToggle(this)">
+          <summary><span data-i18n="region-face">臉部</span><span class="n"></span></summary>
+          <div class="optlist" id="preset-face-list"></div></details>
 
-        <div class="pfield">
+        <!-- 節奏：新增時不出現（先帶目前的設定），存好後點進那組才調 -->
+        <div class="pfield" id="preset-flow-box">
           <p class="k" data-i18n="preset-flow">這組的節奏</p>
           <div class="pfield"><p class="k" data-i18n="settings-ready">認穴停留</p><div class="seg" id="pseg-ready"></div></div>
           <div class="pfield"><p class="k" data-i18n="settings-handorder">手序</p><div class="seg" id="pseg-hand"></div></div>
@@ -143,11 +200,17 @@ registerPage('settings-presets', {
           <div class="pfield"><p class="k" data-i18n="settings-press">單手秒數</p><div class="seg" id="pseg-press"></div></div>
           <p class="d" data-i18n="preset-flow-desc">這套節奏只在跑這組流程時生效，回首頁就還原成「療程節奏」那頁的設定。</p>
         </div>
+        <p class="small" id="preset-later" data-i18n="preset-later">秒數與節奏先用目前的設定；存好之後點進這組就能調。</p>
+
+        <div class="pfield">
+          <p class="k" data-i18n="preset-name">名稱</p>
+          <input type="text" id="preset-name" maxlength="20" oninput="onPresetNameInput()">
+        </div>
 
         <p id="preset-est"></p>
 
         <div class="btnrow">
-          <button type="button" onclick="savePresetEditor()" data-i18n="preset-save">儲存</button>
+          <button type="button" id="preset-save" onclick="savePresetEditor()" data-i18n="preset-save">儲存</button>
           <button type="button" class="ghost" onclick="closePresetEditor()" data-i18n="btn-cancel">取消</button>
           <button type="button" class="danger" id="preset-del" onclick="deletePresetEditor()"
                   data-i18n="preset-delete">刪除這組流程</button>
@@ -168,7 +231,7 @@ function renderPresetsPage() {
 }
 
 function presetSummaryLine(p) {
-  const n = p.acupoints.length + p.face.length;
+  const n = presetCount(p);
   const min = Math.round(presetSeconds(p) / 60);
   return isZh() ? `${n} 穴 · 約 ${min} 分`
                 : `${n} point${n > 1 ? 's' : ''} · ~${min} min`;
@@ -205,11 +268,18 @@ function escapeHtml(s) {
 function openPresetEditor(id) {
   const src = id ? findPreset(id) : null;
   presetDraft = src
-    ? { id: src.id, name: src.name, acupoints: [...src.acupoints], face: [...src.face], flow: { ...src.flow },
-        perAcuSec: { ...(src.perAcuSec || {}) } }
+    ? { id: src.id, name: src.name, acupoints: [...src.acupoints], forearm: [...(src.forearm || [])],
+        face: [...src.face], flow: { ...src.flow }, perAcuSec: { ...(src.perAcuSec || {}) } }
     // 新的一組預帶全域節奏：多數人不會改，帶目前設定比帶出廠值更接近他要的
-    : { id: null, name: '', acupoints: [], face: [], flow: { ...flow }, perAcuSec: {} };
+    : { id: null, name: '', acupoints: [], forearm: [], face: [], flow: { ...flow }, perAcuSec: {} };
   presetOpenTime = null;
+  presetSymOpen = false;
+  presetSymMsg = '';
+  // 分組預設：新增時只開手背（最常用、最長那組），其他收著；編輯時有勾到的那幾組打開
+  presetGroupOpen = src
+    ? { dorsal: true, palm: src.acupoints.some(n => acuSide(n) === 'palm'),
+        elbow: presetDraft.forearm.length > 0, face: src.face.length > 0 }
+    : { dorsal: true, palm: false, elbow: false, face: false };
   renderPresetEditor();
   // 編輯區在清單下面，展開時要自己捲過去，不然使用者按了「新增」畫面看起來沒反應。
   // jsdom 沒有這個方法（測試會炸），所以先問再用。
@@ -225,40 +295,129 @@ function closePresetEditor() {
   if (row) row.hidden = false;
 }
 
+// ── 2026-10-01 我的流程簡化 ─────────────────────────────────────────
+// 用戶確認：預設直接選穴（依部位分組、可收合）、「依病症選」是另一顆鈕、手肘可排、
+// 順序固定手部 → 手肘 → 臉部（跟 buildTreatmentList 同一個排法，已選列照這個順序顯示）。
+// 新增時不出現節奏與逐穴秒數（先帶目前的設定），存好後點進那組才調。
+let presetSymOpen = false;
+let presetSymMsg = '';
+let presetGroupOpen = { dorsal: true, palm: false, elbow: false, face: false };
+
+const acuSide = (name) => { const a = ACUPOINTS.find(x => x.name === name); return a && a.side === 'palm' ? 'palm' : 'dorsal'; };
+
+/** 已選，照療程順序：手部（ACUPOINTS 順序）→ 手肘 → 臉部 */
+function presetChosenOrdered(d) {
+  const by = (order) => (a, b) => order.indexOf(a) - order.indexOf(b);
+  const hand = ACUPOINTS.map(a => a.name), fore = FOREARM_ACUPOINTS.map(a => a.name), face = FACE_ACUPOINTS.map(a => a.code);
+  return [
+    ...[...d.acupoints].sort(by(hand)).map(id => ({ kind: 'hand', id, label: acuLabel(id) })),
+    ...[...d.forearm].sort(by(fore)).map(id => ({ kind: 'forearm', id, label: itemLabel(id) })),
+    ...[...d.face].sort(by(face)).map(id => ({ kind: 'face', id, label: faceLabel(id) })),
+  ];
+}
+
+function removePresetItem(kind, id) {
+  if (kind === 'hand') togglePresetAcu(id);
+  else if (kind === 'forearm') togglePresetForearm(id);
+  else togglePresetFace(id);
+}
+
+function onPresetGroupToggle(el) {
+  if (presetDraft && el && el.dataset) presetGroupOpen[el.dataset.grp] = el.open;
+}
+
+function togglePresetSym() {
+  presetSymOpen = !presetSymOpen;
+  presetSymMsg = '';
+  renderPresetEditor();
+}
+
+/** 依病症選：把那個症狀推薦的穴（只收定位得出來的）加進已選，不重複；不會取消已勾的 */
+function addPresetSymptom(i) {
+  if (!presetDraft) return;
+  const s = SYMPTOM_MAP[i];
+  if (!s) return;
+  const before = presetCount(presetDraft);
+  const add = (list, items) => items.forEach(x => { if (!list.includes(x)) list.push(x); });
+  const hand = s.acupoints.filter(n => IMPLEMENTED.has(n));
+  const fore = forearmRecommend([s.name]);
+  const face = faceRecommend([s.name]).filter(c => FACE_IMPLEMENTED.has(c));
+  add(presetDraft.acupoints, hand);
+  add(presetDraft.forearm, fore);
+  add(presetDraft.face, face);
+  // 加到哪一組就把那一組打開，看得到勾在哪
+  if (hand.some(n => acuSide(n) === 'dorsal')) presetGroupOpen.dorsal = true;
+  if (hand.some(n => acuSide(n) === 'palm')) presetGroupOpen.palm = true;
+  if (fore.length) presetGroupOpen.elbow = true;
+  if (face.length) presetGroupOpen.face = true;
+  const n = presetCount(presetDraft) - before;
+  presetSymMsg = n > 0
+    ? (isZh() ? `「${symptomLabel(s.name)}」加入 ${n} 穴` : `Added ${n} point${n > 1 ? 's' : ''} for ${symptomLabel(s.name)}`)
+    : (isZh() ? `「${symptomLabel(s.name)}」的穴道都已經在裡面了` : `All points for ${symptomLabel(s.name)} are already in`);
+  renderPresetEditor();
+}
+
 function renderPresetEditor() {
   const box = document.getElementById('preset-edit');
   if (!box || !presetDraft) return;
   box.hidden = false;
   document.getElementById('preset-new-row').hidden = true;
-  document.getElementById('preset-del').hidden = !presetDraft.id;
+  const editing = !!presetDraft.id;
+  document.getElementById('preset-del').hidden = !editing;
+  document.getElementById('preset-flow-box').hidden = !editing;
+  document.getElementById('preset-later').hidden = editing;
 
   const nameEl = document.getElementById('preset-name');
   // 只在值真的不同時才寫回去：使用者正在打字時重寫 value 會把游標踢到最後面
   if (nameEl.value !== presetDraft.name) nameEl.value = presetDraft.name;
   nameEl.placeholder = t('preset-name-ph');
 
-  // 2026-09-25（網頁v2 批 E，App PresetsScreen／AcuTimePanel）：勾著的穴右邊有 ▾，
-  //   點開往下滑出這一穴自己的秒數面板；一次只開一個。收合時只有調過的才顯示「45s」痕跡。
-  document.getElementById('preset-acu-list').innerHTML = ACUPOINTS
-    .filter(a => IMPLEMENTED.has(a.name))
-    .map(a => {
-      const on = presetDraft.acupoints.includes(a.name);
-      const custom = on && a.name in presetDraft.perAcuSec;
-      const open = on && presetOpenTime === a.name;
-      return `
+  // ── 已選 ──
+  const chosen = presetChosenOrdered(presetDraft);
+  document.getElementById('preset-chosen').innerHTML = chosen.length
+    ? chosen.map((c, i) => `
+      <span class="chip"><span class="no">${i + 1}</span>${c.label}
+        <button type="button" aria-label="${t('preset-remove')} ${c.label}"
+                onclick="removePresetItem('${c.kind}', '${c.id}')">✕</button></span>`).join('')
+    : `<span class="none">${t('preset-chosen-none')}</span>`;
+
+  // ── 依病症選 ──
+  const symBtn = document.getElementById('preset-sym-btn');
+  symBtn.setAttribute('aria-expanded', String(presetSymOpen));
+  const sym = document.getElementById('preset-sym');
+  sym.hidden = !presetSymOpen;
+  sym.innerHTML = presetSymOpen ? SYMPTOM_MAP.map((s, i) =>
+    `<button type="button" onclick="addPresetSymptom(${i})">${symptomLabel(s.name)}</button>`).join('') : '';
+  document.getElementById('preset-sym-msg').textContent = presetSymMsg;
+
+  // ── 依部位分組 ──
+  // 逐穴秒數 ▾（批 E）只在編輯既有流程時給：新增這一步不調秒數
+  const handRow = (a) => {
+    const on = presetDraft.acupoints.includes(a.name);
+    const custom = on && a.name in presetDraft.perAcuSec;
+    const open = editing && on && presetOpenTime === a.name;
+    return `
       <div class="prow">
         <label>
           <input type="checkbox" ${on ? 'checked' : ''} onchange="togglePresetAcu('${a.name}')">
           <span class="grow">${acuLabel(a.name)}</span>
           <span class="psec">${custom ? presetDraft.perAcuSec[a.name] + 's' : ''}</span>
         </label>
-        <button type="button" class="pexp" ${on ? '' : 'disabled'} aria-expanded="${open}"
+        ${editing ? `<button type="button" class="pexp" ${on ? '' : 'disabled'} aria-expanded="${open}"
                 title="${on ? t('preset-time-per-hand') : t('preset-time-need-pick')}"
-                onclick="togglePresetTime('${a.name}')">${open ? '▴' : '▾'}</button>
+                onclick="togglePresetTime('${a.name}')">${open ? '▴' : '▾'}</button>` : ''}
       </div>
       ${open ? presetTimePanelHtml(a.name) : ''}`;
-    }).join('');
-
+  };
+  const hands = ACUPOINTS.filter(a => IMPLEMENTED.has(a.name));
+  document.getElementById('preset-acu-dorsal').innerHTML = hands.filter(a => acuSide(a.name) === 'dorsal').map(handRow).join('');
+  document.getElementById('preset-acu-palm').innerHTML = hands.filter(a => acuSide(a.name) === 'palm').map(handRow).join('');
+  document.getElementById('preset-forearm-list').innerHTML = FOREARM_ACUPOINTS.map(a => `
+      <label>
+        <input type="checkbox" ${presetDraft.forearm.includes(a.name) ? 'checked' : ''}
+               onchange="togglePresetForearm('${a.name}')">
+        <span class="grow">${itemLabel(a.name)}</span>
+      </label>`).join('');
   document.getElementById('preset-face-list').innerHTML = FACE_ACUPOINTS
     .filter(a => FACE_IMPLEMENTED.has(a.code))
     .map(a => `
@@ -267,17 +426,31 @@ function renderPresetEditor() {
                onchange="togglePresetFace('${a.code}')">
         <span class="grow">${faceLabel(a.code)}</span>
       </label>`).join('');
+  const counts = {
+    dorsal: presetDraft.acupoints.filter(n => acuSide(n) === 'dorsal').length,
+    palm: presetDraft.acupoints.filter(n => acuSide(n) === 'palm').length,
+    elbow: presetDraft.forearm.length, face: presetDraft.face.length,
+  };
+  document.querySelectorAll('#preset-edit .pgroup').forEach(g => {
+    const k = g.dataset.grp;
+    if (g.open !== !!presetGroupOpen[k]) g.open = !!presetGroupOpen[k];
+    g.querySelector('summary .n').textContent = counts[k] ? `✓ ${counts[k]}` : '';
+  });
 
-  // seg() 是 settings-flow.js 的共用分段選擇器，這裡讀寫的是草稿而不是全域 flow
-  const f = presetDraft.flow;
-  const set = (k) => (v) => { f[k] = v; renderPresetEditor(); };
-  // App 批 93：開關＋開著才出現 1～15 秒滑桿（autoSecRow 在 settings-flow.js）
-  autoSecRow('pseg-ready', () => f.readyAuto, set('readyAuto'), () => f.readySec, v => { f.readySec = v; updatePresetEst(); }, renderPresetEditor);
-  seg('pseg-hand',    ['right', 'left'], v => t(v === 'right' ? 'hand-right' : 'hand-left'), () => f.handOrder, set('handOrder'));
-  autoSecRow('pseg-switch', () => f.switchAuto, set('switchAuto'), () => f.switchSec, v => { f.switchSec = v; updatePresetEst(); }, renderPresetEditor);
-  seg('pseg-advance', [true, false], v => t(v ? 'advance-auto' : 'advance-manual'), () => f.autoAdvance, set('autoAdvance'));
-  seg('pseg-press',   [15, 30, 45, 60], v => `${v}s`, () => f.pressSec, set('pressSec'));
+  // 節奏（只在編輯既有流程時）。seg() 是 settings-flow.js 的共用分段選擇器，這裡讀寫的是草稿而不是全域 flow
+  if (editing) {
+    const f = presetDraft.flow;
+    const set = (k) => (v) => { f[k] = v; renderPresetEditor(); };
+    // App 批 93：開關＋開著才出現 1～15 秒滑桿（autoSecRow 在 settings-flow.js）
+    autoSecRow('pseg-ready', () => f.readyAuto, set('readyAuto'), () => f.readySec, v => { f.readySec = v; updatePresetEst(); }, renderPresetEditor);
+    seg('pseg-hand',    ['right', 'left'], v => t(v === 'right' ? 'hand-right' : 'hand-left'), () => f.handOrder, set('handOrder'));
+    autoSecRow('pseg-switch', () => f.switchAuto, set('switchAuto'), () => f.switchSec, v => { f.switchSec = v; updatePresetEst(); }, renderPresetEditor);
+    seg('pseg-advance', [true, false], v => t(v ? 'advance-auto' : 'advance-manual'), () => f.autoAdvance, set('autoAdvance'));
+    seg('pseg-press',   [15, 30, 45, 60], v => `${v}s`, () => f.pressSec, set('pressSec'));
+  }
 
+  // 沒勾任何穴：儲存鈕按不下去（以前是按了跳 alert；App 本來就是停用，兩邊統一）
+  document.getElementById('preset-save').disabled = presetCount(presetDraft) === 0;
   updatePresetEst();
 }
 
@@ -285,12 +458,20 @@ function renderPresetEditor() {
 // 拖秒數滑桿時只更新這一行，不整個編輯器重畫
 function updatePresetEst() {
   if (!presetDraft) return;
-  const n = presetDraft.acupoints.length + presetDraft.face.length;
+  const n = presetCount(presetDraft);
   const sec = presetSeconds(presetDraft);
   document.getElementById('preset-est').textContent = n
     ? (isZh() ? `共 ${n} 穴 · 預估 ${Math.floor(sec / 60)} 分 ${sec % 60} 秒`
               : `${n} points · about ${Math.floor(sec / 60)}m ${sec % 60}s`)
     : t('preset-est-none');
+}
+
+function togglePresetForearm(name) {
+  if (!presetDraft) return;
+  presetDraft.forearm = presetDraft.forearm.includes(name)
+    ? presetDraft.forearm.filter(x => x !== name)
+    : [...presetDraft.forearm, name];
+  renderPresetEditor();
 }
 
 function onPresetNameInput() {
@@ -360,10 +541,7 @@ function togglePresetFace(code) {
 function savePresetEditor() {
   if (!presetDraft) return;
 
-  if (!presetDraft.acupoints.length && !presetDraft.face.length) {
-    alert(t('preset-need-acu'));
-    return;
-  }
+  if (!presetCount(presetDraft)) return;   // 儲存鈕本來就是停用的；這行防直接呼叫
   // 名字空著就給一個 —— 逼使用者想名字只是多一道關卡，清單靠「N 穴 · 約 X 分」也認得出來
   const name = presetDraft.name.trim() || defaultPresetName();
 
@@ -411,7 +589,7 @@ function startPreset(id) {
   state.recommendedAcupoints = [];
   state.selectedAcupoints = [...p.acupoints];
   state.selectedFace = [...p.face];
-  state.selectedForearm = [];
+  state.selectedForearm = [...(p.forearm || [])];
   goToAcuDetail();
 }
 

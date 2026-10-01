@@ -37,6 +37,9 @@
   <!-- 臉部用另一個模型 -->
   <script src="vendor/mediapipe/face_mesh/face_mesh.js"
           onerror="mpFallback(this,'face_mesh','face_mesh.js')"></script>
+  <!-- 前臂內關用 Pose（肘點＋人體遮罩）；模型只在進內關按摩頁才下載 -->
+  <script src="vendor/mediapipe/pose/pose.js"
+          onerror="mpFallback(this,'pose','pose.js')"></script>
 
   <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
   <script src="js/acu-data.js"></script>
@@ -63,6 +66,7 @@
   <script src="js/session-menu.js"></script>
   <script src="js/vision.js"></script>
   <script src="js/face-vision.js"></script>
+  <script src="js/forearm-vision.js"></script>
 
   <!-- 一頁一檔：順序＝療程順序 -->
   <script src="pages/01-home.js"></script>

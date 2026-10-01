@@ -13,6 +13,7 @@ const SUITES = [
   ['angle-gate', '逐穴道角度閘門（需要 測試記錄/）'],
   ['face-detail','臉部白話資料與參考圖（不需要套件）'],
   ['guide',      '引導箭頭（不需要套件）'],
+  ['forearm',    '前臂內關公式（同 App ForearmMathTest，不需要套件）'],
 ];
 
 let bad = 0;
