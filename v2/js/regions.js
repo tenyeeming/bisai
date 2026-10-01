@@ -50,8 +50,9 @@ const itemLocate = (id) => {
 };
 
 /** 這一項的定位公式做出來了沒 */
+// 2026-10-01（App 批 94）：前臂 15 穴全部可排進療程（相機那步黑畫面，見 itemDetector）
 const itemImplemented = (id) =>
-  isFaceItem(id) ? FACE_IMPLEMENTED.has(id) : isForearmItem(id) ? false : IMPLEMENTED.has(id);
+  isFaceItem(id) ? FACE_IMPLEMENTED.has(id) : isForearmItem(id) ? true : IMPLEMENTED.has(id);
 
 /**
  * 按摩要跑幾輪。
@@ -59,7 +60,7 @@ const itemImplemented = (id) =>
  * ⚠️ 雙側臉部穴（如攢竹）之後要接時，這裡要改成看 faceAcu(id).bilateral。
  *    現在只有印堂（bilateral: false）走這條，先不預先寫沒驗過的分支。
  */
-const itemRounds = (id) => isFaceItem(id) ? 1 : 2;
+const itemRounds = (id) => (isFaceItem(id) || isForearmItem(id)) ? 1 : 2;   // 前臂同 App：1/1 手肘
 
 /**
  * 計時要不要靠「指尖對準」把關。
@@ -77,7 +78,8 @@ const itemRounds = (id) => isFaceItem(id) ? 1 : 2;
 const itemGated = (id) => true;
 
 /** 這一項要用哪一套偵測（'hand' | 'face'）。相機頁據此決定開哪個模型 */
-const itemDetector = (id) => isFaceItem(id) ? 'face' : 'hand';
+// 'none'＝前臂：不開相機、取景框全黑、計時不看對準（App 批 94 ForearmScreen blackout）
+const itemDetector = (id) => isFaceItem(id) ? 'face' : isForearmItem(id) ? 'none' : 'hand';
 
 /**
  * 這一項的代表色。手部走 `acuColor()`（依指尖／腕／掌分群），

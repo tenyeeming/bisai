@@ -56,7 +56,8 @@ registerPage('camera', {
 // 2026-09-25（網頁v2 批 E，同 App AcuApp onLocate）：臉部項目**省掉定位頁**，直接進按摩頁 ——
 //   臉部在按摩頁本來就畫穴位、判對準、有進頁 3 秒倒數；多一頁定位只是多開一次相機。手部維持兩步。
 function startLocate() {
-  showPage(isFaceItem(curAcuName()) ? 'massage' : 'camera');
+  // 前臂（App 批 94）也直接進按摩頁：那裡取景框全黑、不開相機
+  showPage(itemDetector(curAcuName()) === 'hand' ? 'camera' : 'massage');
 }
 
 // ── 這一頁跑哪一套偵測（2026-09-04）──────────────────────────────

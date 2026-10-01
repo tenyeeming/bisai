@@ -185,6 +185,7 @@ function goHome() {
   // 臉部另外存，也要清。不清的話從圖冊「練這一穴」進去時，buildTreatmentList
   // 會把上一次殘留的臉部穴道一起排進療程（2026-09-08 接預設流程時發現）。
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.acuSecs = {};          // 逐穴秒數也是這一次療程的事
   state.recommendedAcupoints = [];
   state.currentAcupointIndex = 0;

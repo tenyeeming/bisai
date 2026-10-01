@@ -222,8 +222,9 @@ function practiceThisAcu() {
   if (infoAcuName && FOREARM_LAB[infoAcuName]) { location.href = FOREARM_LAB[infoAcuName]; return; }
   if (!infoAcuName || !itemImplemented(infoAcuName)) return;
   state.selectedSymptoms = [];
-  state.recommendedAcupoints = isFaceItem(infoAcuName) ? [] : [infoAcuName];
+  state.recommendedAcupoints = (isFaceItem(infoAcuName) || isForearmItem(infoAcuName)) ? [] : [infoAcuName];
   state.selectedFace = isFaceItem(infoAcuName) ? [infoAcuName] : [];
+  state.selectedForearm = isForearmItem(infoAcuName) ? [infoAcuName] : [];
   state.selectedAcupoints = [infoAcuName];
   state.currentAcupointIndex = 0;
   showPage('acu-detail');
@@ -340,8 +341,7 @@ function renderForearmAcuInfo(name) {
   portrait.appendChild(fb);
   document.getElementById('info-code').textContent = acu.code;
   document.getElementById('info-name').textContent = acu.name;
-  document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　` +
-    (FOREARM_LAB[name] ? (isZh() ? '實驗定位' : 'Experimental locating') : t('info-nolocate'));
+  document.getElementById('info-meta').textContent = isZh() ? '前臂' : 'Forearm';
   const note = document.getElementById('info-note'); note.innerHTML = '';
   if (acu.caution) { const p=document.createElement('p'); p.className='notice warn'; p.textContent=acu.caution; note.appendChild(p); }
   document.getElementById('info-locate').textContent = acu.locate;
@@ -355,10 +355,10 @@ function renderForearmAcuInfo(name) {
   // 2026-09-23 用戶：「專門在他的圖冊裏面開通」「開小海就行」——
   // 只有 FOREARM_LAB 裡的穴開放，點了進獨立實驗頁 forearm-lab.html（Hands＋Pose），
   // 不走認穴→相機→按摩那條療程流程：vision.js 只有 Hands，Pose 錨定沒接進去。
-  const lab = FOREARM_LAB[name];
+  // 2026-10-01（App 批 94）：前臂 15 穴都能練 —— 小海仍進實驗頁，其他走療程（相機那步黑畫面）
   const btn = document.getElementById('btn-practice');
-  btn.disabled = !lab;
-  btn.textContent = lab ? (isZh() ? '練習（實驗版）' : 'Try (experimental)') : t('info-nolocate');
+  btn.disabled = false;
+  btn.textContent = t('btn-practice');
 }
 
 // 前臂開放實驗定位的穴 → 實驗頁網址

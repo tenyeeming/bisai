@@ -28,6 +28,7 @@ function onPressCheckOff() { if (massageRunning && !massageUserPaused) armPressO
 const pressOffPrepLeft = () => Math.max(0, pressOffPrepUntil - performance.now());
 function massageHeld() {
   const now = performance.now();
+  if (massageDetector() === 'none') return true;   // 前臂黑畫面：沒有影像可判定，計時照走
   if (!pressCheck) return now >= pressOffPrepUntil;
   if (onTarget) massageLastOnAt = now;
   return onTarget || (now - massageLastOnAt < PRESS_GRACE_MS);
@@ -53,7 +54,7 @@ registerPage('massage', {
   step: 4,
   stepLabel: 'step-4',
   // 臉部項目沒有定位頁（2026-09-25 網頁v2 批 E，同 App：認穴頁「開始定位」直接進按摩頁）→ 退回認穴頁
-  backTo: () => (isFaceItem(curAcuName()) ? 'acu-detail' : 'camera'),
+  backTo: () => (itemDetector(curAcuName()) === 'hand' ? 'camera' : 'acu-detail'),
   hideTabbar: true,     // 按摩中手在鏡頭前，誤觸切頁會直接中斷計時
   keepsCamera: true,
   keepsFaceCamera: true,   // 臉部項目在這頁跑 FaceMesh（＋Hands 供閘門用）
@@ -260,7 +261,7 @@ function startLabel() {
 function renderRound() {
   // 臉部只有一輪，講「右手／左手」是錯的（按臉用哪隻手都行）
   document.getElementById('round-hand').textContent =
-    hasRounds() ? t(curHandKey()) : t('round-face');
+    hasRounds() ? t(curHandKey()) : isForearmItem(curAcuName()) ? t('region-elbow') : t('round-face');
 
   const pips = document.getElementById('round-pips');
   pips.innerHTML = '';
@@ -389,6 +390,17 @@ const massageDetector = () => itemDetector(curAcuName());
 
 function startMassageCamera() {
   const id = curAcuName();
+  if (itemDetector(id) === 'none') {
+    // 前臂（App 批 94 blackout）：兩邊相機都關，取景框塗黑，讀數條清空
+    stopCamera();
+    stopFaceCamera();
+    const cv = document.getElementById('massage-canvas');
+    const c = cv && cv.getContext('2d');
+    if (c) { c.fillStyle = '#000'; c.fillRect(0, 0, cv.width, cv.height); }
+    const gate = document.getElementById('massage-gate');
+    if (gate) { gate.textContent = ''; gate.className = 'gate'; }
+    return;
+  }
   if (itemDetector(id) === 'face') {
     stopCamera();                       // 手部那邊可能還開著（定位頁過來）
     faceSelected = [id];                // 按摩頁只畫現在這一穴
@@ -402,10 +414,12 @@ function startMassageCamera() {
 
 // 齒輪選單那兩顆要分流，否則在臉部項目上按會去動已經關掉的手部相機
 function flipMassageCamera() {
+  if (massageDetector() === 'none') return;
   if (massageDetector() === 'face') switchFaceCamera(); else switchCamera();
 }
 
 function toggleMassageDisc() {
+  if (massageDetector() === 'none') return;
   if (massageDetector() === 'face') { toggleFaceDisc(); syncDiscLabels(); return; }
   toggleDisc();
 }

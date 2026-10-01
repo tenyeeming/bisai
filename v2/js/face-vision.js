@@ -257,7 +257,7 @@ function onFaceResults(results) {
       // 穴名不能被鏡射成反字，所以只把 x 翻過去畫，不用 canvas transform
       // 2026-09-24：點改固定大小（原本 r×0.42 再加 2.2 倍光暈，幾乎跟圓盤一樣大）
       // 穴名歸「鏡頭中顯示穴位名稱」管（2026-09-25 網頁v2 批 C，App 批 65：手部與臉部都一樣）
-      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? faceLabel(code) : '', '#4FBF8B', ACU_DOT_R);
+      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? faceLabel(code) : '', '#4FBF8B', appDotR(canvas), screenScale(canvas));
     });
   });
 

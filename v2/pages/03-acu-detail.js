@@ -272,7 +272,7 @@ function buildTreatmentList() {
 
   // 進到這裡時 selectedAcupoints 只有手部（臉部勾在 selectedFace），
   // 但保險起見還是濾一次 —— 從圖冊「練這一穴」等入口進來的形狀可能不同
-  const hands = state.selectedAcupoints.filter(n => !isFaceItem(n))
+  const hands = state.selectedAcupoints.filter(n => !isFaceItem(n) && !isForearmItem(n))
     .sort((a, b) => handOrder.indexOf(a) - handOrder.indexOf(b));
 
   // 只收公式做得出來的臉部穴道。選穴頁本來就擋著「準備中」那些，
@@ -280,7 +280,11 @@ function buildTreatmentList() {
   const faces = (state.selectedFace || []).filter(c => FACE_IMPLEMENTED.has(c))
     .sort((a, b) => faceOrder.indexOf(a) - faceOrder.indexOf(b));
 
-  state.selectedAcupoints = [...hands, ...faces];
+  // 2026-10-01：前臂接在手部後面、臉部前面（App 批 94 同）
+  const foreOrder = FOREARM_ACUPOINTS.map(a => a.name);
+  const fores = (state.selectedForearm || []).filter(isForearmItem)
+    .sort((a, b) => foreOrder.indexOf(a) - foreOrder.indexOf(b));
+  state.selectedAcupoints = [...hands, ...fores, ...faces];
 }
 
 /**
@@ -306,6 +310,7 @@ function renderAcuDetail() {
   const name = curAcuName();
   if (!name) { goHome(); return; }
   if (isFaceItem(name)) { renderFaceAcuDetail(name); return; }
+  if (isForearmItem(name)) { renderForearmAcuDetail(name); return; }
   const acu = ACUPOINTS.find(a => a.name === name);
   const detail = ACUPOINT_DETAIL[name] || {};
 
@@ -362,6 +367,34 @@ function renderFaceAcuDetail(code) {
   document.getElementById('tutorial-box').style.display = 'none';
 }
 
+/** 前臂項目的認穴頁（2026-10-01，App 批 94）：示意圖、定位、警語；提示框放按壓方式 */
+function renderForearmAcuDetail(name) {
+  const acu = forearmAcu(name);
+  document.getElementById('acu-name').textContent = itemLabel(name);
+  document.getElementById('acu-progress').textContent =
+    `${state.currentAcupointIndex + 1} / ${state.selectedAcupoints.length}`;
+  const noteBox = document.getElementById('acu-note');
+  noteBox.innerHTML = '';
+  if (acu && acu.caution) {
+    const d = document.createElement('p');
+    d.className = 'notice warn';
+    d.textContent = acu.caution;
+    noteBox.appendChild(d);
+  }
+  swapRefBlock(forearmRefBlock(name));
+  document.getElementById('acu-detail').textContent =
+    (acu && acu.locate) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
+  document.getElementById('acu-side-hint').textContent = FOREARM_PRESS;
+  document.getElementById('tutorial-box').style.display = 'none';
+}
+
+/** 前臂教學：功效＋按法（App ForearmTutorialBox） */
+function renderForearmTutorial(box) {
+  const acu = forearmAcu(curAcuName());
+  fillTutorial(box, curAcuName(), [acu && acu.note, FOREARM_PRESS].filter(Boolean));
+  box.insertBefore(acuVideoPending(), box.firstChild);   // 前臂還沒有片：灰的準備中（同 App）
+}
+
 /**
  * 臉部的教學（App FaceTutorialBox，批 B 改）：逐條「功效：按法」，
  * 用現成的 faceDetail(code).uses —— 不再用一組泛用四步（套到臉上講不通、也會跟圖冊那份漂）。
@@ -409,6 +442,7 @@ function toggleTutorial() {
 
   const cur = curAcuName();
   if (isFaceItem(cur)) { renderFaceTutorial(box); return; }
+  if (isForearmItem(cur)) { renderForearmTutorial(box); return; }
   const acu = ACUPOINTS.find(a => a.name === cur);
   const dorsal = acu && acu.side === 'dorsal';
   const steps = isZh()

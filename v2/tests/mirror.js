@@ -42,7 +42,7 @@ const w = dom.window, d = w.document;
 // 圓盤中心那顆「位置白點」的半徑，跟 acu-math.js 的 drawConfidenceDisc 對齊。
 // 用它把位置白點從一堆 arc 呼叫（外圈輝光、描邊…）裡挑出來。
 // 2026-09-24 改成 App 同款綠點，要跟 acu-math.js 的 ACU_DOT_R 同步（原本是 2.4）。
-const CENTER_DOT_R = 5;
+const CENTER_DOT_R = 4;   // 2026-10-01 照 App ACU_DOT_R 4dp（jsdom 沒排版，縮放比＝1）
 
 // ── 假的 2D context：把所有呼叫錄下來，並自己維護一個水平翻轉旗標 ──
 function makeRecorder() {
@@ -106,17 +106,12 @@ setTimeout(() => {
   ok(texts.length > 0, `有畫出穴名（${texts.length} 個）`);
   ok(texts.every(c => c[4].flipped === false), '穴名不在翻轉狀態下畫 → 不會變反字');
 
-  const discPts = ctx.calls.filter(c => (c[0] === 'lineTo' || c[0] === 'moveTo') && c[3] && c[3].flipped);
-  ok(discPts.length > 0, `信心圓盤的 ${discPts.length} 個頂點是翻轉著畫的（形狀才對）`);
-
-  // ⭐ 2026-08-18 改版：位置不再靠外面那顆大光暈點，改成**圓盤中心的 2.4px 白點**
-  //    （見 acu-math.js drawConfidenceDisc）。它跟圓盤畫在同一個翻轉座標系裡，
-  //    所以這裡不能再驗「畫在正常座標系」—— 那是舊實作的細節。
-  //    改驗真正該成立的事：**白點存在，而且它換算到螢幕上的位置是對的**（下面對稱性檢查）。
+  // ⭐ 2026-10-01 畫法照 App（綠點＋黃銅細圈＋白字），不再畫 3D 投影圓盤：
+  //    點與圈都在**正常座標系**畫、x 自己用 mx() 翻 —— 跟穴名同一套，三者自然對齊。
   const centerDots = ctx.calls.filter(c => c[0] === 'arc' && Math.abs(c[3] - CENTER_DOT_R) < 1e-9);
-  ok(centerDots.length > 0, `圓盤中心畫了位置白點（${centerDots.length} 個，半徑 ${CENTER_DOT_R}px）`);
-  ok(centerDots.every(c => c[4].flipped === true),
-     '位置白點與圓盤畫在同一個翻轉座標系（前鏡頭）—— 兩者必須一起鏡射才會對齊');
+  ok(centerDots.length > 0, `畫了穴位綠點（${centerDots.length} 個，半徑 ${CENTER_DOT_R}px）`);
+  ok(centerDots.every(c => c[4].flipped === false),
+     '穴位點不在翻轉座標系畫（x 已自己鏡射）—— 跟穴名同一套，才會對齊');
 
   // ── 後鏡頭：不應鏡像 ──
   w.eval("facingMode = 'environment'");

@@ -100,7 +100,7 @@ try:
             page.evaluate("infoAcuName='內關穴'; renderAcuInfo()")
             no_overflow(page, name + '/acu-info-forearm')
             check(page.locator('#info-locate').inner_text().strip() != '', name + ': forearm detail has location')
-            check(page.locator('#btn-practice').is_disabled(), name + ': forearm locating stays disabled')
+            check(not page.locator('#btn-practice').is_disabled(), name + ': forearm practice enabled (App batch 94)')
             page.screenshot(path=str(args.output / f'{name}-gallery-forearm.png'), full_page=True)
             page.evaluate("showPage('recommend')")
             page.evaluate("state.selectedAcupoints=['合谷穴']; state.selectedFace=[]; state.currentAcupointIndex=0; flow.readySec=120; showPage('acu-detail'); stopReadyCountdown()")

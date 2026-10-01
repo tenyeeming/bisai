@@ -1235,6 +1235,13 @@ function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
 // 穴道位置點（App 同款：#4FBF8B 實心＋白描邊，固定大小不跟圓盤縮放）。
 // 半徑是影像座標 px：640 寬的畫面在手機上約縮成 0.56 倍，5px ≈ 螢幕上 3 點多。
 const ACU_DOT_R = 5;
+/** canvas 像素 ÷ 螢幕 CSS 像素。還沒排版（clientWidth 0）回 1 */
+function screenScale(canvas) {
+  const cw = canvas && canvas.clientWidth;
+  return cw ? canvas.width / cw : 1;
+}
+/** App 的 ACU_DOT_R = 4dp：換成這張 canvas 上的像素 */
+const appDotR = (canvas) => 4 * screenScale(canvas);
 function drawAcuCenterDot(ctx, x, y) {
   ctx.beginPath();
   ctx.arc(x, y, ACU_DOT_R, 0, Math.PI * 2);
@@ -1275,8 +1282,11 @@ function drawAcuLabel(ctx, x, y, text, discR) {
  *    改成「外圈半透明大圓 + 內圈實心點」，視覺上一樣是發光的點，但成本是普通填色。
  *    ⚠️ 純繪製改動，座標與半徑都沒動。
  */
-function drawAcupoint(ctx, x, y, label, color, radius) {
+// scale＝canvas 像素 ÷ 螢幕 CSS 像素（見 screenScale）。canvas 是影片解析度、顯示時被縮放，
+// 字級與留白要乘它，螢幕上才會跟 App 的 13sp 一樣大（2026-10-01）。
+function drawAcupoint(ctx, x, y, label, color, radius, scale) {
   radius = radius || 6;
+  scale = scale || 1;
   ctx.save();
   // 2026-09-24 拿掉外圈光暈（半徑 ×2.2，臉部上幾乎跟圓盤一樣大）—— App 的點沒有光暈。
   // 實心點
@@ -1284,14 +1294,17 @@ function drawAcupoint(ctx, x, y, label, color, radius) {
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${Math.max(11, radius + 6)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(label, x, y - radius - 4);
+  // 2026-10-01 照 App（drawAcuLabel）：點不描白邊；穴名白色粗體 13px＋深色陰影，寫在點正上方
+  if (label) {
+    ctx.font = `bold ${13 * scale}px 'Microsoft JhengHei', sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.78)";
+    ctx.shadowBlur = 4 * scale;
+    ctx.shadowOffsetY = 1 * scale;
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, x, y - radius - 4 * scale);
+  }
   ctx.restore();
 }
 

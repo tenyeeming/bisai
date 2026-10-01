@@ -411,6 +411,7 @@ function startPreset(id) {
   state.recommendedAcupoints = [];
   state.selectedAcupoints = [...p.acupoints];
   state.selectedFace = [...p.face];
+  state.selectedForearm = [];
   goToAcuDetail();
 }
 

@@ -101,8 +101,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '部位有三格：' + segBtns().map(b => b.querySelector('span').textContent).join('/'));
   ok(segBtns()[0].classList.contains('on'), '預設停在手部');
   ok(segBtns()[0].querySelector('.n').textContent === '7', '手部標了 7 穴');
-  ok(segBtns()[1].querySelector('.n').textContent === '…' && !segBtns()[1].classList.contains('soon'),
-     '手肘已可查看資料，以省略號標示不可定位');
+  ok(/^\d+$/.test(segBtns()[1].querySelector('.n').textContent) && !segBtns()[1].classList.contains('soon'),
+     '手肘可選，徽章是數量（App 批 94）：' + segBtns()[1].querySelector('.n').textContent);
 
   // ── ⓘ 詳情（2026-09-02）──
   // 重點不是面板長什麼樣，是「點 ⓘ 不可以順手把穴道勾起來」——
@@ -667,7 +667,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('info-code').textContent === 'PC6', '前臂穴道顯示代號 PC6');
   ok($('info-locate').textContent.length > 8, '前臂穴道有定位文字');
   ok(!!$('info-ref').querySelector('img'), '前臂穴道有學長繪製參考圖');
-  ok($('btn-practice').disabled === true, '前臂尚未實作定位 → 練習按鈕停用');
+  ok($('btn-practice').disabled === false && !/實驗|未開放|尚未/.test($('info-meta').textContent + $('btn-practice').textContent),
+     '前臂可練、沒有「尚未開放／實驗」字樣（App 批 94）');
 
   // 2026-09-23：只開小海穴一穴的實驗頁，其餘 14 穴維持停用
   w.eval("infoAcuName='小海穴'"); w.showPage('acu-info');
@@ -958,8 +959,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goToRecommendation();
   ok(bSegs()[1].classList.contains('on'), '肘臂痠痛自動切到手肘分頁');
   ok($('recommend-list').querySelectorAll('.acu-item').length === 7, '肘臂痠痛列出 7 個前臂穴道');
-  ok([...$('recommend-list').querySelectorAll('.acu-item')].every(e => e.getAttribute('role') === 'button'),
-     '前臂卡片只能查看資料，不會被勾進療程');
+  ok([...$('recommend-list').querySelectorAll('.acu-item')].every(e => e.getAttribute('role') === 'checkbox'),
+     '前臂卡片可勾選（App 批 94）');
+  {
+    const first = $('recommend-list').querySelector('.acu-item');
+    const nm = first.dataset.acu || first.querySelector('.nm').textContent;
+    first.click();
+    ok(w.eval('state.selectedForearm.length') === 1, '勾一個前臂穴 → selectedForearm 有 1 筆');
+    w.goToAcuDetail(); await tick();
+    ok(active().join() === 'acu-detail' && w.eval('isForearmItem(curAcuName())'), '前臂穴進認穴頁：' + nm);
+    ok(!/尚未|未開放|實驗/.test($('page-acu-detail').textContent), '認穴頁沒有「尚未開放」字樣');
+    w.startLocate(); await tick();
+    ok(active().join() === 'massage', '前臂「開始定位」直接進按摩頁（取景框黑畫面）');
+    ok(w.eval("itemDetector(curAcuName())") === 'none' && w.eval('massageHeld()') === true,
+       '前臂不開相機、計時不看對準');
+    ok($('round-hand').textContent === '手肘' && /1\/1/.test($('round-pips').textContent), '輪次條 1/1 手肘');
+    w.goHome(); await tick();
+  }
 
   // ── 臉部流程（另一套資料與相機）──
   w.goHome();

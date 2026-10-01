@@ -75,7 +75,8 @@ let state = {
   selectedSymptoms: [],       // 選了哪幾個症狀（存 SYMPTOM_MAP 的索引）
   recommendedAcupoints: [],   // 系統推薦的穴道
   selectedAcupoints: [],      // 使用者勾選、實際要按的穴道（已排序）
-  selectedFace: [],           // 臉部穴道另外存：走另一套資料（代碼如 'BL1'），見 js/face-data.js
+  selectedFace: [],
+  selectedForearm: [],        // 前臂（手肘）穴道，存中文穴名（2026-10-01，App 批 94）           // 臉部穴道另外存：走另一套資料（代碼如 'BL1'），見 js/face-data.js
   acuSecs: {},                // 逐穴的單手秒數（選穴頁拉的滑桿）。沒有那一筆＝跟著全域 flow.pressSec
   currentAcupointIndex: 0,    // 現在按到第幾個
 };

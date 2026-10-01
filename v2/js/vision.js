@@ -512,7 +512,6 @@ function onHandsResults(results) {
   }
 
   const cunPx = computeCunPx(best.lm, W, H);
-  const r = acupointRadius(cunPx);
   const discR = CONF_DISC_CUN * cunPx;
 
   // 圓盤的形狀是 3D 基底投影出來的多邊形，整組頂點都要跟著翻，
@@ -540,41 +539,29 @@ function onHandsResults(results) {
     discDY = off * best.info.normal.y;
   }
 
-  // ⭐ 圓盤中心那顆白點就是穴道座標，所以**圓盤畫在點上、不再另外畫大光暈點**。
-  //    tip 類的外推只推圓盤外框、不推白點 —— 白點必須留在 lm[12]。
-  if (showDisc && best.info) {
-    ctx.save();
-    flip();
-    drawPts.forEach(p => {
-      drawConfidenceDisc(ctx, p.x + discDX, p.y + discDY, discR, best.info,
-        { degraded: gateBlocked, centerAt: { x: p.x, y: p.y } });
+  // ⭐ 2026-10-01 用戶：「網頁版本的穴位呈現好難看，模仿 app 的做法」→ 照 App AcuCameraView：
+  //    ① 閘門擋下時**不畫點**（App drawAcu 為空），只留回正箭頭與提示文字
+  //    ② 判定圈＝黃銅細圈 #B8894B（只圈第一個點，半徑同判定用的 discR，下限 18）
+  //    ③ 穴位＝綠點 #4FBF8B（ACU_DOT_R），穴名白字寫在點正上方
+  //    以前的 3D 投影彩色圓盤（drawConfidenceDisc：扁掉＝斜看、灰虛線＝降級）不再畫；
+  //    判定、閘門、信心值一行都沒動，只換畫法。
+  if (!gateBlocked) {
+    const k = screenScale(canvas);
+    drawPts.forEach((p, i) => {
+      if (showDisc && i === 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k), 0, Math.PI * 2);
+        ctx.strokeStyle = '#B8894B';
+        ctx.lineWidth = 2 * k;
+        ctx.stroke();
+        ctx.restore();
+      }
+      const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
+      // 穴名：設定 › 顯示 › 鏡頭中顯示穴位名稱（預設開，App 批 65）
+      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? label : '', '#4FBF8B', 4 * k, k);
     });
-    ctx.restore();
   }
-  // 標籤不能被鏡射成反字，所以這裡不用 transform，改成把 x 座標自己翻過去畫。
-  //
-  // ⭐ 2026-08-18【規格改寫】用戶原話：**「反正就要做到在某些角度上也可以看出
-  //    正確位置在哪裏」**。舊寫法在 `gateBlocked` 時**整個點都不畫**，直接違反這條 ——
-  //    使用者在斜角時看到的是「位置消失了」，而他要的正是那時候還看得見位置。
-  //
-  //    改成照 `網頁版3d` 的分工：
-  //      **圓盤中心的白點** → 位置（永遠都在，不管扁成什麼樣、有沒有降級）
-  //      **圓盤的形狀與顏色** → 可不可信（扁掉＝正在切著看、灰虛線＝這一幀別當真）
-  //    位置與可信度分開表達，斜角時就不會因為可信度低而連位置一起丟掉。
-  const dotColor = best.gate ? best.gate.color : '#00e5a0';
-  const showingDisc = showDisc && best.info;
-  drawPts.forEach((p, i) => {
-    const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
-    // 穴名：設定 › 顯示 › 鏡頭中顯示穴位名稱（預設開，App 批 65）
-    if (showingDisc) {
-      // 圓盤已經把白點畫在正確位置上了，這裡只補標籤 ——
-      // 而且要畫在**圓盤外面**，不然會壓在色塊上看不清（3d 版 drawLabel 的做法）。
-      if (showAcuNames) drawAcuLabel(ctx, mx(p.x), p.y, label, discR);
-    } else {
-      // 圓盤關掉時退回舊的點畫法，否則什麼都看不到。
-      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? label : '', dotColor, r);
-    }
-  });
 
   if (renderMode === 'locate') {
     // 2026-09-25（網頁v2 批 C，App CameraScreen GateHint）：定位頁也要兩隻手，

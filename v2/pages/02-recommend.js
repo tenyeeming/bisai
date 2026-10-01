@@ -273,6 +273,7 @@ function startFromSymptom(name) {
   state.selectedSymptoms = [idx];
   state.selectedAcupoints = [];
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.currentAcupointIndex = 0;
   if (typeof sessionLog !== 'undefined') sessionLog = [];   // 換一次療程，上一次的紀錄不要跟過來
   applySymptomRecommendation();
@@ -322,10 +323,12 @@ function symptomCoverage() {
     if (!s) return null;                                  // 索引失效就跳過，別整頁炸掉
     const hand = s.acupoints.filter(n => IMPLEMENTED.has(n));
     const face = (FACE_SYMPTOM_MAP[s.name] || []).filter(c => FACE_IMPLEMENTED.has(c));
+    const fore = FOREARM_SYMPTOM_MAP[s.name] || [];          // 2026-10-01 前臂可選（App 批 94）
     const count =
       hand.filter(n => state.selectedAcupoints.includes(n)).length +
-      face.filter(c => state.selectedFace.includes(c)).length;
-    return { idx, name: s.name, count, locatable: hand.length + face.length > 0 };
+      face.filter(c => state.selectedFace.includes(c)).length +
+      fore.filter(n => (state.selectedForearm || []).includes(n)).length;
+    return { idx, name: s.name, count, locatable: hand.length + face.length + fore.length > 0 };
   }).filter(Boolean);
 }
 
@@ -411,6 +414,7 @@ function initRecommendList() {
   currentRegion = defaultRegion();
   state.selectedAcupoints = [];
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.acuSecs = {};        // 逐穴秒數跟著新療程重來
   openTimeFor = null;
   filterSymptom = null;      // 症狀篩選不要跨療程留著
@@ -447,8 +451,9 @@ function renderRegionSeg() {
       // 0 會被讀成「這症狀根本沒有臉部穴道」，那是兩件不同的事
       badge = count > 0 ? String(count) : (codes.length ? (isZh() ? '準備中' : 'SOON') : '0');
     } else if (r.key === 'elbow') {
-      // 前臂資料已可閱讀，但定位尚未開放；跟 App 一樣以省略號表示不可選入療程。
-      badge = '…';
+      // 2026-10-01（App 批 94）：前臂可選 → 徽章改數量
+      const fs = filterSymptom !== null && SYMPTOM_MAP[filterSymptom];
+      badge = String(forearmRecommend(fs ? [fs.name] : symptomNames).length);
     } else {
       const only = filterHandNames();          // 同上：篩選中徽章要跟著縮
       count = state.recommendedAcupoints
@@ -553,10 +558,6 @@ function renderForearmList(list) {
   const only = filterForearmNames();
   if (only) names = names.filter(n => only.includes(n));
 
-  list.appendChild(notice('notice', isZh()
-    ? '前臂穴道目前可查看資料，但尚未開放相機定位。'
-    : 'Forearm point information is available, but camera locating is not yet supported.'));
-
   if (!names.length) {
     list.appendChild(notice('small', isZh()
       ? '你選的症狀在前臂沒有對應穴道。'
@@ -564,13 +565,14 @@ function renderForearmList(list) {
     return;
   }
 
+  // 2026-10-01（App 批 94）：前臂跟臉部一樣可勾、進療程（相機那步黑畫面）
   names.forEach(name => {
-    const acu = forearmAcu(name);
+    const checked = (state.selectedForearm || []).includes(name);
     const item = document.createElement('div');
-    item.className = 'acu-item';
+    item.className = 'acu-item' + (checked ? ' checked' : '');
     item.tabIndex = 0;
-    item.setAttribute('role', 'button');
-    item.setAttribute('aria-label', `${itemLabel(name)} — ${t('a11y-info')}`);
+    item.setAttribute('role', 'checkbox');
+    item.setAttribute('aria-checked', String(checked));
 
     const dot = document.createElement('span');
     dot.className = 'dot';
@@ -578,15 +580,20 @@ function renderForearmList(list) {
     const nm = document.createElement('span');
     nm.className = 'nm';
     nm.textContent = itemLabel(name);
-    const soon = document.createElement('span');
-    soon.className = 'secs';
-    soon.textContent = isZh() ? '準備中' : 'SOON';
-    item.append(dot, nm, soon, infoButton(() => openForearmInfo(name)));
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.textContent = '✓';
+    item.append(dot, nm, tick, infoButton(() => openForearmInfo(name)));
 
-    const open = () => openForearmInfo(name);
-    item.onclick = open;
+    const toggle = () => {
+      const cur = state.selectedForearm || [];
+      state.selectedForearm = cur.includes(name) ? cur.filter(x => x !== name) : [...cur, name];
+      renderRegionSeg();
+      renderAcuList();
+    };
+    item.onclick = toggle;
     item.onkeydown = e => {
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); open(); }
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
     };
     list.appendChild(item);
   });
@@ -835,12 +842,6 @@ function openForearmInfo(name) {
   body.appendChild(infoField(isZh() ? '用途' : 'Uses', acu.note));
   body.appendChild(infoField(isZh() ? '按法' : 'How to press', FOREARM_PRESS));
 
-  const noticeBox = document.createElement('p');
-  noticeBox.className = 'notice';
-  noticeBox.textContent = isZh()
-    ? '這個穴道目前可查看資料，但尚未開放相機定位。'
-    : 'Information is available, but camera locating is not yet supported.';
-  body.appendChild(noticeBox);
   body.appendChild(infoExtras(acuVideoPending(),
     Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name))));
   openInfoSheet();
@@ -930,7 +931,8 @@ function tryStartTreatment() {
   const missing = missingSymptoms();
   // 一穴都沒勾 → 交給 goToAcuDetail() 原本那個「請選擇至少一個穴道」，
   // 不要在這裡再疊一層提醒，同一件事講兩次
-  const nothingPicked = !state.selectedAcupoints.length && !state.selectedFace.length;
+  const nothingPicked = !state.selectedAcupoints.length && !state.selectedFace.length &&
+    !(state.selectedForearm || []).length;
   if (!missing.length || nothingPicked) { goToAcuDetail(); return; }
 
   const box = document.getElementById('start-warn');
@@ -957,6 +959,7 @@ function tryStartTreatment() {
     const first = (s.acupoints || []).find(n => IMPLEMENTED.has(n));
     if (first) currentRegion = acuRegion(first);
     else if ((FACE_SYMPTOM_MAP[s.name] || []).some(c => FACE_IMPLEMENTED.has(c))) currentRegion = 'face';
+    else if ((FOREARM_SYMPTOM_MAP[s.name] || []).length) currentRegion = 'elbow';
     openTimeFor = null;
     renderRegionSeg();
     renderAcuList();          // 這一步會 clearStartWarn()
