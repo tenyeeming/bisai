@@ -44,6 +44,7 @@ function sessionGearHtml(prefix, opts) {
         </div>
       </div>
       <hr>
+      <button type="button" role="menuitem" onclick="refreshSessionCamera('${prefix}')" data-i18n="menu-refresh-cam">重新整理鏡頭</button>
       ${flip}
       <button type="button" role="menuitem" data-disc-label onclick="${opts.discFn}()">隱藏信心圓盤</button>
       <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
@@ -54,6 +55,35 @@ function sessionGearHtml(prefix, opts) {
         <small data-i18n="menu-end-early-desc">這一穴不算完成</small>
       </button>
     </div>`;
+}
+
+/**
+ * 重新整理鏡頭（2026-10-01 用戶）：「直接刷新的話會跑到界面，所以…做一個刷新按鈕」
+ * 「但只有鏡頭會刷新剩下的不要」。
+ * → 只把相機關掉再開（同一個畫布、同一個模式、同一顆鏡頭）；計時、輪次、穴道、前臂校準都不碰。
+ *   哪一套相機看目前這一穴的偵測器，不看「誰在跑」—— 鏡頭卡住時那些旗標本來就不可靠。
+ */
+async function refreshSessionCamera(prefix) {
+  closeGearMenu(prefix);
+  const det = itemDetector(curAcuName());
+  const canvas = prefix === 'massage' ? 'massage-canvas' : 'video-canvas';
+  const gate = prefix === 'massage' ? 'massage-gate' : 'camera-gate';
+  if (det === 'none') return;                      // 手肘 blackout：本來就沒開相機
+  if (det === 'forearm') {
+    const cb = typeof faCalibratedCb !== 'undefined' ? faCalibratedCb : null;
+    stopForearmCamera();
+    await forearmCamIdle();
+    return startForearmCamera(canvas, gate, cb);
+  }
+  if (det === 'face') {
+    const mode = prefix === 'massage' ? 'massage' : 'locate';
+    stopFaceCamera();
+    await faceCamIdle();
+    return startFaceCamera(canvas, gate, mode);
+  }
+  stopCamera();
+  await camIdle();
+  return startCamera(canvas, prefix === 'massage' ? 'massage' : 'locate');
 }
 
 // ── 開關 ──────────────────────────────────────────────────────────

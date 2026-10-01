@@ -571,7 +571,7 @@ function faProcessFrame() {
       ctx.strokeStyle = '#00E5A0'; ctx.lineWidth = 2 * sc; ctx.stroke();
       ctx.restore();
     }
-    drawAcupoint(ctx, px, py, showAcuNames ? itemLabel('內關穴') : '', '#4FBF8B', 5 * sc, sc);
+    drawAcupoint(ctx, px, py, showAcuNames ? itemLabel('內關穴') : '', '#4FBF8B', appDotR(faCanvas), sc);
     if (tip) drawPresserTip(ctx, mx, tip, point, on, discR);
   }
 
@@ -598,4 +598,16 @@ function faT(key) {
 }
 
 window.addEventListener('pagehide', stopForearmCamera);
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopForearmCamera(); });
+// 2026-10-01 用戶：「網頁每次切個桌面我的鏡頭畫面就卡了」—— 以前切走只關不開，
+//   回來畫面停在最後一幀。→ 切走時記下正在用的畫布，切回來（畫布還在畫面上）就重開。
+let faResume = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    faResume = (faCamWanted || faCamRunning) && faCanvas ? { id: faCanvas.id, gate: faGateId, cb: faCalibratedCb } : null;
+    stopForearmCamera();
+  } else if (faResume) {
+    const r = faResume; faResume = null;
+    const el = document.getElementById(r.id);
+    if (el && el.offsetParent !== null) startForearmCamera(r.id, r.gate, r.cb);
+  }
+});

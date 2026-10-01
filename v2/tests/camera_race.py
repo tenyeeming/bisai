@@ -72,6 +72,36 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1000); s = pg.evaluate(st)
     check('權限' in s['gate'] or 'permission' in s['gate'].lower(), f"④ 權限被拒提示（{s['gate']}）")
 
+    # ⑥ 2026-10-01「切個桌面鏡頭就卡了」：切走關相機、切回來要自己重開（手部／臉部）
+    HIDE = ("(h) => { Object.defineProperty(document, 'hidden', { value: h, configurable: true });"
+            " document.dispatchEvent(new Event('visibilitychange')); }")
+    for name, start, run in (('手部', "startCamera('video-canvas','locate')", 'camRunning'),
+                             ('臉部', "startFaceCamera('face-canvas')", 'faceCamRunning')):
+        pg = fresh()
+        cid = 'video-canvas' if name == '手部' else 'face-canvas'
+        # 畫布所在頁沒切過去時 offsetParent 是 null，測試裡直接讓它顯示
+        pg.evaluate(f"(() => {{ let e = document.getElementById('{cid}'); while (e) {{ e.style.display = 'block'; e.hidden = false; e = e.parentElement; }} }})()")
+        pg.evaluate(start); pg.wait_for_timeout(1000)
+        pg.evaluate(f"({HIDE})(true)"); pg.wait_for_timeout(300)
+        off = pg.evaluate(f"({{live: window.__live, run: {run}}})")
+        pg.evaluate(f"({HIDE})(false)"); pg.wait_for_timeout(1200)
+        on = pg.evaluate(f"({{live: window.__live, run: {run}}})")
+        check(off['live'] == 0 and not off['run'] and on['live'] == 1 and on['run'],
+              f"⑥ {name}切走再切回 → 切走關、回來重開（切走 {off}／回來 {on}）")
+
+    # ⑦ 2026-10-01 齒輪「重新整理鏡頭」：卡住（相機已停）時按 → 重開；在跑時按 → 仍只有 1 條
+    pg = fresh()
+    pg.evaluate("state.selectedAcupoints = ['合谷穴']; state.currentAcupointIndex = 0;"
+                " startCamera('video-canvas','locate')")
+    pg.wait_for_timeout(1000)
+    pg.evaluate("refreshSessionCamera('locate')"); pg.wait_for_timeout(1500)
+    a = pg.evaluate("({live: window.__live, run: camRunning})")
+    pg.evaluate("stopCamera()"); pg.wait_for_timeout(300)
+    pg.evaluate("refreshSessionCamera('locate')"); pg.wait_for_timeout(1500)
+    b2 = pg.evaluate("({live: window.__live, run: camRunning, canvas: activeCanvas && activeCanvas.id})")
+    check(a['live'] == 1 and a['run'] and b2['live'] == 1 and b2['run'] and b2['canvas'] == 'video-canvas',
+          f"⑦ 重新整理鏡頭 → 在跑時 1 條、停住時重開（{a}／{b2}）")
+
     # ⑤ 小海實驗頁：啟動中連切前後鏡頭 → 最後只剩 1 條、而且是最後選的那顆
     ctx = b.new_context(); pg = ctx.new_page()
     pg.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))  # 09-25 小海頁改走 vendor

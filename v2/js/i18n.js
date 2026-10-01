@@ -56,6 +56,7 @@ const i18n = {
     'camera-hint': '請舉起手，手背朝上',
     // 即時數據面板（2026-09-20，桌面版型）
     'btn-flip': '切換鏡頭',
+    'menu-refresh-cam': '重新整理鏡頭',
     'btn-disc-hide': '隱藏信心圓盤',
     'btn-disc-show': '顯示信心圓盤',
     'btn-massage': '現在開始按摩',
@@ -286,6 +287,7 @@ const i18n = {
     // Live readout panel (2026-09-20, desktop layout)
     'btn-flip': 'Switch Camera',
     'btn-disc-hide': 'Hide Confidence Disc',
+    'menu-refresh-cam': 'Restart Camera',
     'btn-disc-show': 'Show Confidence Disc',
     'btn-massage': 'Start Massage',
 

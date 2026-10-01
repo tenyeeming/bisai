@@ -354,4 +354,16 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
 }
 
 window.addEventListener('pagehide', stopFaceCamera);
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopFaceCamera(); });
+// 2026-10-01 用戶：「網頁每次切個桌面我的鏡頭畫面就卡了」—— 以前切走只關不開，
+//   回來畫面停在最後一幀。→ 切走時記下正在用的畫布，切回來（畫布還在畫面上）就重開。
+let faceResume = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    faceResume = (faceCamWanted || faceCamRunning) ? { id: faceCanvasId, gate: faceGateId, mode: faceMode } : null;
+    stopFaceCamera();
+  } else if (faceResume) {
+    const r = faceResume; faceResume = null;
+    const el = document.getElementById(r.id);
+    if (el && el.offsetParent !== null) startFaceCamera(r.id, r.gate, r.mode);
+  }
+});

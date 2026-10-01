@@ -568,7 +568,7 @@ function onHandsResults(results) {
       }
       const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
       // 穴名：設定 › 顯示 › 鏡頭中顯示穴位名稱（預設開，App 批 65）
-      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? label : '', '#4FBF8B', 4 * k, k);
+      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? label : '', '#4FBF8B', appDotR(canvas), k);
     });
   }
 
@@ -698,4 +698,16 @@ function drawPresserTip(ctx, mx, tip, pt, on, discR) {
 
 // 離開分頁或切到背景就關相機，不要偷偷佔著鏡頭
 window.addEventListener('pagehide', stopCamera);
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
+// 2026-10-01 用戶：「網頁每次切個桌面我的鏡頭畫面就卡了」—— 以前切走只關不開，
+//   回來畫面停在最後一幀。→ 切走時記下正在用的畫布，切回來（畫布還在畫面上）就重開。
+let camResume = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    camResume = (camWanted || camRunning) && activeCanvas ? { id: activeCanvas.id, mode: renderMode } : null;
+    stopCamera();
+  } else if (camResume) {
+    const r = camResume; camResume = null;
+    const el = document.getElementById(r.id);
+    if (el && el.offsetParent !== null) startCamera(r.id, r.mode);
+  }
+});
