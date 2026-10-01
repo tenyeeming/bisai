@@ -859,6 +859,25 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(pickBoxes()[nk].checked, '重畫後勾選狀態還在');
   pickBoxes().forEach(b => { if (!b.checked) b.click(); });
   ok(w.eval('presetCount(presetDraft)') > n0 + 1, '全部勾起來');
+  // ⓘ 詳情：同選穴頁的面板，點了不會勾選
+  {
+    const before = w.eval('presetCount(presetDraft)');
+    const ib = $('preset-sym-pick').querySelectorAll('.info');
+    ok(ib.length === pickBoxes().length, '依病症列出的每一穴都有 ⓘ');
+    const row = [...$('preset-sym-pick').querySelectorAll('label')].find(l => /內關穴/.test(l.textContent));
+    row.querySelector('.info').click();
+    ok(!$('info-sheet').hidden && $('info-sheet-name').textContent === '內關穴'
+       && $('info-sheet').closest('.page').id === 'page-settings-presets', 'ⓘ 打開詳情面板（搬到我的流程頁）');
+    ok(w.eval('presetCount(presetDraft)') === before, '點 ⓘ 不會勾選／取消');
+    w.closeInfoSheet();
+    ok($('info-sheet').hidden && $('info-sheet').closest('.page').id === 'page-recommend', '關掉後面板搬回選穴頁');
+    ok(d.querySelectorAll('#preset-acu-dorsal .info, #preset-acu-palm .info').length === pAcuBoxes().length
+       && d.querySelectorAll('#preset-face-list .info').length === d.querySelectorAll('#preset-face-list input').length,
+       '分組清單每一列也有 ⓘ');
+    d.querySelector('#preset-face-list .info').click();
+    ok(!$('info-sheet').hidden && $('info-sheet-body').textContent.length > 0, '臉部的 ⓘ 也打得開');
+    w.closeInfoSheet();
+  }
   w.selectPresetSymptom(gut);
   ok($('preset-sym-pick').hidden, '再點同一症狀收起清單');
   const kinds = [...d.querySelectorAll('#preset-chosen .chip button')].map(b => b.getAttribute('onclick').match(/'(\w+)'/)[1]);

@@ -104,6 +104,15 @@ registerPage('settings-presets', {
       #preset-sym-pick .k { font-size: 0.78125rem; font-weight: 700; color: var(--ink); margin: 2px 0 6px; }
       #preset-sym-pick .tag { font-size: 0.6875rem; color: var(--ink-soft); }
       #preset-sym-pick .none { font-size: 0.78125rem; color: var(--ink-soft); }
+      /* ⓘ 詳情：跟選穴頁同一個圓圈、同一個面板（02-recommend.js openAcuInfo／openForearmInfo／openFaceInfo） */
+      #preset-edit .info {
+        flex: none; width: 22px; height: 22px; padding: 0;
+        border: 1px solid var(--line); border-radius: 50%;
+        background: none; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.75rem; line-height: 1;
+        cursor: pointer; display: grid; place-items: center;
+      }
+      #preset-edit .info:hover { border-color: var(--brass); color: var(--brass); }
 
       /* ── 依部位分組（手背／手心／手肘／臉部），可收合 ── */
       .pgroup { margin-bottom: 8px; }
@@ -358,6 +367,13 @@ function presetSymptomItems(i) {
   return [...hand, ...fore, ...face];
 }
 
+// ⓘ：放在 <label> 裡，點它不能勾選 —— preventDefault 擋掉 label 的轉送
+function presetInfoBtn(kind, id) {
+  const fn = kind === 'hand' ? 'openAcuInfo' : kind === 'forearm' ? 'openForearmInfo' : 'openFaceInfo';
+  return `<button type="button" class="info" aria-label="${t('a11y-info')}"
+    onclick="event.preventDefault(); event.stopPropagation(); ${fn}('${id}')">ⓘ</button>`;
+}
+
 const presetHas = (kind, id) => kind === 'hand' ? presetDraft.acupoints.includes(id)
   : kind === 'forearm' ? presetDraft.forearm.includes(id) : presetDraft.face.includes(id);
 
@@ -403,7 +419,7 @@ function renderPresetEditor() {
         <label>
           <input type="checkbox" ${presetHas(it.kind, it.id) ? 'checked' : ''}
                  onchange="removePresetItem('${it.kind}', '${it.id}')">
-          <span class="grow">${it.label}</span><span class="tag">${it.tag}</span>
+          <span class="grow">${it.label}</span><span class="tag">${it.tag}</span>${presetInfoBtn(it.kind, it.id)}
         </label>`).join('')}</div>`
       : `<p class="none">${isZh() ? '這個症狀沒有可以定位的穴道。' : 'No locatable points for this symptom.'}</p>`);
   } else pick.innerHTML = '';
@@ -419,7 +435,7 @@ function renderPresetEditor() {
         <label>
           <input type="checkbox" ${on ? 'checked' : ''} onchange="togglePresetAcu('${a.name}')">
           <span class="grow">${acuLabel(a.name)}</span>
-          <span class="psec">${custom ? presetDraft.perAcuSec[a.name] + 's' : ''}</span>
+          <span class="psec">${custom ? presetDraft.perAcuSec[a.name] + 's' : ''}</span>${presetInfoBtn('hand', a.name)}
         </label>
         ${editing ? `<button type="button" class="pexp" ${on ? '' : 'disabled'} aria-expanded="${open}"
                 title="${on ? t('preset-time-per-hand') : t('preset-time-need-pick')}"
@@ -434,7 +450,7 @@ function renderPresetEditor() {
       <label>
         <input type="checkbox" ${presetDraft.forearm.includes(a.name) ? 'checked' : ''}
                onchange="togglePresetForearm('${a.name}')">
-        <span class="grow">${itemLabel(a.name)}</span>
+        <span class="grow">${itemLabel(a.name)}</span>${presetInfoBtn('forearm', a.name)}
       </label>`).join('');
   document.getElementById('preset-face-list').innerHTML = FACE_ACUPOINTS
     .filter(a => FACE_IMPLEMENTED.has(a.code))
@@ -442,7 +458,7 @@ function renderPresetEditor() {
       <label>
         <input type="checkbox" ${presetDraft.face.includes(a.code) ? 'checked' : ''}
                onchange="togglePresetFace('${a.code}')">
-        <span class="grow">${faceLabel(a.code)}</span>
+        <span class="grow">${faceLabel(a.code)}</span>${presetInfoBtn('face', a.code)}
       </label>`).join('');
   const counts = {
     dorsal: presetDraft.acupoints.filter(n => acuSide(n) === 'dorsal').length,

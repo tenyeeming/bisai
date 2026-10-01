@@ -158,21 +158,21 @@ body .device {
 #page-recommend .start-warn .row { flex-wrap: wrap; }
 #page-recommend .start-warn .row button { flex: 1 1 120px; min-height: 44px; }
 /* ⓘ 詳情：所有尺寸都是底部面板，最寬 600 置中；圓角＝App shapes.large */
-#page-recommend .sheet-mask { align-items: flex-end; padding: 0; }
-#page-recommend .sheet {
+#info-sheet.sheet-mask { align-items: flex-end; padding: 0; }
+#info-sheet .sheet {
   max-width: 600px; max-height: 85svh; overscroll-behavior: contain;
   border-left: 0; border-right: 0; border-bottom: 0;
   border-radius: var(--r-sheet) var(--r-sheet) 0 0;
   padding: 18px var(--gutter, 18px) calc(20px + env(safe-area-inset-bottom));
 }
 @media (prefers-reduced-motion: no-preference) {
-  #page-recommend .sheet { animation: sheet-rise .2s ease-out; }
+  #info-sheet .sheet { animation: sheet-rise .2s ease-out; }
   @keyframes sheet-rise { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
 }
-#page-recommend .sheet-head { flex-wrap: wrap; }
-#page-recommend .sheet-head .x { min-height: 44px; }
-#page-recommend .sheet .field .k { font-weight: 700; font-size: .8125rem; }
-#page-recommend .sheet .field .v { font-size: .9375rem; }
+#info-sheet .sheet-head { flex-wrap: wrap; }
+#info-sheet .sheet-head .x { min-height: 44px; }
+#info-sheet .sheet .field .k { font-weight: 700; font-size: .8125rem; }
+#info-sheet .sheet .field .v { font-size: .9375rem; }
 
 /* ── 認穴 ── */
 #page-acu-detail .ref-row > p { flex: 1; min-width: 0; font-size: 1rem; }
@@ -248,7 +248,7 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
 @media (orientation: landscape) and (max-height: 600px) {
   #page-home > .stack { min-height: 0; }
   .device .tabbar { position: static; }
-  #page-recommend .sheet { max-height: 90svh; }
+  #info-sheet .sheet { max-height: 90svh; }
 }
 @media (orientation: landscape) and (max-height: 600px) and (min-width: 640px) {
   #page-camera > .stack, #page-massage > .stack { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr); align-items: start; gap: 12px 20px; }

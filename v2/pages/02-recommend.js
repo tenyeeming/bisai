@@ -887,7 +887,12 @@ let infoReturnFocus = null;
 
 function openInfoSheet() {
   infoReturnFocus = document.activeElement;
-  document.getElementById('info-sheet').hidden = false;
+  // 2026-10-01：設定 › 我的流程 也用這個面板（用戶：「也要可以看詳情，界面和選穴那裏一樣」）。
+  //   面板 DOM 在選穴頁裡，別頁打開時要先搬到目前那一頁，不然會跟著藏起來的選穴頁一起看不見。
+  const box = document.getElementById('info-sheet');
+  const host = document.getElementById('page-' + currentPage);
+  if (host && box.parentNode !== host) host.appendChild(box);
+  box.hidden = false;
   document.addEventListener('keydown', onInfoSheetKey);
   document.querySelector('#info-sheet .x').focus();
 }
@@ -898,6 +903,9 @@ function closeInfoSheet(e) {
   if (e && e.target && e.target.id !== 'info-sheet') return;
   const box = document.getElementById('info-sheet');
   if (box) box.hidden = true;
+  // 搬回選穴頁（見 openInfoSheet）：別頁的全域查詢不會意外撞到它
+  const home = document.getElementById('page-recommend');
+  if (box && home && box.parentNode !== home) home.appendChild(box);
   document.removeEventListener('keydown', onInfoSheetKey);
   if (infoReturnFocus && infoReturnFocus.isConnected) infoReturnFocus.focus({ preventScroll: true });
   infoReturnFocus = null;
