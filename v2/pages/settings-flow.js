@@ -22,6 +22,11 @@ registerPage('settings-flow', {
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px;
       }
       .fieldrow .d { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.6; margin-top: 6px; }
+      /* 開關開著才出現的秒數滑桿（設定頁與我的流程共用） */
+      .auto-sec { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+      .auto-sec .ak { font-size: 0.75rem; color: var(--ink-soft); flex: none; }
+      .auto-sec input[type="range"] { flex: 1; min-width: 0; accent-color: var(--brass); }
+      .auto-sec b { font-family: var(--font-mono); font-size: 0.8125rem; min-width: 3ch; text-align: right; }
     </style>
 
     <div class="stack">
@@ -66,17 +71,16 @@ registerPage('settings-flow', {
 });
 
 function renderFlowSettings() {
-  seg('seg-ready', [0, 3, 5, 10],
-      v => (v === 0 ? (isZh() ? '不倒數' : 'Off') : `${v}s`),
-      () => flow.readySec, v => setFlow('readySec', v));
+  // App 批 93：開關＋開著才出現 1～15 秒滑桿
+  autoSecRow('seg-ready', () => flow.readyAuto, v => setFlow('readyAuto', v),
+             () => flow.readySec, v => setFlow('readySec', v), renderFlowSettings);
 
   seg('seg-hand', ['right', 'left'],
       v => t(v === 'right' ? 'hand-right' : 'hand-left'),
       () => flow.handOrder, v => setFlow('handOrder', v));
 
-  seg('seg-switch', [0, 3, 5, 10],
-      v => (v === 0 ? (isZh() ? '不等' : 'None') : `${v}s`),
-      () => flow.switchSec, v => setFlow('switchSec', v));
+  autoSecRow('seg-switch', () => flow.switchAuto, v => setFlow('switchAuto', v),
+             () => flow.switchSec, v => setFlow('switchSec', v), renderFlowSettings);
 
   // 下面兩項在按摩頁也調得到（齒輪、滑桿）。它們讀寫的是同一個 flow，
   // 所以兩邊不會各記一份、也不需要同步 —— 只是多一個「開始前就找得到」的入口。
@@ -106,9 +110,36 @@ function seg(id, values, label, get, set) {
   });
 }
 
+// 開關＋秒數滑桿（App 批 93 SwitchRow＋SliderRow）。boxId 那格放開／關分段；
+// 開著才在它後面插一列滑桿（.auto-sec），關掉整列消失。
+// 拖滑桿只更新數字、不整頁重畫（重畫會把正在拖的滑桿換掉）。
+function autoSecRow(boxId, getOn, setOn, getSec, setSec, rerender) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  seg(boxId, [true, false], v => t(v ? 'toggle-on' : 'toggle-off'), getOn,
+      v => { setOn(v); rerender(); });
+  const old = box.parentNode.querySelector(`.auto-sec[data-for="${boxId}"]`);
+  if (old) old.remove();
+  if (!getOn()) return;
+  const row = document.createElement('div');
+  row.className = 'auto-sec';
+  row.dataset.for = boxId;
+  const k = document.createElement('span');
+  k.className = 'ak';
+  k.textContent = t('settings-sec');
+  const r = document.createElement('input');
+  r.type = 'range'; r.min = 1; r.max = 15; r.step = 1; r.value = getSec();
+  r.setAttribute('aria-label', t('settings-sec'));
+  const v = document.createElement('b');
+  v.textContent = `${getSec()}s`;
+  r.oninput = () => { setSec(parseInt(r.value, 10)); v.textContent = `${r.value}s`; };
+  row.append(k, r, v);
+  box.after(row);
+}
+
 // 設定目錄右邊那行灰字：不點進來也看得到現在設成什麼
 function flowSummary() {
-  const ready = flow.readySec === 0 ? (isZh() ? '不倒數' : 'No countdown') : `${flow.readySec}s`;
+  const ready = !flow.readyAuto ? (isZh() ? '不倒數' : 'No countdown') : `${flow.readySec}s`;
   // 單手秒數也擺進來 —— 這是最常被問「一次要按多久」的那個數字
   return `${ready} · ${t(flow.handOrder === 'right' ? 'hand-right' : 'hand-left')} · ${flow.pressSec}s`;
 }

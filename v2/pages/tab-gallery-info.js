@@ -177,17 +177,12 @@ function renderAcuInfo() {
 
   // ── 教學影片（2026-09-05）──
   // 跟認穴頁共用同一顆按鈕與同一個全螢幕播放器（js/acu-video.js）。
-  // 只有白名單上有片的穴道才出現這一區，沒有就整塊不畫 —— 不要留一個空標題。
+  // 2026-10-01（App 批 80）：沒片也畫灰的「準備中」，整塊不畫會被讀成這穴壞了。
+  // 不放 <h3> 標題：按鈕上就寫著「教學影片」，再加一行標題是同一句話講兩次
   const vidSec = document.getElementById('info-video');
   vidSec.innerHTML = '';
-  const vidBtn = acuVideoButton(name);
-  if (vidBtn) {
-    // 不放 <h3> 標題：按鈕上就寫著「教學影片」，再加一行標題是同一句話講兩次
-    vidSec.append(vidBtn);
-    vidSec.hidden = false;
-  } else {
-    vidSec.hidden = true;
-  }
+  vidSec.append(acuVideoOrPending(name));
+  vidSec.hidden = false;
 
   // ── 主治：從症狀表反查 ──
   const sym = SYMPTOM_MAP.filter(s => s.acupoints.includes(name));
@@ -301,10 +296,11 @@ function renderFaceAcuInfo(code) {
     refSec.appendChild(box);
   });
 
-  // 臉部目前一支教學片都沒有 —— 整塊不畫，不要留一個空標題
+  // 臉部目前一支教學片都沒有 → 灰的「準備中」（App 批 80）
   const vidSec = document.getElementById('info-video');
   vidSec.innerHTML = '';
-  vidSec.hidden = true;
+  vidSec.append(acuVideoPending());
+  vidSec.hidden = false;
 
   // ── 主治：查臉部那張表 ──
   const names = Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code));
@@ -352,7 +348,7 @@ function renderForearmAcuInfo(name) {
   const uses = document.getElementById('info-uses');
   uses.innerHTML = `<div class="info-use"><strong>${isZh() ? '說明' : 'About'}</strong><p>${acu.note}</p><p>${isZh() ? '按法：' : 'Method: '}${FOREARM_PRESS}</p></div>`;
   const ref = document.getElementById('info-ref'); ref.innerHTML = `<h3>${t('ref-title')}</h3>`; ref.appendChild(forearmRefBlock(name));
-  const vid = document.getElementById('info-video'); vid.innerHTML=''; vid.hidden=true;
+  const vid = document.getElementById('info-video'); vid.innerHTML=''; vid.append(acuVideoPending()); vid.hidden=false;  // App 批 80
   const sym = Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name));
   const box = document.getElementById('info-symptoms'); box.innerHTML='';
   sym.forEach(n => { const b=document.createElement('button'); b.type='button'; b.className='tag'; b.innerHTML='<span class="hash">#</span>'; b.appendChild(document.createTextNode(symptomLabel(n))); b.onclick=()=>startFromSymptom(n); box.appendChild(b); });

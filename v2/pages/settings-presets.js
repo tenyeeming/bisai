@@ -271,13 +271,20 @@ function renderPresetEditor() {
   // seg() 是 settings-flow.js 的共用分段選擇器，這裡讀寫的是草稿而不是全域 flow
   const f = presetDraft.flow;
   const set = (k) => (v) => { f[k] = v; renderPresetEditor(); };
-  seg('pseg-ready',   [0, 3, 5, 10], v => (v === 0 ? (isZh() ? '不倒數' : 'Off') : `${v}s`), () => f.readySec, set('readySec'));
+  // App 批 93：開關＋開著才出現 1～15 秒滑桿（autoSecRow 在 settings-flow.js）
+  autoSecRow('pseg-ready', () => f.readyAuto, set('readyAuto'), () => f.readySec, v => { f.readySec = v; updatePresetEst(); }, renderPresetEditor);
   seg('pseg-hand',    ['right', 'left'], v => t(v === 'right' ? 'hand-right' : 'hand-left'), () => f.handOrder, set('handOrder'));
-  seg('pseg-switch',  [0, 3, 5, 10], v => (v === 0 ? (isZh() ? '不等' : 'None') : `${v}s`), () => f.switchSec, set('switchSec'));
+  autoSecRow('pseg-switch', () => f.switchAuto, set('switchAuto'), () => f.switchSec, v => { f.switchSec = v; updatePresetEst(); }, renderPresetEditor);
   seg('pseg-advance', [true, false], v => t(v ? 'advance-auto' : 'advance-manual'), () => f.autoAdvance, set('autoAdvance'));
   seg('pseg-press',   [15, 30, 45, 60], v => `${v}s`, () => f.pressSec, set('pressSec'));
 
-  // 預估時長就擺在存檔鈕上面：勾到第七個穴才發現要八分鐘，太晚了
+  updatePresetEst();
+}
+
+// 預估時長就擺在存檔鈕上面：勾到第七個穴才發現要八分鐘，太晚了
+// 拖秒數滑桿時只更新這一行，不整個編輯器重畫
+function updatePresetEst() {
+  if (!presetDraft) return;
   const n = presetDraft.acupoints.length + presetDraft.face.length;
   const sec = presetSeconds(presetDraft);
   document.getElementById('preset-est').textContent = n

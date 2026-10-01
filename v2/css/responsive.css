@@ -90,7 +90,7 @@ body .device {
 /* 帶內文字用深藍底上的字色。
    ⚠️ 必須帶 #page-home：上面 .device :is(...) 的特異性取括號內最高項 (0,4,0)。 */
 #page-home .hero-band .eyebrow { color: var(--hero-ink); }
-#page-home .hero-band h2 { color: var(--hero-ink); }
+#page-home .hero-band h2 { color: var(--hero-ink); font-weight: 700; }  /* App 批 85：首頁標題粗體 */
 #page-home .hero-band .lede { color: var(--hero-ink-soft); }
 
 /* ── 卡片微陰影（App AcuCardElevation） */
@@ -125,8 +125,8 @@ body .device {
 }
 /* 玻璃格：半透明白＋亮白邊框、不加陰影。
    背景 .55／未選 .44／已選 .66 是一組，與 App 的 HOME_BG_ALPHA／GLASS_IDLE／GLASS_ON 相同。 */
-#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; min-width: 0; overflow-wrap: anywhere; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r); background: rgba(255,255,255,.44); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
-#page-home .symptom-btn.selected { border-color: var(--brass); background: rgba(255,255,255,.66); font-weight: 600; box-shadow: inset 3px 0 var(--brass); }
+#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; font-weight: 700; min-width: 0; overflow-wrap: anywhere; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r); background: rgba(255,255,255,.44); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
+#page-home .symptom-btn.selected { border-color: var(--brass); background: rgba(255,255,255,.66); box-shadow: inset 3px 0 var(--brass); }
 #page-home .symptom-btn[aria-disabled="true"] { opacity: .45; }
 #page-home .home-foot { position: relative; display: flex; flex-direction: column; margin: 0; padding: 12px 0 0; gap: 12px; overflow: hidden; }
 /* 選滿後再點的警示條（App LimitToast）：浮在藍帶頂端、不佔位 */

@@ -117,6 +117,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('info-sheet-name').textContent.length > 0,
      '詳情有穴名：' + $('info-sheet-name').textContent);
   ok(/寸|指|骨|間|處|凹陷/.test($('info-sheet-body').textContent), '詳情有定位描述');
+  // App 批 91：ⓘ 底部有教學影片（沒片＝準備中）＋主治；主治只顯示、不可點
+  const extras = $('info-sheet-body').querySelector('.info-extras');
+  ok(extras && extras.querySelector('.vid-open'), 'ⓘ 有教學影片區（有片按鈕／沒片準備中）');
+  ok(extras && extras.querySelectorAll('.tag').length > 0 && !extras.querySelector('button.tag'),
+     'ⓘ 有主治標籤且不可點：' + (extras ? extras.textContent : ''));
   w.closeInfoSheet();
   ok($('info-sheet').hidden, '關閉後面板收起');
 
@@ -483,10 +488,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(w.eval('JSON.stringify(state.acuSecs)') === before, '（測試還原逐穴秒數）');
   }
   {
-    const keep = w.eval('flow.readySec');
-    w.eval('flow.readySec=0'); w.showPage('acu-detail'); await wait(50);
-    ok(active().join() === 'acu-detail' && $('ready-bar').hidden, '認穴停留設 0 秒 → 不顯示倒數、也不自動翻頁');
-    w.eval(`flow.readySec=${keep}`);
+    w.eval('flow.readyAuto=false'); w.showPage('acu-detail'); await wait(50);
+    ok(active().join() === 'acu-detail' && $('ready-bar').hidden, '認穴停留關掉 → 不顯示倒數、也不自動翻頁');
+    w.eval('flow.readyAuto=true');
   }
   w.skipReadyCountdown(); await tick();
   ok(active().join() === 'camera', 'skipReadyCountdown 直接進定位頁');
@@ -610,7 +614,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.eval("infoAcuName='少商穴'"); w.showPage('acu-info');
   ok($('btn-practice').disabled === true, '少商穴尚未支援定位 → 按鈕停用');
   ok($('info-ref').querySelector('.ref-none'), '少商穴沒有參考圖 → 顯示「尚無參考圖」而不是借別穴的圖');
-  ok($('info-video').hidden, '沒有影片的穴道 → 整塊不畫（不要留空標題）');
+  ok(!$('info-video').hidden && $('info-video').querySelector('.vid-open.pending') && !$('info-video').querySelector('button'), '沒有影片的穴道 → 灰的「準備中」、點不動（App 批 80）');
 
   // 從介紹頁直接練這一穴
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
@@ -639,7 +643,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(/臉部/.test($('info-meta').textContent) && !/WHO|經外奇穴/.test($('info-meta').textContent), '部位標臉部、不標 WHO／經外奇穴：' + $('info-meta').textContent);
   ok($('info-note').textContent === '', 'ST1 的 Excel 備注是空的 → 不放警示（誠實聲明不放圖冊，同 App）');
   ok(/按壓方式/.test($('info-ref').textContent) && /說明/.test($('info-ref').textContent), '參考圖後面接按壓方式、說明');
-  ok($('info-video').hidden, '臉部目前一支教學片都沒有 → 整塊不畫');
+  ok($('info-video').querySelector('.vid-open.pending'), '臉部目前一支教學片都沒有 → 灰的「準備中」（App 批 80）');
   const faceTags = [...$('info-symptoms').querySelectorAll('.tag')].map(e => e.textContent);
   ok(faceTags.length >= 2, `承泣的主治標籤 ${faceTags.length} 個：` + faceTags.join('、'));
   ok($('btn-practice').disabled === false, '承泣有定位公式 → 可以練');
@@ -1036,9 +1040,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   setLS('flowSettings', '{"pressSec":"abc","readySec":-5,"switchSec":9999,"handOrder":"上","autoAdvance":"yes"}');
   const cf = w.eval('JSON.stringify(cleanFlow())');
-  ok(/"pressSec":30/.test(cf) && /"readySec":0/.test(cf) && /"switchSec":60/.test(cf)
+  ok(/"pressSec":30/.test(cf) && /"readySec":5/.test(cf) && /"switchSec":15/.test(cf)
+     && /"readyAuto":true/.test(cf) && /"switchAuto":true/.test(cf)
      && /"handOrder":"right"/.test(cf) && /"autoAdvance":true/.test(cf),
-     '節奏設定：非數字回預設、超範圍夾住、手序與開關回預設 — ' + cf);
+     '節奏設定：非數字回預設、超範圍夾住（秒數 1～15）、手序與開關回預設 — ' + cf);
+  setLS('flowSettings', '{"readySec":0,"switchSec":0}');
+  const cf0 = w.eval('JSON.stringify(cleanFlow())');
+  ok(/"readyAuto":false/.test(cf0) && /"switchAuto":false/.test(cf0) && /"readySec":5/.test(cf0),
+     '舊存檔秒數 0 → 讀成開關關掉、秒數回預設（App 批 93）— ' + cf0);
 
   setLS('notifyPlan', '{"mode":"隨便","symptoms":"合谷穴","acupoints":[1,"合谷穴"]}');
   ok(w.eval('JSON.stringify(notifyPlan())') === '{"mode":"none","symptoms":[],"acupoints":["合谷穴"]}',

@@ -3,7 +3,8 @@
 // ⭐ 2026-09-17 用戶把上限從 5 改成 3（App 的 HomeScreen.kt 同步改了）。
 //    這個常數同時決定：選滿的門檻、那句提示裡的數字 —— 改這裡就好。
 // 2026-09-25（網頁v2 批 B，App A1）：拿掉「已選 N / 3」那行；選滿後再點 → 頂部浮出警示條 2 秒
-//    （App LimitToast：浮在「主訴」那行上面、不佔位，不會把整頁往下推）。
+//    （App LimitToast：浮在藍帶上面、不佔位，不會把整頁往下推）。
+// 2026-10-01（App 批 85）：拿掉眉標「主訴」；標題與症狀格字一律粗體（css/responsive.css）。
 const MAX_SYMPTOMS = 3;
 let homeLimitTimer = null;
 
@@ -21,7 +22,6 @@ registerPage('home', {
           <!-- 深藍帶的下半段（2026-09-19 同步 App）：上半段是 header 那條，
                這裡接到 lede 為止。出血的負 margin 在 css/responsive.css。 -->
           <div class="hero-band">
-            <p class="eyebrow" data-i18n="eyebrow-home">主訴</p>
             <div class="home-heading">
               <h2 data-i18n="home-title">選擇你的症狀</h2>
             </div>

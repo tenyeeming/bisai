@@ -77,6 +77,11 @@ registerPage('acu-detail', {
         padding: 5px 5px 5px 7px;
       }
       .vid-open:hover { background: var(--surface-3, var(--surface-2)); }
+      /* 沒片：灰、點不動（App 批 80 TutorialVideoPending） */
+      .device .vid-open.pending { cursor: default; color: var(--ink-soft); opacity: .7;
+        border-color: color-mix(in srgb, var(--ink-soft) 35%, transparent); }
+      .device .vid-open.pending .play { border-color: currentColor; opacity: .7; }
+      .device .vid-open.pending:hover { background: var(--surface-2); }
       /* 覆蓋層貼在 <body> 上（不在 .page 裡），所以要蓋過所有東西 */
       .vid-overlay {
         position: fixed; inset: 0; z-index: 900;
@@ -143,7 +148,7 @@ registerPage('acu-detail', {
 });
 
 // ── 認穴倒數 ──────────────────────────────────────────────────────
-// flow.readySec = 0：不倒數、**也不自動翻頁**，等使用者自己按「開始定位」（App 同，批 B 改）。
+// flow.readyAuto 關：不倒數、**也不自動翻頁**，等使用者自己按「開始定位」（App 批 93；以前是 readySec = 0）。
 //   App 的理由：開相機要權限，突然跳到相機頁很唐突。以前網頁 0 秒＝進頁直接翻走。
 let readyTickId = null;
 let readyRemain = 0;
@@ -152,7 +157,7 @@ let readyHeld = false;
 function startReadyCountdown() {
   stopReadyCountdown();
   const bar = document.getElementById('ready-bar');
-  const sec = Number(flow.readySec) || 0;
+  const sec = flow.readyAuto ? (Number(flow.readySec) || 0) : 0;
 
   if (sec <= 0) { bar.hidden = true; return; }
 

@@ -514,6 +514,8 @@ function startEntryCountdown() {
 
 function startSwitchCountdown(secOverride) {
   stopSwitchCountdown();
+  // 換手倒數關掉（App 批 93）：不倒數、停在「換手」提示，等使用者按開始
+  if (secOverride == null && !flow.switchAuto) return;
   const sec = secOverride != null ? secOverride : (Number(flow.switchSec) || 0);
   const btn = document.getElementById('btn-switch-now');
 

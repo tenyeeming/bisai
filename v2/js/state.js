@@ -129,19 +129,30 @@ applyFontScale();
 //   首頁設定  readySec / handOrder / switchSec —— 療程開始後才想改就來不及了
 //   按摩頁    autoAdvance / pressSec           —— 按到一半會想改，改了立刻有感
 const FLOW_DEFAULT = {
-  readySec:    5,        // 認穴頁停留幾秒後自動進定位；0 = 不停留直接跳過
+  readyAuto:   true,     // 認穴頁要不要倒數自動進定位（App 批 93：開關；關＝不倒數、不自動翻頁）
+  readySec:    5,        // 認穴頁停留幾秒（1～15，readyAuto 開才有用）
   handOrder:   'right',  // 'right' = 先右後左；'left' = 先左後右
-  switchSec:   5,        // 一隻手按完，換手倒數幾秒後自動開始下一輪
+  switchAuto:  true,     // 換手要不要倒數自動開始（App 批 93：關＝停在換手提示等按開始）
+  switchSec:   5,        // 換手倒數幾秒（1～15，switchAuto 開才有用）
   autoAdvance: true,     // 一個穴道按完自動接下一個，不用點
   pressSec:    30,       // 單手按壓秒數。左右各一輪，所以一個穴道是這個數字的兩倍
 };
 // 節奏設定同樣要洗：pressSec 變成字串或 0，按摩頁的倒數就會卡住不動或直接跳過。
 // 上限刻意寬鬆（只擋離譜值），使用者想設長一點是他的自由。
+// 舊存檔沒有 readyAuto／switchAuto：秒數存 0 的人當年就是要「不倒數」→ 讀成關、秒數回預設。
+// 秒數 1～15（App 批 93 同；0 的語意由「關」取代）。
+function cleanAutoSec(r, autoKey, secKey) {
+  const old = Number(r[secKey]);
+  const auto = typeof r[autoKey] === 'boolean' ? r[autoKey] : !(old === 0);
+  const sec = (Number.isFinite(old) && old >= 1) ? Math.min(15, Math.round(old)) : FLOW_DEFAULT[secKey];
+  return [auto, sec];
+}
 function cleanFlow() {
   const raw = jgetMap(LS.flow, {});
+  const [readyAuto, readySec] = cleanAutoSec(raw, 'readyAuto', 'readySec');
+  const [switchAuto, switchSec] = cleanAutoSec(raw, 'switchAuto', 'switchSec');
   return {
-    readySec:    intIn(raw.readySec,    0, 60,  FLOW_DEFAULT.readySec),
-    switchSec:   intIn(raw.switchSec,   0, 60,  FLOW_DEFAULT.switchSec),
+    readyAuto, readySec, switchAuto, switchSec,
     pressSec:    intIn(raw.pressSec,    PRESS_MIN, PRESS_MAX, FLOW_DEFAULT.pressSec),
     handOrder:   raw.handOrder === 'left' ? 'left' : 'right',
     autoAdvance: typeof raw.autoAdvance === 'boolean' ? raw.autoAdvance : FLOW_DEFAULT.autoAdvance,
@@ -222,9 +233,10 @@ const PRESET_NAME_MAX = 20;
 
 function cleanPresetFlow(raw) {
   const r = isPlainObj(raw) ? raw : {};
+  const [readyAuto, readySec] = cleanAutoSec(r, 'readyAuto', 'readySec');
+  const [switchAuto, switchSec] = cleanAutoSec(r, 'switchAuto', 'switchSec');
   return {
-    readySec:    intIn(r.readySec,  0, 60,  FLOW_DEFAULT.readySec),
-    switchSec:   intIn(r.switchSec, 0, 60,  FLOW_DEFAULT.switchSec),
+    readyAuto, readySec, switchAuto, switchSec,
     pressSec:    intIn(r.pressSec,  PRESS_MIN, PRESS_MAX, FLOW_DEFAULT.pressSec),
     handOrder:   r.handOrder === 'left' ? 'left' : 'right',
     autoAdvance: typeof r.autoAdvance === 'boolean' ? r.autoAdvance : FLOW_DEFAULT.autoAdvance,
@@ -269,8 +281,10 @@ const presetSecOf = (p, n) => (p.perAcuSec && n in p.perAcuSec) ? p.perAcuSec[n]
 
 function presetSeconds(p) {
   const f = p.flow;
-  return p.acupoints.reduce((s, n) => s + f.readySec + presetSecOf(p, n) * 2 + f.switchSec, 0)
-       + p.face.length * (f.readySec + f.pressSec);
+  // 關掉的那一段不算秒數（App 批 93）
+  const ready = f.readyAuto ? f.readySec : 0, sw = f.switchAuto ? f.switchSec : 0;
+  return p.acupoints.reduce((s, n) => s + ready + presetSecOf(p, n) * 2 + sw, 0)
+       + p.face.length * (ready + f.pressSec);
 }
 
 // ── 節奏覆蓋層 ───────────────────────────────────────────────

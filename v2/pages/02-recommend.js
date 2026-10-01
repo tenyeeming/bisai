@@ -160,6 +160,17 @@ registerPage('recommend', {
 
       /* ── 症狀覆蓋條：一個症狀一顆膠囊，數字＝已勾穴道中能治這個症狀的數量。
          點膠囊只看該症狀的穴道；0 的那顆標警示色。 */
+      /* App 批 85／93：選穴頁標題、穴名、部位分頁一律粗體 */
+      #page-recommend h2, .acu-item > .nm, #region-seg button { font-weight: 700; }
+      /* ⓘ 底部：教學影片＋主治（App 批 91 InfoExtras）。主治只顯示、不可點 */
+      .sheet .info-extras { margin-top: 13px; display: flex; flex-direction: column; gap: 10px; }
+      .sheet .info-extras .vid-open { margin-bottom: 0; }
+      .sheet .info-extras .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+      .sheet .info-extras .tag { font-size: 0.75rem; padding: 4px 9px; border: 1px solid var(--line);
+        border-radius: 999px; color: var(--ink-soft); background: var(--surface); }
+      .sheet .info-extras .tag .hash { font-family: var(--font-mono); color: var(--brass); margin-right: 2px; }
+      .sheet .info-extras .none { font-size: 0.78125rem; color: var(--ink-soft); }
+
       .cover-row { display: flex; flex-wrap: wrap; gap: 6px; }
       .cover-chip {
         display: inline-flex; align-items: center; gap: 6px;
@@ -513,6 +524,7 @@ function renderAcuList() {
     dot.style.background = acuColor(acuName);
 
     const nm = document.createElement('span');
+    nm.className = 'nm';
     nm.textContent = acuLabel(acuName);
 
     const tick = document.createElement('span');
@@ -564,6 +576,7 @@ function renderForearmList(list) {
     dot.className = 'dot';
     dot.style.background = forearmColor(name);
     const nm = document.createElement('span');
+    nm.className = 'nm';
     nm.textContent = itemLabel(name);
     const soon = document.createElement('span');
     soon.className = 'secs';
@@ -751,6 +764,8 @@ function openAcuInfo(name) {
     ? (isZh() ? '手側緣，手背或手心朝鏡頭都可定位。' : 'Side edge — either hand side works.')
     : (isZh() ? `${dorsal ? '手背' : '手心'}朝向鏡頭。` : `Face your ${dorsal ? 'back of hand' : 'palm'} to the camera.`)));
 
+  body.appendChild(infoExtras(acuVideoOrPending(name),
+    SYMPTOM_MAP.filter(s => s.acupoints.includes(name)).map(s => s.name)));
   openInfoSheet();
 }
 
@@ -793,6 +808,8 @@ function openFaceInfo(code) {
   // 手部這一格是「手背／手心」提示；臉部沒有正反面，放每穴不同的按壓方式
   if (sheet && sheet.press) body.appendChild(infoField(t('face-sheet-press'), sheet.press));
 
+  body.appendChild(infoExtras(acuVideoPending(),
+    Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code))));
   openInfoSheet();
 }
 
@@ -824,7 +841,45 @@ function openForearmInfo(name) {
     ? '這個穴道目前可查看資料，但尚未開放相機定位。'
     : 'Information is available, but camera locating is not yet supported.';
   body.appendChild(noticeBox);
+  body.appendChild(infoExtras(acuVideoPending(),
+    Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name))));
   openInfoSheet();
+}
+
+// ⓘ 面板底部（App 批 91 InfoExtras，照圖冊）：教學影片（沒片＝灰的準備中）＋主治標籤。
+// 主治在這裡只顯示、不可點 —— 點了會開新療程，把正在選的這一組洗掉。
+function infoExtras(videoEl, symptomNames) {
+  const box = document.createElement('div');
+  box.className = 'info-extras';
+  box.appendChild(videoEl);
+  const sec = document.createElement('div');
+  sec.className = 'field';
+  const k = document.createElement('div');
+  k.className = 'k';
+  k.textContent = t('info-symptoms');
+  sec.appendChild(k);
+  if (!symptomNames.length) {
+    const none = document.createElement('div');
+    none.className = 'none';
+    none.textContent = t('info-nosymptom');
+    sec.appendChild(none);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'tag-row';
+    symptomNames.forEach(n => {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      const hash = document.createElement('span');
+      hash.className = 'hash';
+      hash.textContent = '#';
+      hash.setAttribute('aria-hidden', 'true');
+      tag.append(hash, document.createTextNode(symptomLabel(n)));
+      row.appendChild(tag);
+    });
+    sec.appendChild(row);
+  }
+  box.appendChild(sec);
+  return box;
 }
 
 let infoReturnFocus = null;
