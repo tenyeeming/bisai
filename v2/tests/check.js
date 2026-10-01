@@ -11,7 +11,7 @@ const shell = read('acunavi-ideal.html');
 // ── 1. 外殼引用的檔案都存在 ──
 // vendor/ 是下載物（node vendor/下載.js，不進版控），沒抓也能跑（會退回 CDN），
 // 所以它不列入「一定要存在」，另外用第 1b 條守。
-const allSrcs = [...shell.matchAll(/<script src="([^"]+)"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
+const allSrcs = [...shell.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
 const vendorSrcs = allSrcs.filter(s => s.startsWith('vendor/'));
 const srcs = allSrcs.filter(s => !s.startsWith('vendor/'));
 const links = [...shell.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(x => x[1]);

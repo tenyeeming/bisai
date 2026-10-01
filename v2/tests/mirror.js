@@ -30,7 +30,7 @@ let html = fs.readFileSync(DIR + 'acunavi-ideal.html', 'utf8')
   .replace(/<script src="https:\/\/[^"]+"[^>]*><\/script>/g,
     '<script>class Hands{setOptions(){}onResults(){}send(){return Promise.resolve()}close(){}}' +
     'class Camera{start(){return Promise.resolve()}stop(){}}<\/script>')
-  .replace(/<script src="((?:js|pages)\/[^"]+)"><\/script>/g,
+  .replace(/<script src="((?:js|pages)\/[^"?]+)(?:\?[^"]*)?"><\/script>/g,
     (_, f) => '<script>' + fs.readFileSync(DIR + f, 'utf8') + '<\/script>');
 
 const dom = new JSDOM(html, {

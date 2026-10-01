@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="css/responsive.css">
 
   <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
-  <script src="js/mp-loader.js"></script>
+  <script src="js/mp-loader.js?v=20261002c"></script>
 
   <!-- 本機優先，沒下載過就退回 CDN（onerror）。本機檔怎麼來：node vendor/下載.js
        ⚠️ 版本號要與 mp-loader.js / vendor/下載.js 一致，
@@ -42,31 +42,31 @@
           onerror="mpFallback(this,'pose','pose.js')"></script>
 
   <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
-  <script src="js/acu-data.js"></script>
-  <script src="js/acu-math.js"></script>
+  <script src="js/acu-data.js?v=20261002c"></script>
+  <script src="js/acu-math.js?v=20261002c"></script>
 
   <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
-  <script src="js/face-data.js"></script>
-  <script src="js/face-sheet.js"></script>
-  <script src="js/face-math.js"></script>
-  <script src="js/face-anchor.js"></script>
-  <script src="js/forearm-data.js"></script>
+  <script src="js/face-data.js?v=20261002c"></script>
+  <script src="js/face-sheet.js?v=20261002c"></script>
+  <script src="js/face-math.js?v=20261002c"></script>
+  <script src="js/face-anchor.js?v=20261002c"></script>
+  <script src="js/forearm-data.js?v=20261002c"></script>
   <!-- 臉部按摩的對準判定（跨兩個模型，不是定位公式，所以獨立一支） -->
-  <script src="js/face-gate.js"></script>
+  <script src="js/face-gate.js?v=20261002c"></script>
 
   <!-- 共用 -->
-  <script src="js/i18n.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/regions.js"></script>
-  <script src="js/minions.js"></script>
-  <script src="js/acu-ref.js"></script>
-  <script src="js/acu-video.js"></script>
-  <script src="js/splash.js"></script>
-  <script src="js/nav.js"></script>
-  <script src="js/session-menu.js"></script>
-  <script src="js/vision.js"></script>
-  <script src="js/face-vision.js"></script>
-  <script src="js/forearm-vision.js"></script>
+  <script src="js/i18n.js?v=20261002c"></script>
+  <script src="js/state.js?v=20261002c"></script>
+  <script src="js/regions.js?v=20261002c"></script>
+  <script src="js/minions.js?v=20261002c"></script>
+  <script src="js/acu-ref.js?v=20261002c"></script>
+  <script src="js/acu-video.js?v=20261002c"></script>
+  <script src="js/splash.js?v=20261002c"></script>
+  <script src="js/nav.js?v=20261002c"></script>
+  <script src="js/session-menu.js?v=20261002c"></script>
+  <script src="js/vision.js?v=20261002c"></script>
+  <script src="js/face-vision.js?v=20261002c"></script>
+  <script src="js/forearm-vision.js?v=20261002c"></script>
 
   <!-- 一頁一檔：順序＝療程順序 -->
   <script src="pages/01-home.js"></script>
