@@ -572,8 +572,11 @@ function onHandsResults(results) {
         //   只放大畫的圈（手機尺寸 isMobileWeb），判定仍用 discR —— 用戶選「判定不變」
         // 2026-10-02 用戶：「太大了」「現在大小的5分之2」→ 續 12 那個半徑再 ×0.4（判定仍用 discR）
         //   同日「平板的比例呢」→ 平板跟手機一樣：改看觸控（pointer: coarse）而不是 isMobileWeb（平板寬 ≥600 判不到）
+        //   同日「爲什麽會大成這樣改成現在的5分之2」→ 平板再 ×0.4（＝原大小 ×0.4，跟電腦一樣）
+        //   大的原因：圈跟著畫面裡的手一起縮放，平板取景框大、手大，圈就大
         const touchScreen = isMobileWeb() || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
-        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * (touchScreen ? 2.5 : 1) * 0.4, 0, Math.PI * 2);
+        const discScale = isMobileWeb() ? 1 : touchScreen ? 0.4 : 0.4;   // 手機／平板／電腦（對 10-01 放大前的原大小）
+        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * discScale, 0, Math.PI * 2);
         // 2026-10-02 用戶：「手部的也要同步」→ 跟臉部 drawFaceDisc 一樣：實心綠 #4FBF8B、不描外框
         ctx.fillStyle = '#4FBF8B';
         ctx.fill();
