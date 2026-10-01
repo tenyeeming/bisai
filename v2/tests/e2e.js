@@ -846,13 +846,21 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '依病症選展開症狀格子');
   const gut = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='腸胃不適')");
   const n0 = w.eval('presetCount(presetDraft)');
-  w.addPresetSymptom(gut);
-  ok(w.eval('presetDraft.forearm.includes("內關穴")') && w.eval('presetCount(presetDraft)') > n0,
-     '腸胃不適 → 加入手部與手肘推薦穴（含內關）');
-  ok(/加入/.test($('preset-sym-msg').textContent), '告訴使用者加了幾穴：' + $('preset-sym-msg').textContent);
-  const n1 = w.eval('presetCount(presetDraft)');
-  w.addPresetSymptom(gut);
-  ok(w.eval('presetCount(presetDraft)') === n1 && /已經在裡面/.test($('preset-sym-msg').textContent), '同一症狀再點一次不重複');
+  w.selectPresetSymptom(gut);
+  // 2026-10-01 用戶：點症狀只列出可選的，不要直接幫我選完
+  ok(w.eval('presetCount(presetDraft)') === n0, '點症狀不會自動加穴');
+  const pickBoxes = () => [...$('preset-sym-pick').querySelectorAll('input')];
+  ok(!$('preset-sym-pick').hidden && /腸胃不適/.test($('preset-sym-pick').textContent)
+     && /內關穴/.test($('preset-sym-pick').textContent), '列出「腸胃不適」可以選的穴（含手肘內關）');
+  ok(pickBoxes().length === w.eval("presetSymptomItems(SYMPTOM_MAP.findIndex(s=>s.name==='腸胃不適')).length"), '列的數量＝推薦穴數');
+  const nk = [...$('preset-sym-pick').querySelectorAll('label')].findIndex(l => /內關穴/.test(l.textContent));
+  pickBoxes()[nk].click();
+  ok(w.eval('presetDraft.forearm.includes("內關穴")') && w.eval('presetCount(presetDraft)') === n0 + 1, '勾一個才加一個');
+  ok(pickBoxes()[nk].checked, '重畫後勾選狀態還在');
+  pickBoxes().forEach(b => { if (!b.checked) b.click(); });
+  ok(w.eval('presetCount(presetDraft)') > n0 + 1, '全部勾起來');
+  w.selectPresetSymptom(gut);
+  ok($('preset-sym-pick').hidden, '再點同一症狀收起清單');
   const kinds = [...d.querySelectorAll('#preset-chosen .chip button')].map(b => b.getAttribute('onclick').match(/'(\w+)'/)[1]);
   ok(kinds.join() === [...kinds].sort((a, b) => ['hand', 'forearm', 'face'].indexOf(a) - ['hand', 'forearm', 'face'].indexOf(b)).join(),
      '已選列：手部 → 手肘 → 臉部');

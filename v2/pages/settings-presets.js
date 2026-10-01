@@ -97,7 +97,13 @@ registerPage('settings-presets', {
         background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r);
       }
       #preset-sym button:hover { border-color: var(--brass); }
-      #preset-sym-msg { font-size: 0.75rem; color: var(--ink-soft); min-height: 1em; margin: 0 0 8px; }
+      #preset-sym button.on { border-color: var(--brass); background: var(--brass); color: var(--on-brass); }
+      /* 點了症狀 → 列出那個症狀可以選的穴道，使用者自己勾（2026-10-01 用戶：不要直接幫我選完） */
+      #preset-sym-pick[hidden] { display: none; }
+      #preset-sym-pick { margin-bottom: 12px; }
+      #preset-sym-pick .k { font-size: 0.78125rem; font-weight: 700; color: var(--ink); margin: 2px 0 6px; }
+      #preset-sym-pick .tag { font-size: 0.6875rem; color: var(--ink-soft); }
+      #preset-sym-pick .none { font-size: 0.78125rem; color: var(--ink-soft); }
 
       /* ── 依部位分組（手背／手心／手肘／臉部），可收合 ── */
       .pgroup { margin-bottom: 8px; }
@@ -175,7 +181,7 @@ registerPage('settings-presets', {
         <button type="button" id="preset-sym-btn" onclick="togglePresetSym()"
                 aria-expanded="false" data-i18n="preset-by-symptom">依病症選</button>
         <div id="preset-sym" hidden></div>
-        <p id="preset-sym-msg" aria-live="polite"></p>
+        <div id="preset-sym-pick" hidden></div>
 
         <details class="pgroup" data-grp="dorsal" ontoggle="onPresetGroupToggle(this)">
           <summary><span data-i18n="preset-grp-dorsal">手背</span><span class="n"></span></summary>
@@ -274,7 +280,7 @@ function openPresetEditor(id) {
     : { id: null, name: '', acupoints: [], forearm: [], face: [], flow: { ...flow }, perAcuSec: {} };
   presetOpenTime = null;
   presetSymOpen = false;
-  presetSymMsg = '';
+  presetSymSel = null;
   // 分組預設：新增時只開手背（最常用、最長那組），其他收著；編輯時有勾到的那幾組打開
   presetGroupOpen = src
     ? { dorsal: true, palm: src.acupoints.some(n => acuSide(n) === 'palm'),
@@ -300,7 +306,7 @@ function closePresetEditor() {
 // 順序固定手部 → 手肘 → 臉部（跟 buildTreatmentList 同一個排法，已選列照這個順序顯示）。
 // 新增時不出現節奏與逐穴秒數（先帶目前的設定），存好後點進那組才調。
 let presetSymOpen = false;
-let presetSymMsg = '';
+let presetSymSel = null;     // 依病症選：現在點開的是哪個症狀（SYMPTOM_MAP 索引）
 let presetGroupOpen = { dorsal: true, palm: false, elbow: false, face: false };
 
 const acuSide = (name) => { const a = ACUPOINTS.find(x => x.name === name); return a && a.side === 'palm' ? 'palm' : 'dorsal'; };
@@ -316,6 +322,7 @@ function presetChosenOrdered(d) {
   ];
 }
 
+/** 切換某一穴（已選列的 ✕、依病症選的勾選框共用） */
 function removePresetItem(kind, id) {
   if (kind === 'hand') togglePresetAcu(id);
   else if (kind === 'forearm') togglePresetForearm(id);
@@ -328,34 +335,31 @@ function onPresetGroupToggle(el) {
 
 function togglePresetSym() {
   presetSymOpen = !presetSymOpen;
-  presetSymMsg = '';
+  if (!presetSymOpen) presetSymSel = null;
   renderPresetEditor();
 }
 
-/** 依病症選：把那個症狀推薦的穴（只收定位得出來的）加進已選，不重複；不會取消已勾的 */
-function addPresetSymptom(i) {
-  if (!presetDraft) return;
-  const s = SYMPTOM_MAP[i];
-  if (!s) return;
-  const before = presetCount(presetDraft);
-  const add = (list, items) => items.forEach(x => { if (!list.includes(x)) list.push(x); });
-  const hand = s.acupoints.filter(n => IMPLEMENTED.has(n));
-  const fore = forearmRecommend([s.name]);
-  const face = faceRecommend([s.name]).filter(c => FACE_IMPLEMENTED.has(c));
-  add(presetDraft.acupoints, hand);
-  add(presetDraft.forearm, fore);
-  add(presetDraft.face, face);
-  // 加到哪一組就把那一組打開，看得到勾在哪
-  if (hand.some(n => acuSide(n) === 'dorsal')) presetGroupOpen.dorsal = true;
-  if (hand.some(n => acuSide(n) === 'palm')) presetGroupOpen.palm = true;
-  if (fore.length) presetGroupOpen.elbow = true;
-  if (face.length) presetGroupOpen.face = true;
-  const n = presetCount(presetDraft) - before;
-  presetSymMsg = n > 0
-    ? (isZh() ? `「${symptomLabel(s.name)}」加入 ${n} 穴` : `Added ${n} point${n > 1 ? 's' : ''} for ${symptomLabel(s.name)}`)
-    : (isZh() ? `「${symptomLabel(s.name)}」的穴道都已經在裡面了` : `All points for ${symptomLabel(s.name)} are already in`);
+// 依病症選（2026-10-01 改）：用戶「不要直接給我選完，而是選那個症狀后就列出有那些可以選擇」
+//   → 點症狀只**列出**那個症狀推薦的穴（只收定位得出來的），勾不勾由使用者決定；再點一次收起。
+function selectPresetSymptom(i) {
+  presetSymSel = presetSymSel === i ? null : i;
   renderPresetEditor();
 }
+
+/** 這個症狀可以選的穴：[{kind, id, label, tag}]，順序手部 → 手肘 → 臉部 */
+function presetSymptomItems(i) {
+  const s = SYMPTOM_MAP[i];
+  if (!s) return [];
+  const hand = s.acupoints.filter(n => IMPLEMENTED.has(n))
+    .map(id => ({ kind: 'hand', id, label: acuLabel(id), tag: t(acuSide(id) === 'palm' ? 'preset-grp-palm' : 'preset-grp-dorsal') }));
+  const fore = forearmRecommend([s.name]).map(id => ({ kind: 'forearm', id, label: itemLabel(id), tag: t('region-elbow') }));
+  const face = faceRecommend([s.name]).filter(c => FACE_IMPLEMENTED.has(c))
+    .map(id => ({ kind: 'face', id, label: faceLabel(id), tag: t('region-face') }));
+  return [...hand, ...fore, ...face];
+}
+
+const presetHas = (kind, id) => kind === 'hand' ? presetDraft.acupoints.includes(id)
+  : kind === 'forearm' ? presetDraft.forearm.includes(id) : presetDraft.face.includes(id);
 
 function renderPresetEditor() {
   const box = document.getElementById('preset-edit');
@@ -387,8 +391,22 @@ function renderPresetEditor() {
   const sym = document.getElementById('preset-sym');
   sym.hidden = !presetSymOpen;
   sym.innerHTML = presetSymOpen ? SYMPTOM_MAP.map((s, i) =>
-    `<button type="button" onclick="addPresetSymptom(${i})">${symptomLabel(s.name)}</button>`).join('') : '';
-  document.getElementById('preset-sym-msg').textContent = presetSymMsg;
+    `<button type="button" class="${presetSymSel === i ? 'on' : ''}" aria-pressed="${presetSymSel === i}"
+             onclick="selectPresetSymptom(${i})">${symptomLabel(s.name)}</button>`).join('') : '';
+  const pick = document.getElementById('preset-sym-pick');
+  pick.hidden = !(presetSymOpen && presetSymSel != null);
+  if (!pick.hidden) {
+    const items = presetSymptomItems(presetSymSel);
+    const nm = symptomLabel(SYMPTOM_MAP[presetSymSel].name);
+    pick.innerHTML = `<p class="k">${isZh() ? `「${nm}」可以選` : `Points for ${nm}`}</p>` + (items.length
+      ? `<div class="optlist">${items.map(it => `
+        <label>
+          <input type="checkbox" ${presetHas(it.kind, it.id) ? 'checked' : ''}
+                 onchange="removePresetItem('${it.kind}', '${it.id}')">
+          <span class="grow">${it.label}</span><span class="tag">${it.tag}</span>
+        </label>`).join('')}</div>`
+      : `<p class="none">${isZh() ? '這個症狀沒有可以定位的穴道。' : 'No locatable points for this symptom.'}</p>`);
+  } else pick.innerHTML = '';
 
   // ── 依部位分組 ──
   // 逐穴秒數 ▾（批 E）只在編輯既有流程時給：新增這一步不調秒數
