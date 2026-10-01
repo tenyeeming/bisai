@@ -42,7 +42,7 @@ const w = dom.window, d = w.document;
 // 圓盤中心那顆「位置白點」的半徑，跟 acu-math.js 的 drawConfidenceDisc 對齊。
 // 用它把位置白點從一堆 arc 呼叫（外圈輝光、描邊…）裡挑出來。
 // 2026-09-24 改成 App 同款綠點，要跟 acu-math.js 的 ACU_DOT_R 同步（原本是 2.4）。
-const CENTER_DOT_R = 4;   // 2026-10-01 照 App ACU_DOT_R 4dp（jsdom 沒排版，縮放比＝1）
+const CENTER_DOT_R = 1;   // 2026-10-01 appDotR 下限（jsdom 沒排版：寬 0、縮放比＝1）；同日從 4 → 1（用戶要點縮成四分之一）
 
 // ── 假的 2D context：把所有呼叫錄下來，並自己維護一個水平翻轉旗標 ──
 function makeRecorder() {
