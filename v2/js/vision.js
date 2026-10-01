@@ -571,7 +571,9 @@ function onHandsResults(results) {
         // 2026-10-01 用戶：「手機版本的手部穴道定位的圈太小了，調整成現在的2.5倍」
         //   只放大畫的圈（手機尺寸 isMobileWeb），判定仍用 discR —— 用戶選「判定不變」
         // 2026-10-02 用戶：「太大了」「現在大小的5分之2」→ 續 12 那個半徑再 ×0.4（判定仍用 discR）
-        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * (isMobileWeb() ? 2.5 : 1) * 0.4, 0, Math.PI * 2);
+        //   同日「平板的比例呢」→ 平板跟手機一樣：改看觸控（pointer: coarse）而不是 isMobileWeb（平板寬 ≥600 判不到）
+        const touchScreen = isMobileWeb() || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * (touchScreen ? 2.5 : 1) * 0.4, 0, Math.PI * 2);
         // 2026-10-02 用戶：「手部的也要同步」→ 跟臉部 drawFaceDisc 一樣：實心綠 #4FBF8B、不描外框
         ctx.fillStyle = '#4FBF8B';
         ctx.fill();
