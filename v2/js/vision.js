@@ -565,7 +565,9 @@ function onHandsResults(results) {
       if (showDisc && i === 0) {
         ctx.save();
         ctx.beginPath();
-        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k), 0, Math.PI * 2);
+        // 2026-10-01 用戶：「手機版本的手部穴道定位的圈太小了，調整成現在的2.5倍」
+        //   只放大畫的圈（手機尺寸 isMobileWeb），判定仍用 discR —— 用戶選「判定不變」
+        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * (isMobileWeb() ? 2.5 : 1), 0, Math.PI * 2);
         ctx.strokeStyle = '#B8894B';
         ctx.lineWidth = 2 * k;
         ctx.stroke();
