@@ -817,16 +817,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.openPresetEditor(null);
   ok(!$('preset-edit').hidden && $('preset-new-row').hidden, '按新增就展開編輯區，並收起新增鈕');
   ok($('preset-del').hidden, '新增時沒有刪除鈕（還沒有東西可刪）');
-  const pAcuBoxes = () => [...d.querySelectorAll('#preset-acu-dorsal input, #preset-acu-palm input')];
+  const pAcuBoxes = () => [...d.querySelectorAll('#preset-acu-hand input')];
   ok(pAcuBoxes().length === w.eval('ACUPOINTS.filter(a=>IMPLEMENTED.has(a.name)).length'),
-     '手部（手背＋手心兩組）只列算得出位置的穴道');
+     '手部（不分手背手心，一組）只列算得出位置的穴道');
   ok(pAcuBoxes().every(b => !b.checked), '新流程一開始一個都沒勾');
   ok(/還沒選穴道/.test($('preset-est').textContent), '沒選穴道時不報一個假的時長');
   // 2026-10-01 我的流程簡化：新增時不調節奏與逐穴秒數；分組可收合；沒勾就不能存
   ok($('preset-flow-box').hidden && !$('preset-later').hidden, '新增時不出現節奏，改一行「存好再調」');
   ok(!d.querySelector('#preset-edit .pexp'), '新增時沒有逐穴秒數 ▾');
-  ok(d.querySelector('.pgroup[data-grp="dorsal"]').open && !d.querySelector('.pgroup[data-grp="face"]').open,
-     '分組：新增時只開手背，其他收著');
+  ok(d.querySelector('.pgroup[data-grp="hand"]').open && !d.querySelector('.pgroup[data-grp="face"]').open,
+     '分組：新增時只開手部，其他收著');
   ok($('preset-save').disabled, '沒勾穴道：儲存鈕停用（不再跳 alert）');
   ok(d.querySelectorAll('#preset-forearm-list input').length === 15, '手肘 15 穴可排進流程');
 
@@ -871,7 +871,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(w.eval('presetCount(presetDraft)') === before, '點 ⓘ 不會勾選／取消');
     w.closeInfoSheet();
     ok($('info-sheet').hidden && $('info-sheet').closest('.page').id === 'page-recommend', '關掉後面板搬回選穴頁');
-    ok(d.querySelectorAll('#preset-acu-dorsal .info, #preset-acu-palm .info').length === pAcuBoxes().length
+    ok(d.querySelectorAll('#preset-acu-hand .info').length === pAcuBoxes().length
        && d.querySelectorAll('#preset-face-list .info').length === d.querySelectorAll('#preset-face-list input').length,
        '分組清單每一列也有 ⓘ');
     d.querySelector('#preset-face-list .info').click();
@@ -904,9 +904,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '⭐ 改流程的節奏不會動到全域 flow');
   ok(w.eval('presetSeconds(presetDraft)') === 2 * (5 + 45 * 2 + 5), '時長＝穴數 ×（認穴＋左右各一輪＋換手）');
   w.togglePresetTime('合谷穴');
-  ok(!!d.querySelector('#preset-acu-dorsal .ptime'), '▾ 展開合谷的秒數面板');
+  ok(!!d.querySelector('#preset-acu-hand .ptime'), '▾ 展開合谷的秒數面板');
   w.onPresetTimeInput('合谷穴', '60'); w.renderPresetEditor();
-  ok(w.eval("presetDraft.perAcuSec['合谷穴']") === 60 && /60s/.test($('preset-acu-dorsal').textContent), '合谷調成 60 秒，列上有痕跡');
+  ok(w.eval("presetDraft.perAcuSec['合谷穴']") === 60 && /60s/.test($('preset-acu-hand').textContent), '合谷調成 60 秒，列上有痕跡');
   ok(w.eval('presetSeconds(presetDraft)') === (5 + 60 * 2 + 5) + (5 + 45 * 2 + 5), '時長跟著逐穴秒數算');
   w.togglePresetTime('合谷穴');
   ok(!d.querySelector('#preset-edit .ptime'), '再點一次收起');

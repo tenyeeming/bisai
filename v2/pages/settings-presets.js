@@ -90,10 +90,14 @@ registerPage('settings-presets', {
         font-family: var(--font-sans); font-size: 0.875rem; font-weight: 600;
         background: transparent; color: var(--ink); border: 1px solid var(--brass); border-radius: var(--r);
       }
+      /* 右邊箭頭：收著 ▲、展開 ▼（2026-10-01 用戶） */
+      #preset-sym-btn { display: flex; align-items: center; justify-content: space-between; text-align: left; }
+      #preset-sym-btn .arr { color: var(--brass); font-size: 0.8125rem; }
       #preset-sym[hidden] { display: none; }
-      #preset-sym { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin-bottom: 8px; }
+      #preset-sym { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); grid-auto-rows: 1fr; gap: 6px; margin-bottom: 8px; }
       #preset-sym button {
-        padding: 8px 6px; cursor: pointer; font-family: var(--font-sans); font-size: 0.78125rem; font-weight: 600;
+        min-height: 48px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.3;
+        padding: 6px; cursor: pointer; font-family: var(--font-sans); font-size: 0.78125rem; font-weight: 600;
         background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r);
       }
       #preset-sym button:hover { border-color: var(--brass); }
@@ -187,17 +191,15 @@ registerPage('settings-presets', {
           <div id="preset-chosen"></div>
         </div>
 
-        <button type="button" id="preset-sym-btn" onclick="togglePresetSym()"
-                aria-expanded="false" data-i18n="preset-by-symptom">依病症選</button>
+        <button type="button" id="preset-sym-btn" onclick="togglePresetSym()" aria-expanded="false">
+          <span data-i18n="preset-by-symptom">依病症選擇</span><span class="arr" aria-hidden="true">▲</span></button>
         <div id="preset-sym" hidden></div>
         <div id="preset-sym-pick" hidden></div>
 
-        <details class="pgroup" data-grp="dorsal" ontoggle="onPresetGroupToggle(this)">
-          <summary><span data-i18n="preset-grp-dorsal">手背</span><span class="n"></span></summary>
-          <div class="optlist" id="preset-acu-dorsal"></div></details>
-        <details class="pgroup" data-grp="palm" ontoggle="onPresetGroupToggle(this)">
-          <summary><span data-i18n="preset-grp-palm">手心</span><span class="n"></span></summary>
-          <div class="optlist" id="preset-acu-palm"></div></details>
+        <!-- 手部不分手背／手心（2026-10-01 用戶：「手直接叫手就好」） -->
+        <details class="pgroup" data-grp="hand" ontoggle="onPresetGroupToggle(this)">
+          <summary><span data-i18n="region-hand">手部</span><span class="n"></span></summary>
+          <div class="optlist" id="preset-acu-hand"></div></details>
         <details class="pgroup" data-grp="elbow" ontoggle="onPresetGroupToggle(this)">
           <summary><span data-i18n="region-elbow">手肘</span><span class="n"></span></summary>
           <div class="optlist" id="preset-forearm-list"></div></details>
@@ -292,9 +294,8 @@ function openPresetEditor(id) {
   presetSymSel = null;
   // 分組預設：新增時只開手背（最常用、最長那組），其他收著；編輯時有勾到的那幾組打開
   presetGroupOpen = src
-    ? { dorsal: true, palm: src.acupoints.some(n => acuSide(n) === 'palm'),
-        elbow: presetDraft.forearm.length > 0, face: src.face.length > 0 }
-    : { dorsal: true, palm: false, elbow: false, face: false };
+    ? { hand: true, elbow: presetDraft.forearm.length > 0, face: src.face.length > 0 }
+    : { hand: true, elbow: false, face: false };
   renderPresetEditor();
   // 編輯區在清單下面，展開時要自己捲過去，不然使用者按了「新增」畫面看起來沒反應。
   // jsdom 沒有這個方法（測試會炸），所以先問再用。
@@ -316,9 +317,7 @@ function closePresetEditor() {
 // 新增時不出現節奏與逐穴秒數（先帶目前的設定），存好後點進那組才調。
 let presetSymOpen = false;
 let presetSymSel = null;     // 依病症選：現在點開的是哪個症狀（SYMPTOM_MAP 索引）
-let presetGroupOpen = { dorsal: true, palm: false, elbow: false, face: false };
-
-const acuSide = (name) => { const a = ACUPOINTS.find(x => x.name === name); return a && a.side === 'palm' ? 'palm' : 'dorsal'; };
+let presetGroupOpen = { hand: true, elbow: false, face: false };
 
 /** 已選，照療程順序：手部（ACUPOINTS 順序）→ 手肘 → 臉部 */
 function presetChosenOrdered(d) {
@@ -360,7 +359,7 @@ function presetSymptomItems(i) {
   const s = SYMPTOM_MAP[i];
   if (!s) return [];
   const hand = s.acupoints.filter(n => IMPLEMENTED.has(n))
-    .map(id => ({ kind: 'hand', id, label: acuLabel(id), tag: t(acuSide(id) === 'palm' ? 'preset-grp-palm' : 'preset-grp-dorsal') }));
+    .map(id => ({ kind: 'hand', id, label: acuLabel(id), tag: t('region-hand') }));
   const fore = forearmRecommend([s.name]).map(id => ({ kind: 'forearm', id, label: itemLabel(id), tag: t('region-elbow') }));
   const face = faceRecommend([s.name]).filter(c => FACE_IMPLEMENTED.has(c))
     .map(id => ({ kind: 'face', id, label: faceLabel(id), tag: t('region-face') }));
@@ -404,6 +403,7 @@ function renderPresetEditor() {
   // ── 依病症選 ──
   const symBtn = document.getElementById('preset-sym-btn');
   symBtn.setAttribute('aria-expanded', String(presetSymOpen));
+  symBtn.querySelector('.arr').textContent = presetSymOpen ? '▼' : '▲';
   const sym = document.getElementById('preset-sym');
   sym.hidden = !presetSymOpen;
   sym.innerHTML = presetSymOpen ? SYMPTOM_MAP.map((s, i) =>
@@ -444,8 +444,7 @@ function renderPresetEditor() {
       ${open ? presetTimePanelHtml(a.name) : ''}`;
   };
   const hands = ACUPOINTS.filter(a => IMPLEMENTED.has(a.name));
-  document.getElementById('preset-acu-dorsal').innerHTML = hands.filter(a => acuSide(a.name) === 'dorsal').map(handRow).join('');
-  document.getElementById('preset-acu-palm').innerHTML = hands.filter(a => acuSide(a.name) === 'palm').map(handRow).join('');
+  document.getElementById('preset-acu-hand').innerHTML = hands.map(handRow).join('');
   document.getElementById('preset-forearm-list').innerHTML = FOREARM_ACUPOINTS.map(a => `
       <label>
         <input type="checkbox" ${presetDraft.forearm.includes(a.name) ? 'checked' : ''}
@@ -461,8 +460,7 @@ function renderPresetEditor() {
         <span class="grow">${faceLabel(a.code)}</span>${presetInfoBtn('face', a.code)}
       </label>`).join('');
   const counts = {
-    dorsal: presetDraft.acupoints.filter(n => acuSide(n) === 'dorsal').length,
-    palm: presetDraft.acupoints.filter(n => acuSide(n) === 'palm').length,
+    hand: presetDraft.acupoints.length,
     elbow: presetDraft.forearm.length, face: presetDraft.face.length,
   };
   document.querySelectorAll('#preset-edit .pgroup').forEach(g => {
