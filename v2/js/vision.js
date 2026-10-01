@@ -558,6 +558,7 @@ function onHandsResults(results) {
   // ⭐ 2026-10-01 用戶：「網頁版本的穴位呈現好難看，模仿 app 的做法」→ 照 App AcuCameraView：
   //    ① 閘門擋下時**不畫點**（App drawAcu 為空），只留回正箭頭與提示文字
   //    ② 判定圈＝黃銅細圈 #B8894B（只圈第一個點，半徑同判定用的 discR，下限 18）
+  //       → 2026-10-02 改實心綠不描邊（同臉部）
   //    ③ 穴位＝綠點 #4FBF8B（ACU_DOT_R），穴名白字寫在點正上方
   //    以前的 3D 投影彩色圓盤（drawConfidenceDisc：扁掉＝斜看、灰虛線＝降級）不再畫；
   //    判定、閘門、信心值一行都沒動，只換畫法。
@@ -570,9 +571,9 @@ function onHandsResults(results) {
         // 2026-10-01 用戶：「手機版本的手部穴道定位的圈太小了，調整成現在的2.5倍」
         //   只放大畫的圈（手機尺寸 isMobileWeb），判定仍用 discR —— 用戶選「判定不變」
         ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * (isMobileWeb() ? 2.5 : 1), 0, Math.PI * 2);
-        ctx.strokeStyle = '#B8894B';
-        ctx.lineWidth = 2 * k;
-        ctx.stroke();
+        // 2026-10-02 用戶：「手部的也要同步」→ 跟臉部 drawFaceDisc 一樣：實心綠 #4FBF8B、不描外框（大小不變）
+        ctx.fillStyle = '#4FBF8B';
+        ctx.fill();
         ctx.restore();
       }
       const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
