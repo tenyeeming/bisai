@@ -102,6 +102,36 @@ with sync_playwright() as p:
     check(a['live'] == 1 and a['run'] and b2['live'] == 1 and b2['run'] and b2['canvas'] == 'video-canvas',
           f"⑦ 重新整理鏡頭 → 在跑時 1 條、停住時重開（{a}／{b2}）")
 
+    # ⑧ 2026-10-01「手機攝像頭打不開，我按的是合谷」：內關（前臂相機）→ 合谷（手部定位頁）
+    #    定位頁 keepsCamera 不會讓 nav.js 關前臂，startCamera／startFaceCamera 要自己收掉它
+    for name, start, run in (('手部', "startCamera('video-canvas','locate')", 'camRunning'),
+                             ('臉部', "startFaceCamera('video-canvas','camera-gate')", 'faceCamRunning')):
+        pg = fresh()
+        pg.evaluate("startForearmCamera('massage-canvas','massage-gate')"); pg.wait_for_timeout(1000)
+        pg.evaluate(start); pg.wait_for_timeout(2000)
+        s = pg.evaluate(f"({{live: window.__live, run: {run}, fa: faCamRunning, gate: document.getElementById('camera-gate').textContent}})")
+        check(s['live'] == 1 and s['run'] and not s['fa'],
+              f"⑧ 前臂開著切{name} → {name}運行、前臂關、1 條（{s}）")
+
+    # ⑨ 2026-10-01 續 13「手部的攝像頭打不開」：手部／臉部與前臂同時啟動 → 互等死鎖，兩邊永遠「啟動中」
+    #    （⑧ 的修法引進的）。最後叫的那一邊要跑起來、只有 1 條、沒有誰卡在 starting。
+    fa_st = "({live: window.__live, hand: camRunning, face: faceCamRunning, fa: faCamRunning, stuck: camStarting || faceCamStarting || faCamStarting})"
+    for name, js, want in (
+        ('手部→前臂', "startCamera('video-canvas','locate'); startForearmCamera('massage-canvas','massage-gate')", 'fa'),
+        ('前臂→手部', "startForearmCamera('massage-canvas','massage-gate'); startCamera('video-canvas','locate')", 'hand'),
+        ('臉部→前臂', "startFaceCamera('video-canvas','camera-gate'); startForearmCamera('massage-canvas','massage-gate')", 'fa'),
+        ('前臂→臉部', "startForearmCamera('massage-canvas','massage-gate'); startFaceCamera('video-canvas','camera-gate')", 'face')):
+        pg = fresh()
+        pg.evaluate("(() => { " + js + "; })()"); pg.wait_for_timeout(2500)   # 不 await，死鎖時 evaluate 才不會跟著卡
+        s = pg.evaluate(fa_st)
+        check(s['live'] == 1 and s[want] and not s['stuck'], f"⑨ 同時啟動 {name} → 後者運行、1 條、沒卡住（{s}）")
+    pg = fresh()   # ⑨' 死鎖過後再叫手部也要開得起來
+    pg.evaluate("(() => { startCamera('video-canvas','locate'); startForearmCamera('massage-canvas','massage-gate'); })()")
+    pg.wait_for_timeout(2500)
+    pg.evaluate("(() => { startCamera('video-canvas','locate'); })()"); pg.wait_for_timeout(2500)
+    s = pg.evaluate(fa_st)
+    check(s['live'] == 1 and s['hand'] and not s['fa'] and not s['stuck'], f"⑨' 之後再開手部 → 能開（{s}）")
+
     # ⑤ 小海實驗頁：啟動中連切前後鏡頭 → 最後只剩 1 條、而且是最後選的那顆
     ctx = b.new_context(); pg = ctx.new_page()
     pg.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))  # 09-25 小海頁改走 vendor

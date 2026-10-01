@@ -294,8 +294,12 @@ async function startForearmCamera(canvasId, gateId, onCalibrated) {
       // 手部、臉部那兩套共用同一個 <video>：先確定它們都收乾淨
       if (typeof stopCamera === 'function') stopCamera();
       if (typeof stopFaceCamera === 'function') stopFaceCamera();
-      if (typeof camIdle === 'function') await camIdle();
-      if (typeof faceCamIdle === 'function') await faceCamIdle();
+      // 等的期間打旗標：手部／臉部那邊看到就不反過來等這裡，否則互等死鎖（2026-10-01 續 13）
+      faWaitingOthers = true;
+      try {
+        if (typeof camIdle === 'function') await camIdle();
+        if (typeof faceCamIdle === 'function') await faceCamIdle();
+      } finally { faWaitingOthers = false; }
       if (!faCamWanted) return;
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
@@ -342,7 +346,10 @@ async function startForearmCamera(canvasId, gateId, onCalibrated) {
   return faCamStartP;
 }
 
-function forearmCamIdle() { return faCamStartP || Promise.resolve(); }
+// 前臂啟動若正卡在「等手部／臉部收完」，就不用等它：它那時還沒開串流，
+// 而呼叫者已經 stopForearmCamera() 過，它醒來會自己退出。反過來等會互等死鎖。
+let faWaitingOthers = false;
+function forearmCamIdle() { return (!faWaitingOthers && faCamStartP) || Promise.resolve(); }
 
 function stopForearmCamera() {
   faCamWanted = false;

@@ -237,6 +237,8 @@ async function startCamera(canvasId, mode) {
       // 前臂內關那套也共用 hidden-video（2026-10-01 用戶：「手機攝像頭打不開，我按的是合谷」）
       //   內關（按摩頁）→ 合谷（定位頁）時，定位頁 keepsCamera 不會觸發 nav.js 去關它，
       //   前臂串流一直佔著鏡頭 → 這邊 getUserMedia 失敗。→ 在這裡一律先收掉。
+      // 但等的期間自己若已被叫停（前臂同時在啟動、先關了這邊），就別反過來關它（續 13）
+      if (!camWanted) return;
       if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
       if (typeof forearmCamIdle === 'function') await forearmCamIdle();
       if (!camWanted) return;

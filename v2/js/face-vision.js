@@ -82,6 +82,7 @@ async function startFaceCamera(canvasId, gateId, mode) {
     if (typeof camRunning !== 'undefined' && (camRunning || camStarting)) stopCamera();
     if (typeof camIdle === 'function') await camIdle();
     // 前臂內關那套也共用鏡頭（2026-10-01，同 vision.js startCamera）
+    if (!faceCamWanted) return;         // 等的期間已被前臂叫停：別反過來關它（續 13）
     if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
     if (typeof forearmCamIdle === 'function') await forearmCamIdle();
     if (!faceCamWanted) return;
