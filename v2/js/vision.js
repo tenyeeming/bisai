@@ -234,6 +234,11 @@ async function startCamera(canvasId, mode) {
     try {
       // 臉部頁跟這裡共用 hidden-video，它若還在啟動中要先等它收完
       if (typeof faceCamIdle === 'function') await faceCamIdle();
+      // 前臂內關那套也共用 hidden-video（2026-10-01 用戶：「手機攝像頭打不開，我按的是合谷」）
+      //   內關（按摩頁）→ 合谷（定位頁）時，定位頁 keepsCamera 不會觸發 nav.js 去關它，
+      //   前臂串流一直佔著鏡頭 → 這邊 getUserMedia 失敗。→ 在這裡一律先收掉。
+      if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
+      if (typeof forearmCamIdle === 'function') await forearmCamIdle();
       if (!camWanted) return;
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });

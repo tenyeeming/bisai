@@ -81,6 +81,9 @@ async function startFaceCamera(canvasId, gateId, mode) {
     // 手部那邊可能還開著或還在啟動（例如從定位頁直接切過來），先確保只有一邊在用鏡頭
     if (typeof camRunning !== 'undefined' && (camRunning || camStarting)) stopCamera();
     if (typeof camIdle === 'function') await camIdle();
+    // 前臂內關那套也共用鏡頭（2026-10-01，同 vision.js startCamera）
+    if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
+    if (typeof forearmCamIdle === 'function') await forearmCamIdle();
     if (!faceCamWanted) return;
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
       throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
