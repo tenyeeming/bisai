@@ -11,7 +11,7 @@
 registerPage('settings-display', {
   tab: 'settings',
   backTo: 'settings',
-  onEnter: () => { updateFontSeg(); renderDisplayToggles(); },
+  onEnter: () => { collapseInfo('page-settings-display'); updateFontSeg(); renderDisplayToggles(); },
   onLanguage: () => { updateFontSeg(); renderDisplayToggles(); },
 
   html: `
@@ -22,7 +22,14 @@ registerPage('settings-display', {
         <h2 data-i18n="settings-display">顯示</h2>
       </div>
 
-      <p class="k" data-i18n="settings-fontsize">字體大小</p>
+      <!-- 2026-10-31 照 App 批 112：「字體大小」放大、旁邊「!」，兩段說明點了才出現（原本常駐） -->
+      <div class="set-head">
+        <h3 class="set-title" data-i18n="settings-fontsize">字體大小</h3>${infoMark('font-info')}
+      </div>
+      <div id="font-info" class="set-info" hidden>
+        <p class="small" data-i18n="settings-fontsize-desc">只改字的大小，邊框與間距不變。改完立刻套用到整個網站。</p>
+        <p class="small" data-i18n="settings-fontsize-sys">這個設定是乘在瀏覽器字體大小上的。若還是不夠大，可再到瀏覽器或手機的字體設定一起調。</p>
+      </div>
       <div class="optlist" id="font-seg">
         <button type="button" data-font="small" onclick="setFontScale('small'); updateFontSeg();">
           <span class="grow" data-i18n="font-small">小</span><span class="tick">✓</span>
@@ -35,21 +42,19 @@ registerPage('settings-display', {
         </button>
       </div>
 
-      <p class="small" data-i18n="settings-fontsize-desc">只改字的大小，邊框與間距不變。改完立刻套用到整個網站。</p>
       <!-- ⭐ 預覽刻意用最小的內文級距（同 App）：選「小」會不會小到讀不動，
            看這一行就知道，不必自己去別頁找 -->
       <p class="small" data-i18n="settings-fontsize-preview">這一行是最小的內文字級，選「小」之後看得清楚嗎？</p>
-      <p class="notice" data-i18n="settings-fontsize-sys">這個設定是乘在瀏覽器字體大小上的。若還是不夠大，可再到瀏覽器或手機的字體設定一起調。</p>
 
       <div class="fieldrow">
-        <p class="k" data-i18n="settings-skeleton">顯示手部節點</p>
+        <div class="set-head"><p class="k" data-i18n="settings-skeleton">顯示手部節點</p>${infoMark('skeleton-info')}</div>
         <div class="seg" id="seg-skeleton"></div>
-        <p class="d" data-i18n="settings-skeleton-desc"></p>
+        <p class="d" id="skeleton-info" hidden data-i18n="settings-skeleton-desc"></p>
       </div>
       <div class="fieldrow">
-        <p class="k" data-i18n="settings-acu-names">鏡頭中顯示穴位名稱</p>
+        <div class="set-head"><p class="k" data-i18n="settings-acu-names">鏡頭中顯示穴位名稱</p>${infoMark('acu-names-info')}</div>
         <div class="seg" id="seg-acu-names"></div>
-        <p class="d" data-i18n="settings-acu-names-desc"></p>
+        <p class="d" id="acu-names-info" hidden data-i18n="settings-acu-names-desc"></p>
       </div>
     </div>
   </div>`,

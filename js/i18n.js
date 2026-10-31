@@ -18,6 +18,7 @@ const i18n = {
     'btn-stop': '← 停止',
     'btn-next': '下一步',
     'btn-home': '回首頁',
+    'btn-back-presets': '回我的流程',
     'btn-gallery': '圖冊',
 
     // ── 01 症狀 ──
@@ -230,6 +231,7 @@ const i18n = {
     'btn-stop': '← Stop',
     'btn-next': 'Next',
     'btn-home': 'Home',
+    'btn-back-presets': 'Back to My Routines',
     'btn-gallery': 'Atlas',
 
     'eyebrow-home': 'Complaint',

@@ -40,7 +40,7 @@ registerPage('complete', {
       <p class="cheer" id="complete-cheer"></p>
       <div class="btn-row">
         <button class="btn" id="btn-next-acu" onclick="goToNextAcu()" data-i18n="btn-next-acu">下一穴</button>
-        <button class="btn ghost" onclick="goHome()" data-i18n="btn-home">回首頁</button>
+        <button class="btn ghost" id="complete-home" onclick="leaveSession()" data-i18n="btn-home">回首頁</button>
         <button class="btn ghost" onclick="showPage('gallery')" data-i18n="btn-gallery">圖冊</button>
       </div>
     </div>
@@ -67,6 +67,7 @@ function completeMassage() {
 function renderComplete() {
   if (!lastCompleted) { goHome(); return; }
   const { name } = lastCompleted;
+  sessionExitLabel(document.getElementById('complete-home'));
 
   document.getElementById('complete-acu').textContent = itemLabel(name);
 

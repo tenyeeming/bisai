@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════════════════
+   電腦版型：方案 D「側欄導覽」（2026-10-31）
+   用戶在 5 個預覽方案裡選了 D，並指定「只有電腦寬螢幕」：手機、平板（含橫放）維持原本單欄。
+     ・條件＝寬 ≥ 1024 且是滑鼠（hover＋fine pointer）。觸控平板橫放是 coarse，不會進來。
+     ・左邊 248px 深藍側欄（js/nav.js renderSidenav）取代 header 與底部膠囊分頁列
+     ・右邊一次一頁，各頁用寬螢幕重排（症狀四欄、穴道三欄、認穴左圖右文、相機左大右小）
+   預覽稿：Artifact「AcuNavi 方案 D」。這支只放電腦版，不要把手機樣式寫進來。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sidenav { display: none; }
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  body { background: var(--surface-2); }
+  body .device {
+    --side-w: 248px;
+    --gutter: 32px;
+    max-width: none; width: 100%; min-height: 100svh;
+    border: 0; box-shadow: none !important;
+    display: grid;
+    grid-template-columns: var(--side-w) minmax(0, 1fr);
+    grid-auto-rows: auto;
+    align-content: start;
+    background: var(--surface-2);
+  }
+  /* 除了側欄，殼裡每一塊都站右欄 */
+  .device > * { grid-column: 2; }
+  .device > .bezel { grid-column: 1 / -1; grid-row: 1; }
+  .device > .sidenav {
+    display: flex; grid-column: 1; grid-row: 2 / span 20;
+    position: sticky; top: 0; align-self: start; height: 100svh;
+  }
+  /* 手機那套頂部品牌列、步驟軌、進度條、底部分頁列：側欄都有了 */
+  .device > header, .device > .tabbar, .device > .steprail, .device > .step-progress { display: none !important; }
+  .device > .backbar { padding: 18px var(--gutter) 0; background: transparent; border: 0; }
+  .device > main#pages { padding: 18px var(--gutter) 32px; min-height: calc(100svh - 64px); }
+  .device > main#pages > .page { max-width: 1180px; width: 100%; margin-inline: auto; }
+
+  /* 首頁背景：只鋪右欄（不要壓到側欄底下） */
+  .device::before { left: var(--side-w); }
+
+  /* ── 側欄 ── */
+  .sidenav {
+    flex-direction: column; gap: 22px; padding: 22px 16px; overflow-y: auto;
+    background: var(--hero); color: var(--hero-ink); z-index: 5;
+  }
+  .sn-brand { padding: 0 8px; color: var(--hero-ink); }
+  .sn-tabs { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: 20px; background: var(--tab-bg); }
+  .sn-tabs button {
+    height: 40px; padding: 0 16px; border: 0; border-radius: 16px; background: none;
+    color: #fff; font: inherit; font-size: .9375rem; text-align: left; cursor: pointer;
+  }
+  .sn-tabs button:hover { background: rgba(255,255,255,.12); }
+  .sn-tabs button.on { background: var(--tab-on); font-weight: 700; }
+  .sn-sec { display: flex; flex-direction: column; gap: 6px; }
+  .sn-k { font-size: .75rem; letter-spacing: .08em; color: var(--hero-ink-soft); padding: 0 8px; }
+  .sn-steps { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .sn-steps li {
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px;
+    font-size: .9375rem; color: var(--hero-ink-soft);
+  }
+  .sn-steps li b {
+    width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid currentColor; font: 400 .6875rem var(--font-mono);
+  }
+  .sn-steps li span { min-width: 0; overflow-wrap: anywhere; }
+  .sn-steps li.on { background: rgba(255,255,255,.12); color: #fff; font-weight: 700; }
+  .sn-steps li.on b { background: var(--brass); border-color: var(--brass); color: var(--on-brass); }
+  .sn-steps li.ok b { border-color: var(--brass); color: var(--brass); }
+  .sn-steps li[role="button"] { cursor: pointer; }
+  .sn-steps li[role="button"]:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .sn-menu li { justify-content: space-between; }
+  .sn-disc { margin-top: auto; padding: 0 8px; font-size: .6875rem; line-height: 1.55; color: var(--hero-ink-soft); }
+  .sidenav :focus-visible { outline-color: #fff; }
+
+  /* ── 首頁：藍帶＋症狀四欄做成一張卡，症狀格撐滿 ── */
+  #page-home > .stack { min-height: calc(100svh - 120px); }
+  #page-home .hero-band { margin: 0; border-radius: var(--r-card) var(--r-card) 0 0; padding: 18px 24px 16px; }
+  #page-home .symptom-grid {
+    --sym-rows: 5; grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 16px 24px 0; overflow: visible; min-height: 0;
+  }
+  #page-home .home-foot { padding: 0 24px 20px; flex-direction: row; align-items: center; gap: 16px; }
+  #page-home .home-foot .notice { flex: 1; margin: 0; }
+  #page-home .home-foot .btn { width: auto; min-width: 180px; }
+
+  /* ── 選穴：三欄 ── */
+  #page-recommend .acupoint-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  /* ── 認穴：左邊參考圖（佔整個高度）、右邊標題／說明／倒數／秒數／按鈕 ──
+     .ref-row 用 display:contents 拆開，圖和文字各自進 .stack 的格子 */
+  #page-acu-detail > .stack {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; row-gap: 14px; align-items: start;
+  }
+  #page-acu-detail > .stack > * { grid-column: 2; }
+  #page-acu-detail .ref-row { display: contents; }
+  #page-acu-detail #acu-ref { grid-column: 1; grid-row: 1 / span 20; width: 100%; max-width: none; }
+  #page-acu-detail .ref-frame img { width: 100%; max-height: calc(100svh - 150px); object-fit: contain; }
+  #page-acu-detail #acu-detail { grid-column: 2; font-size: 1rem; line-height: 1.75; }
+  #page-acu-detail .btn-row > button { flex: 1 1 0; }
+
+  /* ── 定位、按摩：左邊取景框，右邊標題與按鈕 ── */
+  body:not(.massage-fs) :is(#page-camera, #page-massage) > .stack {
+    display: grid; grid-template-columns: minmax(0, 1fr) 320px; column-gap: 28px; row-gap: 14px; align-items: start;
+  }
+  body:not(.massage-fs) :is(#page-camera, #page-massage) > .stack > * { grid-column: 2; }
+  body:not(.massage-fs) :is(#page-camera, #page-massage) > .stack > :is(.camera-preview, .massage-preview) {
+    grid-column: 1; grid-row: 1 / span 20;
+  }
+  body:not(.massage-fs) :is(#page-camera, #page-massage) .viewport {
+    --cam-chrome: 120px;
+    max-width: min(100%, max(300px, calc((100svh - var(--cam-chrome)) * 4 / 3)));
+  }
+
+  /* 讀數條、按鈕都在右欄；定位頁的鏡頭切換與主按鈕佔滿右欄寬 */
+  :is(#page-camera, #page-massage) > .stack > .btn { width: 100%; }
+
+  /* ── 完成、總結：置中、小人放大 ── */
+  #page-complete > .stack, #page-summary > .stack { max-width: 640px; margin-inline: auto; }
+  #page-complete .done-minion img { width: 180px; height: 180px; }
+
+  /* ── 圖冊：一排六格 ── */
+  #page-gallery .collection-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+  /* ── 圖冊 → 單穴介紹：電腦版不用底部上拉面板，改成一般頁面（側欄以外整塊），上方返回鈕回圖冊 ──
+     2026-10-31 用戶：「上滑欄你很難關掉它，就做成頁面…然後可以有返回鍵」。手機、平板仍是底部面板。
+     版型同認穴頁：左邊參考圖（佔整個高度），右邊標題／定位／影片／主治／練習。 */
+  /* 頁內 <style> 排在這支後面 → 前面加 .device 提高權重才蓋得過 */
+  .device #page-acu-info {
+    position: static; max-width: 1180px; max-height: none; overflow: visible;
+    padding: 0; border-radius: 0; background: transparent; box-shadow: none; z-index: auto;
+  }
+  .device #page-acu-info::before { content: none; }
+  .device #page-acu-info > .stack {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; row-gap: 14px; align-items: start;
+  }
+  .device #page-acu-info > .stack > * { grid-column: 2; }
+  .device #page-acu-info > .stack > div:nth-child(3) { display: contents; }
+  .device #page-acu-info #info-ref { grid-column: 1; grid-row: 1 / span 20; margin-top: 0; }
+  .device #page-acu-info #info-ref .ref-frame img { width: 100%; max-height: calc(100svh - 150px); }
+  .device #page-acu-info .info-sec + .info-sec { margin-top: 0; }
+  .device #page-acu-info .info-sec p { font-size: 1rem; line-height: 1.75; }
+  .device #page-acu-info .info-meta { font-size: .875rem; }
+  .device #page-acu-info #btn-practice { width: 100%; }
+  .device #page-acu-info #info-ref .face-sheet-sec { margin-top: 14px; }
+
+  /* ── 設定：內容寬度收在閱讀寬 ── */
+  :is(#page-settings, [id^="page-settings-"]) > .stack { max-width: 760px; }
+}

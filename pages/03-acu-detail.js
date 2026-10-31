@@ -6,7 +6,10 @@ registerPage('acu-detail', {
   tab: 'home',
   step: 2,
   stepLabel: 'step-2',
-  backTo: 'recommend',
+  // 圖冊「練這一穴」進來的退回圖冊；我的流程開始的退回我的流程（2026-10-28）
+  backTo: () => (practiceFromGallery ? 'gallery'
+    : (typeof practiceFromPreset !== 'undefined' && practiceFromPreset) ? 'settings-presets'
+    : 'recommend'),
   // 下一步就是定位頁，趁使用者在這頁讀說明時，先把 MediaPipe 在背景載好
   // （~16MB，不預熱的話會卡在「開始定位」那一下）。見 js/vision.js warmUpHands。
   onEnter: () => { closeTutorial(); renderAcuDetail(); warmUpHands(); startReadyCountdown(); },
@@ -216,6 +219,8 @@ function skipReadyCountdown() {
 
 // 從選穴頁進來：排序後從第一個穴道開始
 function goToAcuDetail() {
+  practiceFromGallery = false;   // 從選穴頁／我的流程開始的療程
+  if (typeof practiceFromPreset !== 'undefined') practiceFromPreset = false;   // 我的流程會在之後自己設回 true
   buildTreatmentList();
   if (state.selectedAcupoints.length === 0) {
     alert(isZh() ? '請選擇至少一個穴道' : 'Please select at least one acupoint');

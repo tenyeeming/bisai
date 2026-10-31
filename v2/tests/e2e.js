@@ -49,7 +49,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ── 載入 ──
   const n = d.querySelectorAll('#pages .page').length;
-  ok(n === 17, `17 頁全部載入（實得 ${n}）`);   // 2026-09-21 +settings-display；09-25 批 68 −tab-profile −settings-data
+  ok(n === 16, `16 頁全部載入（實得 ${n}）`);   // 2026-09-21 +settings-display；09-25 批 68 −tab-profile −settings-data；10-31 −settings-presets
   ok(active().join() === 'home', '起始在首頁');
   ok(activeTab().join() === 'home', '起始分頁 = 首頁');
   ok(d.querySelectorAll('#steprail li').length === 4, '步驟軌自動長出 4 格（首頁是進入點，不上軌）');
@@ -314,6 +314,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '返回列動作區只掛按摩頁自己的東西');
 
   // 計時只在對準時前進
+  // 2026-10-31 照 App 批 100：按壓判定預設關。這一段測的是「開著」的行為，所以先打開（會存檔，後面都維持開）
+  ok(w.eval('pressCheck') === false, '按壓判定預設關（同 App 批 100）');
+  w.setPressCheck(true);
   $('timer-input').value = '5'; w.updateTimerDisplay();
   ok($('timer-display').textContent === '5', '拉動滑桿改秒數');
   w.eval('onTarget=false');
@@ -550,24 +553,30 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.showPage('gallery');
   ok($('backbar').style.display === 'none', '圖冊分頁不顯示返回列');
   // 2026-09-22：與 App 同步為手部 26＋臉部 23＋前臂 15，共 64 穴。
-  const totalTiles = 26 + 23 + 15;
-  ok(/共 64 穴/.test($('gallery-progress').textContent), '圖冊標「共 64 穴」（實得 ' + $('gallery-progress').textContent + '）');
+  // 2026-10-31：照 App 拿掉手部 7 穴（側緣五穴＋陽溪陽谷）、加少府，臉部拿掉球後、兌端 → 20＋21＋15＝56。
+  // 2026-10-31（晚）用戶再拿掉少商、少澤 → 18＋21＋15＝54。
+  const totalTiles = 18 + 21 + 15;
+  ok(/共 54 穴/.test($('gallery-progress').textContent), '圖冊標「共 54 穴」（實得 ' + $('gallery-progress').textContent + '）');
   const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
-  ok(dataTotal === 49, '手部與臉部資料表仍是 49 穴（實得 ' + dataTotal + '）');
+  ok(dataTotal === 50, '手部與臉部資料表是 50 穴（拿掉的穴資料與公式留著，只是不列；實得 ' + dataTotal + '）');
+  ok(!$('collection-grid').querySelector('[data-acu="二間穴"]') && !$('collection-grid').querySelector('[data-acu="EX-HN7"]'),
+     '圖冊不列 App 拿掉的穴（二間、球後…）');
 
   // ── 每格是該穴參考圖（2026-09-24），沒有鎖、沒有等級 ──
   const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
   const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
-  ok(cells.length === totalTiles, '圖冊有 64 格（實得 ' + cells.length + '）');
+  ok(cells.length === totalTiles, '圖冊有 54 格（實得 ' + cells.length + '）');
   ok(groups.length === 3, '手部、臉部與前臂各有一個分組標題');
-  const handTiles = cells.slice(0, 26);
-  const faceTiles = cells.slice(26, 49);
-  ok(cells.every(t => t.querySelector('img.thumb, .thumb-code')), '64 格都有參考圖或代號圓標');
+  const handTiles = cells.slice(0, 18);
+  const faceTiles = cells.slice(18, 39);
+  ok(cells.every(t => t.querySelector('img.thumb, .thumb-code')), '54 格都有參考圖或代號圓標');
+  ok(handTiles.find(t => t.dataset.acu === '少府穴').querySelector('img.thumb').getAttribute('src') === 'assets/acu-ref/shaofu.jpg',
+     '少府（2026-10-31 新增）放的是用戶自繪參考圖');
   ok(handTiles.find(t => t.dataset.acu === '合谷穴').querySelector('img.thumb').getAttribute('src') === 'assets/acu-ref/hegu.jpg',
      '合谷那格放的是合谷參考圖');
   ok(faceTiles.find(t => t.dataset.acu === 'ST1').querySelector('img.thumb').getAttribute('src') === 'assets/face-ref/ST1.jpg',
      '承泣那格放的是承泣參考圖');
-  ok(!!handTiles.find(t => t.dataset.acu === '少商穴').querySelector('.thumb-code'), '少商沒有參考圖 → 代號圓標，不借別穴的圖');
+  ok(!handTiles.find(t => t.dataset.acu === '少商穴') && !handTiles.find(t => t.dataset.acu === '少澤穴'), '圖冊不列少商、少澤（2026-10-31 用戶拿掉）');
   ok(cells.filter(t => t.classList.contains('locked')).length === 0, '沒有任何一格被鎖');
   ok(!/Lv\.|已解鎖|尚未解鎖/.test($('collection-grid').textContent), '圖冊沒有等級與解鎖字樣');
   // 臉部的顏色不可以全部一樣（候的直接借 acuColor() 就會全是土黃色）
@@ -611,7 +620,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('vid-overlay') === null, '離開介紹頁時播放器一起關掉');
   w.eval("infoAcuName='合谷穴'"); w.showPage('acu-info');
 
-  // 沒有定位公式的穴道不能練
+  // 沒有定位公式的穴道不能練（少商圖冊已不列，資料還在 → 直接開介紹頁測）
   w.eval("infoAcuName='少商穴'"); w.showPage('acu-info');
   ok($('btn-practice').disabled === true, '少商穴尚未支援定位 → 按鈕停用');
   ok($('info-ref').querySelector('.ref-none'), '少商穴沒有參考圖 → 顯示「尚無參考圖」而不是借別穴的圖');
@@ -623,6 +632,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(active().join() === 'acu-detail', '按「練這一穴」→ 認穴頁');
   ok(w.eval("JSON.stringify(state.selectedAcupoints)") === '["合谷穴"]', '療程只有這一穴');
   ok($('acu-progress').textContent === '1 / 1', '進度顯示 1 / 1');
+  // 2026-10-27 用戶：圖冊進來的按摩退出會跑到選穴頁 → 圖冊來的退回圖冊，選穴頁來的照舊
+  w.goBack();
+  ok(active().join() === 'gallery', '圖冊「練這一穴」→ 認穴頁按返回 → 回圖冊');
+  w.goToAcuDetail(); w.goBack();
+  ok(active().join() === 'recommend', '從選穴頁開始的療程 → 認穴頁返回仍是選穴頁');
 
   // ── 臉部穴道的圖冊介紹（2026-09-20）──────────────────
   // 跟手部同一頁、同一組 DOM，只是填不同的東西。
@@ -758,10 +772,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-09-21 對齊 App 的 SettingsScreen.kt：
   //   +「顯示」（字體大小）、「每日提醒」從一般組搬到療程組、「定位精度」入口移除
   //   （App 2026-09-09 就刪了，行為固定嚴格）
-  // 2026-09-24：「資料與紀錄」拿掉（網頁不存紀錄）→ 五列
-  ok(menuRows().length === 5, `設定目錄列出 5 個功能（實得 ${menuRows().length}）`);
-  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,我的流程,每日提醒',
-     '目錄五列：語言／顯示／療程節奏／我的流程／每日提醒');
+  // 2026-09-24：「資料與紀錄」拿掉（網頁不存紀錄）；2026-10-31：「我的流程」拿掉 → 四列
+  ok(menuRows().length === 4, `設定目錄列出 4 個功能（實得 ${menuRows().length}）`);
+  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,每日提醒',
+     '目錄四列：語言／顯示／療程節奏／每日提醒（我的流程 2026-10-31 拿掉）');
   ok(!menuRows().some(b => b.querySelector('.label').textContent === '定位精度'),
      '目錄裡沒有「定位精度」（同 App）');
   ok(!$('page-settings').querySelector('input'), '設定首頁本身沒有任何開關（全都搬進子頁）');
@@ -790,174 +804,27 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 各記一份的話使用者會看到兩個互相矛盾的數字。
   w.showPage('settings-flow');
   const segOn = (id) => [...d.querySelectorAll(`#${id} button`)].find(b => b.classList.contains('on'));
-  ok([...d.querySelectorAll('#page-settings-flow .seg')].length === 5,
-     '療程節奏有五項：認穴停留／手序／換手倒數／換穴／單手秒數');
-  ok(segOn('seg-press').textContent === `${w.eval('flow.pressSec')}s`,
-     '單手秒數選中設定值：' + segOn('seg-press').textContent);
+  // 2026-10-31 照 App：順序 認穴停留 → 換手倒數 → 單手秒數（5～90 滑桿）｜ 手序 → 換穴
+  ok([...d.querySelectorAll('#page-settings-flow .fieldrow > .k')].map(k => k.textContent).join() === '認穴停留,換手倒數,單手秒數,手序,換穴',
+     '療程節奏順序同 App：認穴停留／換手倒數／單手秒數／手序／換穴');
+  const pressRange = () => d.querySelector('#press-row input[type="range"]');
+  ok(pressRange() && pressRange().min === '5' && pressRange().max === '90' && pressRange().value === String(w.eval('flow.pressSec')),
+     '單手秒數是 5～90 秒滑桿，停在設定值');
   ok(segOn('seg-advance').textContent === (w.eval('flow.autoAdvance') ? '自動' : '手動'),
      '換穴模式選中設定值：' + segOn('seg-advance').textContent);
-  [...d.querySelectorAll('#seg-press button')].find(b => b.textContent === '60s').click();
-  ok(w.eval('flow.pressSec') === 60, '在設定頁改單手秒數會寫進 flow');
+  pressRange().value = '60'; pressRange().dispatchEvent(new w.Event('input'));
+  ok(w.eval('flow.pressSec') === 60 && /60s/.test($('press-row').textContent), '在設定頁拉單手秒數會寫進 flow');
   ok(JSON.parse(w.localStorage.getItem('flowSettings')).pressSec === 60, '而且存進 localStorage');
   // 直接呼叫按摩頁的 armTimer（不 showPage —— 切到按摩頁會把相機也帶起來，
   // 後面還有「手部相機沒有同時開著」的檢查會被弄髒）
   w.armTimer();
   ok($('timer-input').value === '60', '⭐ 沒特別調過的穴道，按摩頁滑桿讀到的就是這個全域預設值');
   w.showPage('settings-flow');
-  [...d.querySelectorAll('#seg-press button')].find(b => b.textContent === '30s').click();
+  pressRange().value = '30'; pressRange().dispatchEvent(new w.Event('input'));
   ok(w.eval('flow.pressSec') === 30, '改回 30 秒');
 
-  // ── 設定 › 我的流程（2026-09-08）──
-  // 三件事要守：存得起來、開始時真的排成療程、節奏是覆蓋層不是覆蓋。
-  w.showPage('settings-presets');
-  const pRows = () => [...d.querySelectorAll('#preset-list .row')];
-  ok(pRows().length === 0 && /還沒有任何流程/.test($('preset-list').textContent), '一開始沒有流程，顯示空狀態');
-  ok($('preset-edit').hidden, '編輯區預設收起來');
-
-  w.openPresetEditor(null);
-  ok(!$('preset-edit').hidden && $('preset-new-row').hidden, '按新增就展開編輯區，並收起新增鈕');
-  ok($('preset-del').hidden, '新增時沒有刪除鈕（還沒有東西可刪）');
-  const pAcuBoxes = () => [...d.querySelectorAll('#preset-acu-hand input')];
-  ok(pAcuBoxes().length === w.eval('ACUPOINTS.filter(a=>IMPLEMENTED.has(a.name)).length'),
-     '手部（不分手背手心，一組）只列算得出位置的穴道');
-  ok(pAcuBoxes().every(b => !b.checked), '新流程一開始一個都沒勾');
-  ok(/還沒選穴道/.test($('preset-est').textContent), '沒選穴道時不報一個假的時長');
-  // 2026-10-01 我的流程簡化：新增時不調節奏與逐穴秒數；分組可收合；沒勾就不能存
-  ok($('preset-flow-box').hidden && !$('preset-later').hidden, '新增時不出現節奏，改一行「存好再調」');
-  ok(!d.querySelector('#preset-edit .pexp'), '新增時沒有逐穴秒數 ▾');
-  ok(d.querySelector('.pgroup[data-grp="hand"]').open && !d.querySelector('.pgroup[data-grp="face"]').open,
-     '分組：新增時只開手部，其他收著');
-  ok($('preset-save').disabled, '沒勾穴道：儲存鈕停用（不再跳 alert）');
-  ok(d.querySelectorAll('#preset-forearm-list input').length === 15, '手肘 15 穴可排進流程');
-
-  w.savePresetEditor();
-  ok(pRows().length === 0, '一個穴道都沒選就存不起來');
-
-  w.togglePresetAcu('陽池穴');
-  w.togglePresetAcu('合谷穴');
-  ok(w.eval('presetDraft.acupoints.join()') === '陽池穴,合谷穴', '勾選寫進草稿');
-  w.togglePresetAcu('陽池穴'); w.togglePresetAcu('陽池穴');   // 取消再勾：草稿變成合谷、陽池（後面取消測試照這個順序比）
-  const chips = () => [...d.querySelectorAll('#preset-chosen .chip')].map(c => c.textContent.replace(/[✕\s\d]/g, ''));
-  ok(chips().join() === '合谷穴,陽池穴', '已選列照療程順序（不是勾的先後）：' + chips().join());
-  ok(!$('preset-save').disabled, '勾了就能存');
-  // 依病症選：加入推薦穴，不重複
-  w.togglePresetSym();
-  ok(!$('preset-sym').hidden && $('preset-sym').querySelectorAll('button').length === w.eval('SYMPTOM_MAP.length'),
-     '依病症選展開症狀格子');
-  const gut = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='腸胃不適')");
-  const n0 = w.eval('presetCount(presetDraft)');
-  w.selectPresetSymptom(gut);
-  // 2026-10-01 用戶：點症狀只列出可選的，不要直接幫我選完
-  ok(w.eval('presetCount(presetDraft)') === n0, '點症狀不會自動加穴');
-  const pickBoxes = () => [...$('preset-sym-pick').querySelectorAll('input')];
-  ok(!$('preset-sym-pick').hidden && /腸胃不適/.test($('preset-sym-pick').textContent)
-     && /內關穴/.test($('preset-sym-pick').textContent), '列出「腸胃不適」可以選的穴（含手肘內關）');
-  ok(pickBoxes().length === w.eval("presetSymptomItems(SYMPTOM_MAP.findIndex(s=>s.name==='腸胃不適')).length"), '列的數量＝推薦穴數');
-  const nk = [...$('preset-sym-pick').querySelectorAll('label')].findIndex(l => /內關穴/.test(l.textContent));
-  pickBoxes()[nk].click();
-  ok(w.eval('presetDraft.forearm.includes("內關穴")') && w.eval('presetCount(presetDraft)') === n0 + 1, '勾一個才加一個');
-  ok(pickBoxes()[nk].checked, '重畫後勾選狀態還在');
-  pickBoxes().forEach(b => { if (!b.checked) b.click(); });
-  ok(w.eval('presetCount(presetDraft)') > n0 + 1, '全部勾起來');
-  // ⓘ 詳情：同選穴頁的面板，點了不會勾選
-  {
-    const before = w.eval('presetCount(presetDraft)');
-    const ib = $('preset-sym-pick').querySelectorAll('.info');
-    ok(ib.length === pickBoxes().length, '依病症列出的每一穴都有 ⓘ');
-    const row = [...$('preset-sym-pick').querySelectorAll('label')].find(l => /內關穴/.test(l.textContent));
-    row.querySelector('.info').click();
-    ok(!$('info-sheet').hidden && $('info-sheet-name').textContent === '內關穴'
-       && $('info-sheet').closest('.page').id === 'page-settings-presets', 'ⓘ 打開詳情面板（搬到我的流程頁）');
-    ok(w.eval('presetCount(presetDraft)') === before, '點 ⓘ 不會勾選／取消');
-    w.closeInfoSheet();
-    ok($('info-sheet').hidden && $('info-sheet').closest('.page').id === 'page-recommend', '關掉後面板搬回選穴頁');
-    ok(d.querySelectorAll('#preset-acu-hand .info').length === pAcuBoxes().length
-       && d.querySelectorAll('#preset-face-list .info').length === d.querySelectorAll('#preset-face-list input').length,
-       '分組清單每一列也有 ⓘ');
-    d.querySelector('#preset-face-list .info').click();
-    ok(!$('info-sheet').hidden && $('info-sheet-body').textContent.length > 0, '臉部的 ⓘ 也打得開');
-    w.closeInfoSheet();
-  }
-  w.selectPresetSymptom(gut);
-  ok($('preset-sym-pick').hidden, '再點同一症狀收起清單');
-  const kinds = [...d.querySelectorAll('#preset-chosen .chip button')].map(b => b.getAttribute('onclick').match(/'(\w+)'/)[1]);
-  ok(kinds.join() === [...kinds].sort((a, b) => ['hand', 'forearm', 'face'].indexOf(a) - ['hand', 'forearm', 'face'].indexOf(b)).join(),
-     '已選列：手部 → 手肘 → 臉部');
-  // ✕ 拿掉：把剛加進來的都拿掉，只留合谷、陽池
-  w.eval("presetDraft.acupoints.filter(n=>!['合谷穴','陽池穴'].includes(n)).forEach(n=>removePresetItem('hand',n))");
-  w.eval("[...presetDraft.forearm].forEach(n=>removePresetItem('forearm',n)); [...presetDraft.face].forEach(n=>removePresetItem('face',n))");
-  ok(chips().join() === '合谷穴,陽池穴', '已選列的 ✕ 拿得掉');
-
-  $('preset-name').value = '早上這組';
-  w.onPresetNameInput();
-  w.savePresetEditor();
-  ok(pRows().length === 1 && $('preset-edit').hidden, '存得起來，編輯區收回去');
-  ok(/早上這組/.test(pRows()[0].textContent) && /2 穴/.test(pRows()[0].textContent), '清單顯示名稱與穴數');
-  ok(JSON.parse(w.localStorage.getItem('acuPresets')).length === 1, '存進 localStorage');
-  ok(w.eval('presets[0].flow.pressSec') === 30, '新增時帶目前的全域節奏');
-
-  // 存好後點進去才調節奏與逐穴秒數
-  w.openPresetEditor(w.eval('presets[0].id'));
-  ok(!$('preset-flow-box').hidden && $('preset-later').hidden, '編輯既有流程才出現節奏');
-  [...d.querySelectorAll('#pseg-press button')].find(b => b.textContent === '45s').click();
-  ok(w.eval('presetDraft.flow.pressSec') === 45 && w.eval('flow.pressSec') === 30,
-     '⭐ 改流程的節奏不會動到全域 flow');
-  ok(w.eval('presetSeconds(presetDraft)') === 2 * (5 + 45 * 2 + 5), '時長＝穴數 ×（認穴＋左右各一輪＋換手）');
-  w.togglePresetTime('合谷穴');
-  ok(!!d.querySelector('#preset-acu-hand .ptime'), '▾ 展開合谷的秒數面板');
-  w.onPresetTimeInput('合谷穴', '60'); w.renderPresetEditor();
-  ok(w.eval("presetDraft.perAcuSec['合谷穴']") === 60 && /60s/.test($('preset-acu-hand').textContent), '合谷調成 60 秒，列上有痕跡');
-  ok(w.eval('presetSeconds(presetDraft)') === (5 + 60 * 2 + 5) + (5 + 45 * 2 + 5), '時長跟著逐穴秒數算');
-  w.togglePresetTime('合谷穴');
-  ok(!d.querySelector('#preset-edit .ptime'), '再點一次收起');
-  w.togglePresetTime('陽溪穴');
-  ok(!d.querySelector('#preset-edit .ptime'), '沒勾的穴道不能展開');
-  w.savePresetEditor();
-
-  // 名字空著也存得起來（給預設名，不是擋下來）
-  w.openPresetEditor(null);
-  w.togglePresetAcu('陽溪穴');
-  w.savePresetEditor();
-  ok(pRows().length === 2 && /流程 1/.test(pRows()[1].textContent),
-     '沒取名就給「流程 N」，而且是沒被用過的最小號（第一組叫「早上這組」，所以這組是 1 不是 2）');
-
-  // 名稱裡的 < 不能把清單的 HTML 弄壞
-  w.openPresetEditor(w.eval('presets[1].id'));
-  ok(!$('preset-del').hidden, '編輯既有流程才有刪除鈕');
-  $('preset-name').value = '<b>x';
-  w.onPresetNameInput();
-  w.savePresetEditor();
-  ok(!$('preset-list').querySelector('b') && /<b>x/.test(pRows()[1].textContent), '名稱裡的標籤被跳脫，不會吃掉清單');
-
-  // 取消要真的取消得掉
-  w.openPresetEditor(w.eval('presets[0].id'));
-  w.togglePresetAcu('合谷穴');
-  w.closePresetEditor();
-  ok(w.eval('presets[0].acupoints.join()') === '合谷穴,陽池穴', '按取消不會把改動寫進去');
-
-  // ⭐ 開始：排成療程 ＋ 節奏覆蓋層
-  w.startPreset(w.eval('presets[0].id'));
-  ok(active().join() === 'acu-detail', '開始流程直接落在認穴頁');
-  ok(w.eval('state.selectedAcupoints.join()') === '合谷穴,陽池穴', '療程清單就是流程那兩穴');
-  ok(w.eval('flow.pressSec') === 45, '流程的節奏生效');
-  ok(w.eval("acuSecOf('合谷穴')") === 60 && w.eval("acuSecOf('陽池穴')") === 45, '逐穴秒數帶進療程：合谷 60、陽池跟這組 45');
-  ok($('detail-sec').hidden, '跑「我的流程」時認穴頁不顯示秒數滑桿（同 App）');
-  ok(JSON.parse(w.localStorage.getItem('flowSettings')).pressSec === 30,
-     '⭐ 但沒有寫進 localStorage —— 流程節奏不是使用者的預設值');
-  w.setFlow('pressSec', 20);
-  ok(w.eval('flow.pressSec') === 20 && JSON.parse(w.localStorage.getItem('flowSettings')).pressSec === 30,
-     '⭐ 療程中改秒數只算這一次，不寫檔');
-  w.goHome();
-  ok(w.eval('flow.pressSec') === 30, '⭐ 回首頁還原成全域節奏');
-
-  // 刪除
-  w.showPage('settings-presets');
-  w.openPresetEditor(w.eval('presets[1].id'));
-  w.confirm = () => true;
-  w.deletePresetEditor();
-  ok(pRows().length === 1 && w.eval('presets.length') === 1, '刪得掉');
-  w.eval("presets = []; savePresets();");
-  w.showPage('settings-presets');
+  // ── 設定 › 我的流程：2026-10-31 整個拿掉（網頁存不住）──
+  ok(!d.querySelector('#page-settings-presets') && typeof w.startPreset === 'undefined', '沒有「我的流程」頁');
 
   // ── 設定 › 定位精度 ──
   w.showPage('settings-accuracy');
@@ -968,37 +835,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // ⚠️ 目錄已經沒有這一列了，所以不再驗「目錄跟著顯示寬鬆／嚴格」——
   //    頁面本身仍在（直接 showPage 進得去），只是沒有入口。
 
-  // ── 設定 › 每日提醒 ──
+  // ── 設定 › 每日提醒（2026-10-31 照 App 批 112：只剩開關＋時間）──
   w.showPage('settings-notify');
   ok($('notify-time').value === '20:00', '提醒時間預設 20:00');
-  ok($('notify-plan-body').innerHTML === '', '預設「不指定」時不列任何清單');
-  w.setNotifyMode('symptom');
-  const syms = () => [...$('notify-plan-body').querySelectorAll('input')];
-  // 2026-09-20：急症排除拿掉之後，清單就是整張症狀表，一個都不扣
-  ok(syms().length === w.eval('SYMPTOM_MAP.length'),
-     `依症狀列出全部 ${syms().length} 個症狀（不再扣急症）`);
-  ok(/中暑/.test($('notify-plan-body').querySelector('.optlist').textContent),
-     '中暑是一般症狀，照樣列進每日提醒');
-  ok(!/119|昏迷/.test($('notify-plan-body').textContent), '提醒頁沒有 119 也沒有昏迷急救');
-  const hIdx = w.eval("SYMPTOM_MAP.findIndex(s=>s.name==='緩解頭痛')");
-  w.toggleNotifySymptom(hIdx);
-  ok(w.eval('notifyPlan().symptoms').join() === '緩解頭痛', '勾的症狀存的是名字不是索引');
+  ok(!$('notify-mode-seg') && !$('notify-plan-body'), '「提醒內容」那一區拿掉了');
   w.onNotifyChange(true);
   w.showPage('settings');
-  ok(menuRows()[4].querySelector('.value').textContent === '20:00 · 緩解頭痛', '目錄那列顯示「幾點 · 按什麼」');
-
+  ok(menuRows()[3].querySelector('.value').textContent === '20:00', '目錄那列只顯示時間（同 App）');
   w.showPage('settings-notify');
-  w.setNotifyMode('acupoint');
-  const acus = () => [...$('notify-plan-body').querySelectorAll('input')];
-  ok(acus().length === w.eval('IMPLEMENTED.size'), `直接選穴道只列 ${acus().length} 個算得出位置的穴道`);
-  const hegu = w.eval("ACUPOINTS.findIndex(a=>a.name==='合谷穴')");
-  w.toggleNotifyAcu(hegu);
-  ok(w.eval('notifyPlan().acupoints').join() === '合谷穴', '勾的穴道有存起來');
-  w.startNotifyPlan();
-  ok(active().join() === 'acu-detail' && w.eval('curAcuName()') === '合谷穴',
-     '點提醒直接排成療程、落在認穴頁（不自動開始按摩）');
   w.onNotifyChange(false);
   ok(w.eval('reminderTimer') === null, '關掉提醒會把排程取消掉');
+  w.showPage('settings');
+  ok(menuRows()[3].querySelector('.value').textContent === '關閉', '關掉時目錄寫「關閉」');
 
   // ── 設定 › 資料與紀錄：2026-09-24 拿掉（沒有紀錄可清）──
   w.showPage('settings');

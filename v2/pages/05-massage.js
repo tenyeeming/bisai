@@ -288,7 +288,7 @@ function syncMassageHints() {
   // setGate / setFaceGate 每幀都會蓋掉它，所以不必判斷現在是不是空的。
   const gate = document.getElementById('massage-gate');
   if (gate) gate.textContent = massageDetector() === 'face' ? t('massage-hint-face')
-    : massageDetector() === 'forearm' ? t('fa-calib-title') : t('massage-hint');
+    : massageDetector() === 'forearm' ? faCalibTitle(curAcuName()) : t('massage-hint');
 }
 
 // ── 前臂內關：先檢測，再倒數（App ForearmScreen：wasCalibrated → entryRemain）────
@@ -418,7 +418,7 @@ function startMassageCamera() {
     // 前臂內關（App 批 89／90）：Hands＋Pose，自己開相機（會先關掉手部／臉部那兩套）
     recalibForearm();
     syncMassageHints();
-    startForearmCamera('massage-canvas', 'massage-gate', onForearmCalibrated);
+    startForearmCamera('massage-canvas', 'massage-gate', onForearmCalibrated, id);
     return;
   }
   if (itemDetector(id) === 'none') {

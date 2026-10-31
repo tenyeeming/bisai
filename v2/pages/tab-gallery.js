@@ -88,8 +88,10 @@ function initCollectionGrid() {
 
   // 2026-09-22：手機圖冊與 App 同步為手部、臉部、前臂三組，共 64 穴。
   // 2026-09-24：格子改放各穴參考圖（原本三組共用一隻手掌小人）。
-  const hand = ACUPOINTS.map(a => a.name);
-  const face = FACE_ACUPOINTS.map(a => a.code);
+  // 2026-10-31 照 App：App 拿掉的穴不列（手部 removed: true 的 7 穴、臉部球後與兌端）→ 手部 20＋臉部 21＋前臂 15＝56
+  //   2026-10-31（晚）用戶再拿掉少商、少澤（removed）→ 手部 18，共 54
+  const hand = ACUPOINTS.filter(a => !a.removed).map(a => a.name);
+  const face = FACE_ACUPOINTS.filter(a => !FACE_REMOVED.has(a.code)).map(a => a.code);
   const forearm = FOREARM_ACUPOINTS;
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));

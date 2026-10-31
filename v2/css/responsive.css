@@ -299,3 +299,25 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
     display: flex; align-items: center;
   }
 }
+
+
+/* ── 設定子頁（2026-10-31 照 App 批 112）──────────────────────────────
+   ① 子頁標題放大（App 28 → 34sp，所有子頁一起）
+   ② 「!」說明鈕：看得到的圈 22px、可點範圍 40px，展開時圈變主色
+   ③ 「字體大小」標題放大（App titleMedium 19sp） */
+.device [id^="page-settings-"] h2 { font-size: 2.125rem; }
+.set-head { display: flex; align-items: center; gap: 2px; }
+.set-head .k { margin-bottom: 0; }
+.set-title { font-size: 1.1875rem; font-weight: 700; color: var(--accent-text); }
+.info-mark {
+  width: 40px; height: 40px; flex: none; display: inline-grid; place-items: center;
+  background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink-soft);
+}
+.info-mark span {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid currentColor; font-size: .8125rem; font-weight: 700; line-height: 1;
+}
+.info-mark.on { color: var(--accent-text); }
+.info-mark.on span { background: var(--accent-text); border-color: var(--accent-text); color: var(--paper); }
+.set-info { display: flex; flex-direction: column; gap: 6px; }
+.set-info[hidden], .fieldrow .d[hidden] { display: none; }

@@ -47,7 +47,7 @@ registerPage('summary', {
       <p class="notice" id="summary-empty" data-i18n="summary-empty" hidden>這次沒有完成任何一穴。</p>
       <div id="summary-list"></div>
 
-      <button class="btn" onclick="leaveSummary('home')" data-i18n="btn-home">回首頁</button>
+      <button class="btn" id="summary-home" onclick="leaveSummary('home')" data-i18n="btn-home">回首頁</button>
       <button class="btn ghost" onclick="leaveSummary('gallery')" data-i18n="btn-gallery">圖冊</button>
     </div>
   </div>`,
@@ -103,5 +103,5 @@ function renderSummary() {
 function leaveSummary(page) {
   document.querySelectorAll('.confetti-layer').forEach(el => el.remove());
   goHome();
-  if (page !== 'home') showPage(page);
+  showPage(page);
 }

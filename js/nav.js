@@ -106,7 +106,8 @@ function updateBackbar(page) {
 
 function goBack() {
   const cfg = PAGES[currentPage];
-  if (cfg && cfg.backTo) showPage(cfg.backTo);
+  // backTo 也可以是函式（按下時才決定；同 網頁v2 nav.js）—— 2026-10-27 圖冊進來的認穴頁要退回圖冊
+  if (cfg && cfg.backTo) showPage(typeof cfg.backTo === 'function' ? cfg.backTo() : cfg.backTo);
 }
 
 // ── 底部分頁列 ────────────────────────────────────────────────────
@@ -176,6 +177,8 @@ function showPage(name) {
 }
 
 function goHome() {
+  if (typeof practiceFromGallery !== 'undefined') practiceFromGallery = false;
+  if (typeof practiceFromPreset !== 'undefined') practiceFromPreset = false;
   // 跑完（或中途離開）一組預設流程：節奏還原成使用者的全域設定。
   // 這裡是療程的唯一出口，所以還原只要放這一個地方（見 state.js applyPresetFlow）。
   if (typeof restorePresetFlow === 'function') restorePresetFlow();

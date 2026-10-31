@@ -681,7 +681,7 @@ function onHandsResults(results) {
     // 文案只講要做什麼。措辭與臉部（face-vision.js）統一。
     setGate(touching ? 'ok' : 'warn', touching
       ? (isZh() ? '對準了　可按「開始按摩」' : 'On target · press Start')
-      : (isZh() ? '指尖沿箭頭移到穴道上' : 'Follow the arrow to the point'));
+      : (isZh() ? '指尖移到穴道上' : 'Move your fingertip onto the point'));   // 2026-10-31 箭頭拿掉，文案跟著改
   } else {
     setGate(touching ? 'ok' : 'bad', touching
       ? (isZh() ? '按對了　計時進行中' : 'On target · timing')
@@ -697,11 +697,8 @@ function onHandsResults(results) {
 function drawPresserTip(ctx, mx, tip, pt, on, discR) {
   if (!tip) return;
   ctx.save();
-  if (!on && pt) {
-    // 2026-09-12：虛線改成箭頭。虛線只連出兩點之間，往哪移要自己判斷；
-    // 箭頭把方向直接講出來。尖端留白避免蓋住信心圓盤。
-    drawGuideArrow(ctx, mx(tip.x), tip.y, mx(pt.x), pt.y, { gap: Math.max(16, discR * 0.9) });
-  }
+  // 2026-10-31 用戶：「按壓判定的時候不要就是有一個箭頭告訴我去哪裏」→ 指尖→穴道的箭頭拿掉（同 App 批 78）。
+  //   手部、臉部、前臂都走這裡或同一種畫法，三邊一起拿。drawGuideArrow（acu-math.js）本身留著沒刪。
   if (showSkeleton) {
     ctx.beginPath();
     ctx.arc(mx(tip.x), tip.y, 8, 0, Math.PI * 2);

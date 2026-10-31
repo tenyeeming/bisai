@@ -864,17 +864,40 @@ function _calcShaoshang(lm, W, H, cp, dorsal) {
   return _fingertipAcu(lm, W, H, cp, 4, 3, SS_PROX, SS_LAT);
 }
 
-// 商陽穴 LI1 — 食指橈側甲角旁
-// calibrated ten_back 2026-07-12（單張，overfit 風險高）
-function _calcShangyang(lm, W, H, cp, dorsal) {
-  if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 8, 7, SY_PROX, SY_LAT);
+// ── 2026-10-31 照 App 批 102／103（App acu/AcuMath.kt nailCornerAcu／knuckleToWrist，逐式移植）──
+
+/**
+ * 指甲角穴：以末節指骨當座標。原點 lm[dipI]，軸 a = lm[tipI]−lm[dipI]，r = 垂直 a 的單位向量，
+ * 用 lm5−lm17（小指側→拇指側）定正負，radial=false 再反過來朝小指側。
+ * P = DIP + t·a + u·|a|·r —— 偏移用末節長度 |a| 當尺，不用寸。
+ */
+function _nailCornerAcu(lm, W, H, dipI, tipI, t, u, radial) {
+  const dx = lm[dipI].x * W, dy = lm[dipI].y * H;
+  const ax = lm[tipI].x * W - dx, ay = lm[tipI].y * H - dy;
+  const len = Math.hypot(ax, ay);
+  if (len < 1) return [{ x: dx, y: dy }];
+  let rx = -ay / len, ry = ax / len;
+  const toThumb = rx * (lm[5].x - lm[17].x) * W + ry * (lm[5].y - lm[17].y) * H;
+  if ((toThumb < 0) === radial) { rx = -rx; ry = -ry; }
+  return [{ x: dx + t * ax + u * len * rx, y: dy + t * ay + u * len * ry }];
 }
 
-// 少衝穴 HT9 — 小指橈側甲角旁（未校準）
+/** 掌心穴：兩個掌指關節的中點往手腕 lm0 走 t */
+function _knuckleToWrist(lm, W, H, a, b, t) {
+  const mx = (lm[a].x + lm[b].x) / 2, my = (lm[a].y + lm[b].y) / 2;
+  return { x: lerp(mx, lm[0].x, t) * W, y: lerp(my, lm[0].y, t) * H };
+}
+
+// 商陽穴 LI1 — 食指末節橈側（2026-10-31 照 App 改指甲角框架；舊 _fingertipAcu 版本見 SY_PROX／SY_LAT）
+function _calcShangyang(lm, W, H, cp, dorsal) {
+  if (!dorsal) return null;
+  return _nailCornerAcu(lm, W, H, 7, 8, SY_T, SY_U, true);
+}
+
+// 少衝穴 HT9 — 小指末節橈側（同上）
 function _calcShaoChong(lm, W, H, cp, dorsal) {
   if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 20, 19, SC_PROX, SC_LAT);
+  return _nailCornerAcu(lm, W, H, 19, 20, SC_T, SC_U, true);
 }
 
 // 少澤穴 SI1 — 小指尺側甲角旁（未校準）
@@ -883,19 +906,22 @@ function _calcShaoze(lm, W, H, cp, dorsal) {
   return _fingertipAcu(lm, W, H, cp, 20, 19, SZ_PROX, SZ_LAT);
 }
 
-// 關衝穴 TE1 — 無名指尺側甲角旁（未校準）
+// 關衝穴 TE1 — 無名指末節尺側（2026-10-31 照 App 改指甲角框架）
 function _calcGuanchong(lm, W, H, cp, dorsal) {
   if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 16, 15, GC_PROX, GC_LAT);
+  return _nailCornerAcu(lm, W, H, 15, 16, GC_T, GC_U, false);
 }
 
-// 勞宮穴 PC8 — 掌心 lerp(lm[0], lm[9])（未校準）
+// 勞宮穴 PC8 — 掌心，mid(lm5,lm9)→lm0（2026-10-31 照 App；舊版 lerp(lm0,lm9,LG_T) 留在常數）
 function _calcLaogong(lm, W, H, cp, dorsal) {
   if (dorsal) return null;
-  return [{
-    x: lerp(lm[0].x, lm[9].x, LG_T) * W,
-    y: lerp(lm[0].y, lm[9].y, LG_T) * H,
-  }];
+  return [_knuckleToWrist(lm, W, H, 5, 9, LG_T2)];
+}
+
+// 少府穴 HT8 — 掌心，mid(lm13,lm17)→lm0（2026-10-31 照 App 批 103 新增）
+function _calcShaofu(lm, W, H, cp, dorsal) {
+  if (dorsal) return null;
+  return [_knuckleToWrist(lm, W, H, 13, 17, SF_T)];
 }
 
 // ── DISPATCH TABLE + RAW ENTRY POINT ─────────────────────────────────────────
@@ -929,6 +955,7 @@ const _ACU_CALC_RAW = {
   "少澤穴": _calcShaoze,
   "勞宮穴": _calcLaogong,
   "關衝穴": _calcGuanchong,
+  "少府穴": _calcShaofu,   // 2026-10-31 照 App 批 103
 };
 
 function _computeAcupointRaw(name, lm, W, H, handedness, ov = {}) {

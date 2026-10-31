@@ -35,11 +35,26 @@ registerPage('settings-flow', {
         <h2 data-i18n="settings-flow">療程節奏</h2>
       </div>
 
+      <!-- 2026-10-31 順序照 App SettingsFlowScreen：認穴停留 → 換手倒數 → 單手秒數 ｜ 手序 → 換穴 -->
       <div class="fieldrow">
         <p class="k" data-i18n="settings-ready">認穴停留</p>
         <div class="seg" id="seg-ready"></div>
-        <p class="d" data-i18n="settings-ready-desc">認穴頁停留幾秒後自動進入定位。設 0 就直接跳過認穴 —— 但定位模型原本是趁你讀說明時在背景載的，跳過會讓定位頁開頭卡一下。</p>
+        <p class="d" data-i18n="settings-ready-desc">認穴頁停留幾秒後自動進入定位。</p>
       </div>
+
+      <div class="fieldrow">
+        <p class="k" data-i18n="settings-switch">換手倒數</p>
+        <div class="seg" id="seg-switch"></div>
+        <p class="d" data-i18n="settings-switch-desc">一隻手按滿之後，倒數幾秒自動開始下一隻手。</p>
+      </div>
+
+      <div class="fieldrow">
+        <p class="k" data-i18n="settings-press">單手秒數</p>
+        <div class="auto-sec" id="press-row"></div>
+        <p class="d" data-i18n="settings-press-desc">一隻手按幾秒。</p>
+      </div>
+
+      <hr class="rule">
 
       <div class="fieldrow">
         <p class="k" data-i18n="settings-handorder">手序</p>
@@ -48,23 +63,9 @@ registerPage('settings-flow', {
       </div>
 
       <div class="fieldrow">
-        <p class="k" data-i18n="settings-switch">換手倒數</p>
-        <div class="seg" id="seg-switch"></div>
-        <p class="d" data-i18n="settings-switch-desc">一隻手按滿之後，倒數幾秒自動開始下一隻手。手還舉在鏡頭前的時候很難再點一次按鈕，所以預設是自動接上。</p>
-      </div>
-
-      <hr class="rule">
-
-      <div class="fieldrow">
         <p class="k" data-i18n="settings-advance">換穴</p>
         <div class="seg" id="seg-advance"></div>
-        <p class="d" data-i18n="settings-advance-desc">一個穴道左右手都按完之後，要不要自動接下一個穴道。設「手動」就會停在完成頁等你點。按摩頁的齒輪也調得到，改的是同一項。</p>
-      </div>
-
-      <div class="fieldrow">
-        <p class="k" data-i18n="settings-press">單手秒數</p>
-        <div class="seg" id="seg-press"></div>
-        <p class="d" data-i18n="settings-press-desc">一隻手按幾秒。左右各一輪，所以一個穴道的實際時間是這個數字的兩倍。按摩頁的滑桿也調得到，改的是同一項。</p>
+        <p class="d" data-i18n="settings-advance-desc">一個穴道左右手都按完之後，要不要自動接下一個穴道。</p>
       </div>
     </div>
   </div>`,
@@ -88,11 +89,8 @@ function renderFlowSettings() {
       v => t(v ? 'advance-auto' : 'advance-manual'),
       () => flow.autoAdvance, v => setFlow('autoAdvance', v));
 
-  // 秒數選 15/30/45/60：按摩頁那支滑桿是連續的，但設定頁給幾個常用值就夠，
-  // 真要微調在按摩頁拉滑桿更直覺（拉的時候畫面上就在倒數）。
-  seg('seg-press', [15, 30, 45, 60],
-      v => `${v}s`,
-      () => flow.pressSec, v => setFlow('pressSec', v));
+  // 2026-10-31 照 App：單手秒數改成 5～90 秒滑桿（以前是 15/30/45/60 四格）
+  pressSlider();
 }
 
 // 分段選擇器：值一律存進 flow，按下去就生效（沒有「儲存」鈕，那多一步沒有意義）
@@ -135,6 +133,20 @@ function autoSecRow(boxId, getOn, setOn, getSec, setSec, rerender) {
   r.oninput = () => { setSec(parseInt(r.value, 10)); v.textContent = `${r.value}s`; };
   row.append(k, r, v);
   box.after(row);
+}
+
+// 單手秒數滑桿（App SliderRow 5～90）。拖的時候只更新數字，不整頁重畫
+function pressSlider() {
+  const row = document.getElementById('press-row');
+  if (!row) return;
+  row.innerHTML = '';
+  const r = document.createElement('input');
+  r.type = 'range'; r.min = PRESS_MIN; r.max = PRESS_MAX; r.step = PRESS_STEP; r.value = flow.pressSec;
+  r.setAttribute('aria-label', t('settings-press'));
+  const v = document.createElement('b');
+  v.textContent = `${flow.pressSec}s`;
+  r.oninput = () => { setFlow('pressSec', parseInt(r.value, 10)); v.textContent = `${r.value}s`; };
+  row.append(r, v);
 }
 
 // 設定目錄右邊那行灰字：不點進來也看得到現在設成什麼

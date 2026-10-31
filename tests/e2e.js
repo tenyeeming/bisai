@@ -579,6 +579,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(active().join() === 'acu-detail', '按「練這一穴」→ 認穴頁');
   ok(w.eval("JSON.stringify(state.selectedAcupoints)") === '["合谷穴"]', '療程只有這一穴');
   ok($('acu-progress').textContent === '1 / 1', '進度顯示 1 / 1');
+  // 2026-10-27 用戶：圖冊進來的按摩退出會跑到選穴頁 → 圖冊來的退回圖冊，選穴頁來的照舊
+  w.goBack();
+  ok(active().join() === 'gallery', '圖冊「練這一穴」→ 認穴頁按返回 → 回圖冊');
+  w.goToAcuDetail(); w.goBack();
+  ok(active().join() === 'recommend', '從選穴頁開始的療程 → 認穴頁返回仍是選穴頁');
 
   // ── 臉部穴道的圖冊介紹（2026-09-20）──────────────────
   // 跟手部同一頁、同一組 DOM，只是填不同的東西。

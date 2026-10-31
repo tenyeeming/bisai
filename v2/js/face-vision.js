@@ -332,12 +332,8 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
       }
     }
     ctx.save();
-    if (!faceHeld) {
-      // 沒對準就指向穴道，使用者才知道要往哪邊移。
-      // 2026-09-12：虛線改成箭頭，與手部（vision.js）共用 drawGuideArrow。
-      drawGuideArrow(ctx, mx(tip.x), tip.y, mx(near.x), near.y);
-    }
-    // 指尖點歸「顯示手部節點」管（App 批 64：臉部指尖點跟手部一樣吃這個開關）；箭頭照畫
+    // 2026-10-31 用戶：「按壓判定的時候不要就是有一個箭頭告訴我去哪裏」→ 指尖→穴道箭頭拿掉（同 App 批 78、手部 vision.js）
+    // 指尖點歸「顯示手部節點」管（App 批 64：臉部指尖點跟手部一樣吃這個開關）
     if (showSkeleton) {
       ctx.fillStyle = faceHeld ? '#00e5a0' : '#e0a33c';
       ctx.beginPath(); ctx.arc(mx(tip.x), tip.y, 7, 0, Math.PI * 2); ctx.fill();

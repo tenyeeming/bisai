@@ -48,7 +48,7 @@ registerPage('summary', {
       <div id="summary-list"></div>
 
       <div class="btn-row">
-        <button class="btn" onclick="goHome()" data-i18n="btn-home">回首頁</button>
+        <button class="btn" id="summary-home" onclick="leaveSession()" data-i18n="btn-home">回首頁</button>
         <button class="btn ghost" onclick="showPage('gallery')" data-i18n="btn-gallery">圖冊</button>
       </div>
     </div>
@@ -64,6 +64,7 @@ function renderSummary() {
 
   // 沒紀錄還跑到這頁（例如重新整理），回首頁比顯示一張空表誠實
   if (!sessionLog.length) { goHome(); return; }
+  sessionExitLabel(document.getElementById('summary-home'));
 
   // 保險起見去重：同一穴只列一次、只站一隻
   const names = [...new Set(sessionLog.map(r => r.name))];

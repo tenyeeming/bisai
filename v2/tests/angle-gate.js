@@ -58,8 +58,8 @@ const D = {
   八邪穴: [0.611, 0.362], 二間穴: [0.476], 三間穴: [0.645, 0.215],
   前谷穴: [0.34], 腕谷穴: [0.750], 後溪穴: [0.473], 魚際穴: [0.226],
   神門穴: [0.838], 太淵穴: [0.985, 0.419],
-  少商穴: [0.408, 0.125], 商陽穴: [0.408, 0.125], 少衝穴: [0.408, 0.125],
-  少澤穴: [0.408, 0.125], 關衝穴: [0.408, 0.125],
+  少商穴: [0.408, 0.125], 少澤穴: [0.408, 0.125],
+  // 商陽、少衝、關衝 2026-10-31 照 App 改成筆點實測上限，不是反推 → 移到下面〈實測上限〉那項驗
 };
 let mismatch = [];
 for (const [name, parts] of Object.entries(D)) {
@@ -75,12 +75,18 @@ ok(mismatch.length === 0,
   (mismatch.length ? '；不符：' + mismatch.join('　') : ''));
 
 // 純 lerp / 直接取 landmark 的穴道對投影縮短免疫 → 一律吃共同上限
-const IMMUNE = ['陽池穴', '中渚穴', '小骨空', '中魁穴', '大骨空', '中衝穴', '四縫穴', '勞宮穴'];
+// 勞宮 2026-10-31 照 App 改成筆點實測 15°（雖然是 lerp，但 15～20° 已 5.5mm，疑似視差）→ 移出
+const IMMUNE = ['陽池穴', '中渚穴', '小骨空', '中魁穴', '大骨空', '中衝穴', '四縫穴'];
 ok(IMMUNE.every(n => ACU_ANGLE_LIMIT[n] === ACU_ANGLE_HARD_CAP),
   `${IMMUNE.length} 個純 lerp/直接取 landmark 的穴道都吃共同上限 ${ACU_ANGLE_HARD_CAP}°`);
 
-// 偏移量最大的陽溪應該最嚴格
-const strictest = Object.entries(ACU_ANGLE_LIMIT).sort((a, b) => a[1] - b[1])[0];
+// 2026-10-31 照 App 批 102／103：五穴改用筆點影片實測的上限（App acu/AcuData.kt ACU_ANGLE_LIMIT 同值）
+const MEASURED = { 商陽穴: 15, 少衝穴: 20, 關衝穴: 20, 勞宮穴: 15, 少府穴: 15 };
+ok(Object.entries(MEASURED).every(([n, v]) => ACU_ANGLE_LIMIT[n] === v),
+  '商陽 15／少衝 20／關衝 20／勞宮 15／少府 15°，與 App 一致（筆點實測，不是反推）');
+
+// 偏移量最大的陽溪應該最嚴格（只比反推出來的那些；實測的五穴另外驗）
+const strictest = Object.entries(ACU_ANGLE_LIMIT).filter(([n]) => !(n in MEASURED)).sort((a, b) => a[1] - b[1])[0];
 ok(strictest[0] === '陽溪穴',
   `最嚴格的是陽溪穴（偏移 1.835 寸，全表最大）→ 實得 ${strictest[0]} ${strictest[1]}°`);
 
@@ -225,6 +231,35 @@ if (!rec) {
   const ptZC = computeAcupoint('中衝穴', lm, W, H, { label: 'Right' });
   ok(ptZC && Math.abs(ptZC[0].x - lm[12].x * W) < 1e-6 && Math.abs(ptZC[0].y - lm[12].y * H) < 1e-6,
     '穴道點仍然精確等於 lm[12]，沒有被圓盤外推帶著跑');
+}
+
+// ── 2026-10-31 新五穴公式：逐式照 App acu/AcuMath.kt（nailCornerAcu／knuckleToWrist）──
+{
+  // 手背朝鏡頭的右手（鏡像畫面）：拇指側 lm5 在 x 小的那邊
+  const P = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+  const set = (i, x, y) => { P[i] = { x: x / 640, y: y / 480, z: 0 }; };
+  set(0, 320, 420); set(5, 260, 260); set(9, 310, 250); set(13, 355, 255); set(17, 395, 270);
+  set(7, 250, 190); set(8, 248, 160); set(15, 362, 180); set(16, 365, 150); set(19, 410, 210); set(20, 415, 185);
+  const W = 640, H = 480;
+  // 指甲角：P = DIP + t·a + u·|a|·r
+  const nail = (dip, tip, t, u, radial) => {
+    const dx = P[dip].x * W, dy = P[dip].y * H, ax = P[tip].x * W - dx, ay = P[tip].y * H - dy, len = Math.hypot(ax, ay);
+    let rx = -ay / len, ry = ax / len;
+    if ((rx * (P[5].x - P[17].x) * W + ry * (P[5].y - P[17].y) * H < 0) === radial) { rx = -rx; ry = -ry; }
+    return { x: dx + t * ax + u * len * rx, y: dy + t * ay + u * len * ry };
+  };
+  const near = (a, b) => a && Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
+  // 只驗公式本身（不經正反面判定與凸包夾取）：直接呼叫各穴的計算函式（function 宣告會掛在 global 上）
+  const sy = ctx._calcShangyang(P, W, H, 0, true), sc = ctx._calcShaoChong(P, W, H, 0, true), gc = ctx._calcGuanchong(P, W, H, 0, true);
+  ok(near(sy[0], nail(7, 8, 0.65, 0.21, true)), '商陽＝食指 DIP＋0.65·a＋0.21·|a|·r（朝拇指）');
+  ok(near(sc[0], nail(19, 20, 0.29, 0.21, true)), '少衝＝小指 DIP＋0.29·a＋0.21·|a|·r（朝拇指側＝無名指）');
+  ok(near(gc[0], nail(15, 16, 0.67, 0.28, false)), '關衝＝無名指 DIP＋0.67·a＋0.28·|a|·r（朝小指）');
+  ok(sy[0].x < P[7].x * W && gc[0].x > P[15].x * W, '方向對：商陽往拇指那側偏、關衝往小指那側偏');
+  const lg = ctx._calcLaogong(P, W, H, 0, false), sf = ctx._calcShaofu(P, W, H, 0, false);
+  const kw = (a, b, t) => ({ x: ((P[a].x + P[b].x) / 2 + ((P[0].x) - (P[a].x + P[b].x) / 2) * t) * W,
+                             y: ((P[a].y + P[b].y) / 2 + ((P[0].y) - (P[a].y + P[b].y) / 2) * t) * H });
+  ok(near(lg[0], kw(5, 9, 0.29)) && near(sf[0], kw(13, 17, 0.26)), '勞宮＝mid(lm5,lm9)→lm0 走 0.29、少府＝mid(lm13,lm17)→lm0 走 0.26');
+  ok(ctx._calcLaogong(P, W, H, 0, true) === null && ctx._calcShangyang(P, W, H, 0, false) === null, '手心穴手背不出點、指甲角穴手心不出點');
 }
 
 // side 類穴道在 ACU_NORMAL_SPEC 與 ACU_ANGLE_LIMIT 兩張表要對得上

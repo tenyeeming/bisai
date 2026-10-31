@@ -337,6 +337,10 @@ const faceFuncs = (code) => {
 };
 
 const FACE_BY_CODE = Object.fromEntries(FACE_ACUPOINTS.map(a => [a.code, a]));
+
+// 2026-10-31 照 App 批 111：球後、兌端從 App 拿掉（兩穴都沒有任何症狀歸屬，用戶：「直接從app刪除」）。
+// 網頁的資料與公式留著（tests/face.js、Python 黃金測資還在比對），只是圖冊不再列出；症狀表本來就沒有它們。
+const FACE_REMOVED = new Set(['EX-HN7', 'GV27']);
 const faceAcu = (code) => FACE_BY_CODE[code];
 const faceLabel = (code) => {
   const a = FACE_BY_CODE[code];

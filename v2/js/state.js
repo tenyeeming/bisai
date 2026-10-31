@@ -17,7 +17,6 @@ const LS = {
   notifyPlan: 'notifyPlan',// { mode, symptoms, region }：每天提醒你按什麼
   strict:  'strictGate',
   flow:    'flowSettings', // 療程節奏（見下）
-  presets: 'acuPresets',   // 預設流程：一組穴道＋一套節奏（見下）
   fontScale: 'fontScale',  // 'small' | 'medium' | 'large'（見下）
   pressFingers: 'pressFingers', // 按摩時算數的手指（見下）
   pressCheck: 'pressCheck',     // 按壓判定開關（見下）
@@ -163,9 +162,7 @@ let flow = cleanFlow();
 function saveFlow() { localStorage.setItem(LS.flow, JSON.stringify(flow)); }
 function setFlow(k, v) {
   flow[k] = v;
-  // 🚨 流程進行中改的節奏只算這一次，不寫回全域（見下方 applyPresetFlow）。
-  //    不擋的話，按摩頁那支滑桿會把流程自己的秒數靜靜地存成使用者的預設值。
-  if (!flowSaved) saveFlow();
+  saveFlow();   // 2026-10-31「我的流程」拿掉後沒有覆蓋層了，改了就存
 }
 
 // ── 按摩手指（2026-09-25）───────────────────────────────────────
@@ -205,8 +202,9 @@ const pressTipIdx = () => pressFingers.map(f => FINGER_TIPS[f]);
 // ── 按壓判定開關（2026-09-25）────────────────────────────────────
 // 用戶：「在那個設定裏面加入取消按壓判定的功能」「一旦取消功能就要給他們三秒的準備時間」。
 // 關掉＝按摩計時不看手指有沒有對準，開始後照走（手部臉部共用，同 pressFingers 不放 flow）。
-// 3 秒準備在 pages/05-massage.js（PRESS_OFF_PREP_MS）。預設開。
-let pressCheck = jget(LS.pressCheck, true) !== false;
+// 3 秒準備在 pages/05-massage.js（PRESS_OFF_PREP_MS）。
+// 2026-10-31 照 App 批 100 改成預設關（用戶 10-04：「app的按壓判定默認關閉」）。存過「開」的人照舊是開。
+let pressCheck = jget(LS.pressCheck, false) === true;
 function setPressCheck(on) {
   pressCheck = !!on;
   localStorage.setItem(LS.pressCheck, JSON.stringify(pressCheck));
@@ -216,98 +214,15 @@ function setPressCheck(on) {
 // 純粹畫不畫，不影響定位與按壓判定。
 //   showSkeleton：手部 21 點＋按摩手的指尖點（臉部的指尖點也歸它），預設關（App 09-18 用戶：平常只要穴道那顆點）
 //   showAcuNames：鏡頭裡寫穴名（手部與臉部），預設開（App 批 65）
-//   指引箭頭不歸這兩個管，永遠畫（App 批 72）。
+//   指引箭頭 2026-10-31 已拿掉（同 App 批 78）。
 let showSkeleton = jget(LS.showSkeleton, false) === true;
 let showAcuNames = jget(LS.showAcuNames, true) !== false;
 function setShowSkeleton(on) { showSkeleton = !!on; localStorage.setItem(LS.showSkeleton, JSON.stringify(showSkeleton)); }
 function setShowAcuNames(on) { showAcuNames = !!on; localStorage.setItem(LS.showAcuNames, JSON.stringify(showAcuNames)); }
 
-// ── 預設流程（2026-09-08）────────────────────────────────────────
-// 常按的人每次都要重走一次「選症狀 → 勾穴道」，而每次勾的其實是同一組。
-// 一組流程 = 一組穴道（手部＋臉部）＋ 一套節奏，存在設定裡，點一下直接排成療程。
-//
-// ⭐ 節奏是**覆蓋層，不是覆蓋**：跑流程時暫時換上流程自己的那套，回首頁還原。
-//    不這樣做的話，「睡前那組拉到 45 秒」會靜靜地把之後每一次手動療程也變成 45 秒 ——
-//    設定頁顯示的數字跟實際跑的不一樣，是最難查的那種不一致。
-const PRESET_MAX = 20;          // 再多就變成另一個要管理的清單，那不是這功能要解的問題
-const PRESET_NAME_MAX = 20;
-
-function cleanPresetFlow(raw) {
-  const r = isPlainObj(raw) ? raw : {};
-  const [readyAuto, readySec] = cleanAutoSec(r, 'readyAuto', 'readySec');
-  const [switchAuto, switchSec] = cleanAutoSec(r, 'switchAuto', 'switchSec');
-  return {
-    readyAuto, readySec, switchAuto, switchSec,
-    pressSec:    intIn(r.pressSec,  PRESS_MIN, PRESS_MAX, FLOW_DEFAULT.pressSec),
-    handOrder:   r.handOrder === 'left' ? 'left' : 'right',
-    autoAdvance: typeof r.autoAdvance === 'boolean' ? r.autoAdvance : FLOW_DEFAULT.autoAdvance,
-  };
-}
-
-// 洗法跟 minions 一樣是「壞的丟掉那一筆」而不是整份丟掉 —— 流程是使用者自己排的。
-// 順便濾掉算不出位置的穴道：留著只會讓人按下開始才發現排了一個定位不了的穴。
-// 濾完空掉的那一組整筆丟掉（一個穴道都不剩的流程沒有意義，只會佔一列）。
-function cleanPresets() {
-  const raw = jget(LS.presets, []);
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(isPlainObj).map((p, i) => ({
-    id:        typeof p.id === 'string' && p.id ? p.id : 'p' + i + '_' + Date.now(),
-    name:      (typeof p.name === 'string' ? p.name : '').trim().slice(0, PRESET_NAME_MAX),
-    acupoints: strList(p.acupoints).filter(n => IMPLEMENTED.has(n)),
-    face:      strList(p.face).filter(c => FACE_IMPLEMENTED.has(c)),
-    // 手肘（2026-10-01 我的流程簡化，用戶：「手肘要」）：舊存檔沒有這欄 → 空
-    forearm:   strList(p.forearm).filter(n => typeof isForearmItem === 'function' && isForearmItem(n)),
-    flow:      cleanPresetFlow(p.flow),
-    // 逐穴秒數（2026-09-25 網頁v2 批 E，App Preset.perAcuSec）：只留勾著的手部穴、只留合法範圍
-    perAcuSec: cleanPerAcuSec(p.perAcuSec, strList(p.acupoints)),
-  })).filter(p => presetCount(p) > 0).slice(0, PRESET_MAX);
-}
-
-/** 一組裡有幾穴（手部＋手肘＋臉部） */
-const presetCount = (p) => p.acupoints.length + (p.forearm || []).length + p.face.length;
-
-let presets = cleanPresets();
-const savePresets = () => localStorage.setItem(LS.presets, JSON.stringify(presets));
-const findPreset = (id) => presets.find(p => p.id === id) || null;
-
-/** 一組流程大概要跑多久（秒）。
- *  手部：認穴停留 + 左右各按一輪 + 中間換手倒數。
- *  臉部：正中穴只有一個點，1 輪、沒有換手（見 js/regions.js 的 itemRounds）。 */
-function cleanPerAcuSec(raw, acupoints) {
-  const out = {};
-  if (!isPlainObj(raw)) return out;
-  acupoints.forEach(n => {
-    if (n in raw) out[n] = intIn(raw[n], PRESS_MIN, PRESS_MAX, FLOW_DEFAULT.pressSec);
-  });
-  return out;
-}
-
-/** 這一組裡某一穴每隻手按幾秒：調過就用調過的，沒調過跟著這一組的 pressSec */
-const presetSecOf = (p, n) => (p.perAcuSec && n in p.perAcuSec) ? p.perAcuSec[n] : p.flow.pressSec;
-
-function presetSeconds(p) {
-  const f = p.flow;
-  // 關掉的那一段不算秒數（App 批 93）
-  const ready = f.readyAuto ? f.readySec : 0, sw = f.switchAuto ? f.switchSec : 0;
-  return p.acupoints.reduce((s, n) => s + ready + presetSecOf(p, n) * 2 + sw, 0)
-       + (p.face.length + (p.forearm || []).length) * (ready + f.pressSec);   // 手肘同臉部：1 輪
-}
-
-// ── 節奏覆蓋層 ───────────────────────────────────────────────
-// flowSaved 不是 null 就代表「現在有一組流程在跑」。setFlow 靠它決定要不要寫檔。
-let flowSaved = null;
-
-function applyPresetFlow(f) {
-  if (!flowSaved) flowSaved = Object.assign({}, flow);
-  Object.assign(flow, cleanPresetFlow(f));
-}
-
-/** 還原成使用者的全域節奏。goHome() 會叫（療程的唯一出口）。 */
-function restorePresetFlow() {
-  if (!flowSaved) return;
-  Object.assign(flow, flowSaved);
-  flowSaved = null;
-}
+// ── 我的流程（預設流程）2026-10-31 整個拿掉 ─────────────────────────
+// 用戶：「我的流程沒有意義吧，網頁沒辦法存起來所以不需要」（localStorage 只活在單一瀏覽器）。
+// 以前存的 acuPresets 留在瀏覽器裡沒刪，沒有人再讀它。
 
 // ── 逐穴秒數（2026-09-08）────────────────────────────────────────
 // 原本「一隻手按幾秒」是一個全域數字，整場療程所有穴道共用。
@@ -342,7 +257,7 @@ const curAcuName = () => state.selectedAcupoints[state.currentAcupointIndex];
 // ── 小人顏色：依部位分四色系 ──────────────────────────────
 const FINGERTIP = new Set(['少商穴','商陽穴','少衝穴','少澤穴','關衝穴','中衝穴']);
 const WRIST     = new Set(['合谷穴','陽池穴','陽溪穴','陽谷穴','後溪穴','腕谷穴']);
-const PALM      = new Set(['四縫穴','魚際穴','神門穴','太淵穴','勞宮穴']);
+const PALM      = new Set(['四縫穴','魚際穴','神門穴','太淵穴','勞宮穴','少府穴']);   // 少府 2026-10-31 照 App
 
 function acuColor(name) {
   // 認不得的穴名 → findIndex 給 -1，(-1 % 5) 是負的，算出來會是 hsl(-3,...) 這種無效色。

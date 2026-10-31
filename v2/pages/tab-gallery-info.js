@@ -218,6 +218,10 @@ function renderAcuInfo() {
 // ⭐ 臉部走**同一條路**（2026-09-20）—— 療程清單本來就是混裝的
 //    （js/regions.js 的「療程項目」那組 helper），認穴頁、相機頁都已經會分辨，
 //    所以這裡不必為臉部另開一條分支。只有「能不能練」的判斷要換成 itemImplemented()。
+// 2026-10-27 用戶：「從圖冊裏面進入穴道按摩退出後會出現在選穴的頁面」→ 記住從圖冊來，
+//   認穴頁返回退回圖冊（同 App AcuApp.fromGallery）。goToAcuDetail／goHome 開新療程時清掉。
+let practiceFromGallery = false;
+
 function practiceThisAcu() {
   if (infoAcuName && FOREARM_LAB[infoAcuName]) { location.href = FOREARM_LAB[infoAcuName]; return; }
   if (!infoAcuName || !itemImplemented(infoAcuName)) return;
@@ -227,6 +231,7 @@ function practiceThisAcu() {
   state.selectedForearm = isForearmItem(infoAcuName) ? [infoAcuName] : [];
   state.selectedAcupoints = [infoAcuName];
   state.currentAcupointIndex = 0;
+  practiceFromGallery = true;
   showPage('acu-detail');
 }
 

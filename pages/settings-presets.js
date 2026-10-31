@@ -14,8 +14,19 @@
 
 registerPage('settings-presets', {
   tab: 'settings',
-  backTo: 'settings',
-  onEnter: () => renderPresetsPage(),
+  // 2026-10-28 用戶：「我的流程設定結束後不要回到設定而是我的流程頁面」——
+  // 編輯中按返回先收起編輯器、留在我的流程，不是直接退回設定目錄
+  backTo: () => {
+    if (!presetDraft) return 'settings';
+    closePresetEditor();
+    return 'settings-presets';
+  },
+  // 從療程中途退回這頁＝放棄那一次：流程的節奏覆蓋層還原（同 goHome）
+  onEnter: () => {
+    practiceFromPreset = false;
+    if (typeof restorePresetFlow === 'function') restorePresetFlow();
+    renderPresetsPage();
+  },
   onLanguage: () => renderPresetsPage(),
 
   html: `
@@ -139,6 +150,23 @@ registerPage('settings-presets', {
 // 刻意是「草稿」而不是直接改 presets 裡那筆：按取消要真的取消得掉。
 // null = 現在沒在編輯。
 let presetDraft = null;
+// 這次療程是從我的流程開始的 → 認穴頁返回退回這裡（2026-10-28，同 practiceFromGallery）
+let practiceFromPreset = false;
+
+// 療程結束頁的「回首頁」：我的流程開始的那一次退回我的流程，不是首頁（2026-10-29 用戶：
+// 「我的流程開始后回去不要導向首頁而是要回去我的流程那一頁」）。分頁列的「首頁」照舊回首頁。
+function leaveSession() {
+  const toPresets = practiceFromPreset;
+  goHome();                                   // 清旗標＋還原節奏，跟回首頁同一套
+  if (toPresets) showPage('settings-presets');
+}
+
+/** 出口按鈕的字跟著去處走：「回首頁」或「回我的流程」 */
+function sessionExitLabel(btn) {
+  if (!btn) return;
+  btn.dataset.i18n = practiceFromPreset ? 'btn-back-presets' : 'btn-home';
+  btn.textContent = t(btn.dataset.i18n);
+}
 
 function renderPresetsPage() {
   renderPresetList();
@@ -325,6 +353,7 @@ function startPreset(id) {
   state.selectedAcupoints = [...p.acupoints];
   state.selectedFace = [...p.face];
   goToAcuDetail();
+  if (currentPage === 'acu-detail') practiceFromPreset = true;
 }
 
 // 設定目錄右邊那行灰字

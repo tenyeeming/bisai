@@ -88,7 +88,8 @@ try:
             # The overflow check alone never told us whether the grid *looks* right.
             page.evaluate("showPage('gallery')")
             no_overflow(page, name + '/gallery')
-            check(page.locator('#collection-grid .collection-item').count() == 64, name + ': gallery lists 64 acupoints')
+            # 2026-10-31 照 App 拿掉手部 7 穴、加少府、臉部拿掉球後兌端 → 20＋21＋15＝56；再拿掉少商少澤 → 54
+            check(page.locator('#collection-grid .collection-item').count() == 54, name + ': gallery lists 54 acupoints')
             check(page.locator('#collection-grid .locked').count() == 0, name + ': gallery has no locked cells')
             page.wait_for_timeout(300)
             broken = page.evaluate("[...document.querySelectorAll('#collection-grid img.thumb')].filter(i => i.complete && !i.naturalWidth).length")
@@ -141,7 +142,7 @@ try:
             no_overflow(page, name + '/home-en')
             page.evaluate("state.selectedSymptoms=[0,4]; goToRecommendation()")
             no_overflow(page, name + '/recommend-en')
-            for route in ['gallery','settings','settings-lang','settings-display','settings-notify','settings-flow','settings-presets','settings-accuracy']:
+            for route in ['gallery','settings','settings-lang','settings-display','settings-notify','settings-flow','settings-accuracy']:
                 page.evaluate('(route)=>showPage(route)', route)
                 no_overflow(page, name + '/' + route + '-en')
             page.emulate_media(color_scheme='dark')

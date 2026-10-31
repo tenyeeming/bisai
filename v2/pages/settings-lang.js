@@ -16,6 +16,8 @@ registerPage('settings-lang', {
         <p class="eyebrow" data-i18n="eyebrow-settings">校正</p>
         <h2 data-i18n="settings-lang">語言</h2>
       </div>
+      <!-- 2026-10-31 照 App 批 112：說明放在標題和「中文」中間（原本在兩個選項下面） -->
+      <p class="small" data-i18n="settings-lang-desc">穴道名稱與症狀名在英文模式下會顯示英文對照，沒有對照的仍顯示中文。</p>
       <div class="optlist" id="lang-seg">
         <button type="button" data-lang="zh" onclick="setLanguage('zh')">
           <span class="grow">中文</span><span class="tick">✓</span>
@@ -24,7 +26,6 @@ registerPage('settings-lang', {
           <span class="grow">English</span><span class="tick">✓</span>
         </button>
       </div>
-      <p class="small" data-i18n="settings-lang-desc">穴道名稱與症狀名在英文模式下會顯示英文對照，沒有對照的仍顯示中文。</p>
     </div>
   </div>`,
 });
