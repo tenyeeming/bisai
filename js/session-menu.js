@@ -46,7 +46,7 @@ function sessionGearHtml(prefix, opts) {
       <hr>
       <button type="button" role="menuitem" onclick="refreshSessionCamera('${prefix}')" data-i18n="menu-refresh-cam">重新整理鏡頭</button>
       ${flip}
-      <button type="button" role="menuitem" data-disc-label onclick="${opts.discFn}()">隱藏信心圓盤</button>
+      <!-- 信心圓盤開關 2026-11-01 拿掉（用戶：「幫我把圓盤移除」） -->
       <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
       <button type="button" role="menuitem" data-presscheck-label onclick="togglePressCheck()">按壓判定：開</button>
       <hr>

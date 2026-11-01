@@ -25,7 +25,7 @@ const api = vm.runInContext(src + `
 ;({ faAxis, faNeiguan, faLocate, FA_POINTS, faPickTarget, faTwistWorldDeg, faMeasureCuts, faRadiusCun,
     FaCalib, FaTwistGate, FaPressTracker, FA_R_DEFAULT, FA_A, FA_B, FA_C,
     faPalmAxis, faMaskDir, faPalmNormal, faNormalDev, faParallelCue, faHyst, faPalmRulerSample,
-    FaPalmRulerCalib, FaOneEuro })`, sandbox, { filename: 'forearm-vision.js' });
+    FaPalmRulerCalib, FaOneEuro, faHoldNew, faHoldStep })`, sandbox, { filename: 'forearm-vision.js' });
 
 ok(api.FA_A === 0.306 && api.FA_B === 0.085 && api.FA_C === -0.532 && api.FA_R_DEFAULT === 1.676,
    '常數同 App ForearmMath.kt（A 0.306、B 0.085、C −0.532、r 預設 1.676）');
@@ -142,8 +142,8 @@ ok(api.faMeasureCuts(insideOf(new Float32Array(W * H), W, H), axis).length === 0
   ok(near(a.cun, 30, 1e-9) && near(a.ax, 1, 1e-9) && near(a.ay, 0, 1e-9) && near(a.palm, 40, 1e-9),
      '手掌尺軸：寸＝k×手掌長÷12（9×40÷12＝30px）、方向＝lm9→lm0');
   const p = api.faLocate(a, api.FA_POINTS['郄門穴'], c.r, 0);
-  ok(near(p.x, 100 + 5.306 * 30, 1e-6) && api.FA_POINTS['郄門穴'].ruler === 'palm' && !api.FA_POINTS['內關穴'].ruler,
-     '郄門走手掌尺（ruler: palm），公式照舊 n＝5；其他三穴不變');
+  ok(near(p.x, 100 + 5.306 * 30, 1e-6) && Object.values(api.FA_POINTS).every((s) => !s.ruler),
+     '手掌尺函式本身照舊；四穴都不掛 ruler（2026-11-01 全部改回現行公式）');
   const a2 = api.faPalmAxis(h, W, H, { ...c, delta: 90 });
   ok(near(a2.ax, 0, 1e-9) && near(Math.abs(a2.ay), 1, 1e-9), 'δ 會把手方向轉成前臂軸');
   const h2 = hand({ 0: [100, 100], 9: [20, 100], 5: [30, 110], 17: [30, 90] });
@@ -191,6 +191,59 @@ ok(api.faMeasureCuts(insideOf(new Float32Array(W * H), W, H), axis).length === 0
   const b = new api.FaOneEuro(1.0, 0.1); b.filter({ x: 100, y: 100 }, 0);
   const c = b.filter({ x: 104, y: 100 }, 1);   // 斷超過 0.5 秒 → 重來
   ok(a.x > 100 && a.x < 104 && c.x === 104, 'One Euro：小抖動被壓、斷線超過 0.5 秒就重來');
+}
+
+// ── 穩住：鎖定／定格（2026-11-01）──
+// 30fps；1 寸 30px ⇒ 1px ≈ 0.69mm。手（lm0、lm9）可平移、旋轉、縮放，點＝手腕右邊 60px
+{
+  const HW = 1280, HH = 720, CUN = 30;
+  const mk = (x, y, deg = 0, s = 1) => {
+    const r = deg * Math.PI / 180, L = 80 * s;
+    const pts = Array.from({ length: 21 }, () => ({ x: 0, y: 0, z: 0 }));
+    pts[0] = { x: x / HW, y: y / HH, z: 0 };
+    pts[9] = { x: (x - L * Math.cos(r)) / HW, y: (y - L * Math.sin(r)) / HH, z: 0 };
+    return pts;
+  };
+  const run = (mode, frames) => {
+    const h = api.faHoldNew(); let out = null;
+    frames.forEach(([i, x, y, deg, s, pt]) => {
+      out = api.faHoldStep(h, mode, pt === undefined ? { x: x + 60, y } : pt, mk(x, y, deg, s), CUN, i * 1000 / 30, HW, HH);
+    });
+    return { h, out };
+  };
+  const still = (n, x = 500, y = 300, from = 0) => Array.from({ length: n }, (_, i) => [from + i, x + (i % 2 ? 0.5 : -0.5), y]);
+
+  let r = run('live', still(40));
+  ok(r.out.state === 'live' && !r.h.lock, '即時：不鎖、照原點輸出');
+
+  r = run('lock', still(20));
+  ok(r.out.state === 'seek' && !r.h.lock, '鎖定：穩住不到 1 秒還在定位中（照樣出即時點）');
+  r = run('lock', still(32));
+  ok(r.out.state === 'held' && !!r.h.lock, '鎖定：穩住 1 秒 → 鎖上');
+
+  // 鎖上後手轉 5°（< 8°）：點不跟著轉，只跟手腕
+  r = run('lock', [...still(32), ...Array.from({ length: 5 }, (_, i) => [32 + i, 500, 300, 5, 1, { x: 600, y: 400 }])]);
+  ok(r.out.state === 'held' && near(r.out.point.x, 560, 1.5) && near(r.out.point.y, 300, 1.5),
+     `鎖定：手轉 5°、算出來的點亂跑 → 鎖定點不動（${r.out.point && r.out.point.x.toFixed(1)}, ${r.out.point && r.out.point.y.toFixed(1)}）`);
+  // 手轉 15°（> 8°）→ 藏起來、鎖定保留
+  r = run('lock', [...still(32), ...Array.from({ length: 5 }, (_, i) => [32 + i, 500, 300, 15])]);
+  ok(r.out.state === 'moved' && r.out.point === null && !!r.h.lock, '鎖定：手轉 15° → 不顯示、鎖定保留');
+  // 手掌變大 20% → 一樣藏
+  r = run('lock', [...still(32), ...Array.from({ length: 5 }, (_, i) => [32 + i, 500, 300, 0, 1.2])]);
+  ok(r.out.state === 'moved', '鎖定：手掌長變 20% → 不顯示');
+  // 手臂快速移動（0.3 秒 > 20mm）→ 重新定位
+  r = run('lock', [...still(32), ...Array.from({ length: 6 }, (_, i) => [32 + i, 500 + i * 12, 300])]);
+  ok(r.out.state === 'seek' && !r.h.lock, '鎖定：手臂快速移動 → 解鎖重新定位');
+  // 閘門擋下（point null）→ 不顯示、鎖定保留
+  r = run('lock', [...still(32), [32, 500, 300, 0, 1, null]]);
+  ok(r.out.point === null && !!r.h.lock, '鎖定：閘門擋下 → 不顯示、鎖定保留');
+
+  r = run('freeze', still(32));
+  ok(r.out.state === 'held' && near(r.out.point.x, 560, 1) && near(r.out.point.y, 300, 1), '定格：穩住 1 秒 → 釘在畫面上');
+  r = run('freeze', [...still(32), ...Array.from({ length: 5 }, (_, i) => [32 + i, 500, 300, 30, 1, { x: 700, y: 500 }])]);
+  ok(r.out.state === 'held' && near(r.out.point.x, 560, 1), '定格：手轉 30° 手腕沒動 → 點還釘著');
+  r = run('freeze', [...still(32), ...Array.from({ length: 4 }, (_, i) => [32 + i, 520, 300])]);
+  ok(r.out.state === 'seek' && !r.h.lock, '定格：手腕移開 20px（≈14mm > 10mm）→ 收掉重新定位');
 }
 
 console.log(fail ? `\n${fail} 項失敗` : '\n全部通過');

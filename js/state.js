@@ -22,6 +22,7 @@ const LS = {
   pressCheck: 'pressCheck',     // 按壓判定開關（見下）
   showSkeleton: 'showSkeleton', // 鏡頭裡畫手部 21 點（見下）
   showAcuNames: 'showAcuNames', // 鏡頭裡寫穴名（見下）
+  faHold: 'faHoldMode',         // 手肘定位穩住方式（見下）
 };
 
 // 單手按摩秒數的範圍（逐穴滑桿、我的流程、全域設定共用）。
@@ -219,6 +220,17 @@ let showSkeleton = jget(LS.showSkeleton, false) === true;
 let showAcuNames = jget(LS.showAcuNames, true) !== false;
 function setShowSkeleton(on) { showSkeleton = !!on; localStorage.setItem(LS.showSkeleton, JSON.stringify(showSkeleton)); }
 function setShowAcuNames(on) { showAcuNames = !!on; localStorage.setItem(LS.showAcuNames, JSON.stringify(showAcuNames)); }
+
+// ── 手肘定位穩住方式（2026-11-01 用戶：「定版手肘的定位」「兩種都寫給我看」）──
+//   'live' 即時（每幀重算，以前的做法）／'lock' 鎖定／'freeze' 定格；細節見 js/forearm-vision.js〈穩住〉。
+//   預設鎖定：用戶 10-30「我覺得先要求穩定，準確還好」。還在比較，用戶選定後再定版。
+const FA_HOLD_KEYS = ['live', 'lock', 'freeze'];
+let faHoldMode = FA_HOLD_KEYS.includes(jget(LS.faHold, 'lock')) ? jget(LS.faHold, 'lock') : 'lock';
+function setFaHoldMode(m) {
+  if (!FA_HOLD_KEYS.includes(m)) return;
+  faHoldMode = m; localStorage.setItem(LS.faHold, JSON.stringify(m));
+  if (typeof fa !== 'undefined' && fa && fa.hold) fa.hold = faHoldNew();   // 換方式就從定位中重來
+}
 
 // ── 我的流程（預設流程）2026-10-31 整個拿掉 ─────────────────────────
 // 用戶：「我的流程沒有意義吧，網頁沒辦法存起來所以不需要」（localStorage 只活在單一瀏覽器）。

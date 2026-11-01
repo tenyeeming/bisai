@@ -267,12 +267,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   $('locate-gear').click();
   ok(!$('locate-menu').hidden, '點齒輪展開定位頁選單');
   const lm = $('locate-menu').textContent;
-  ok(/按摩手指/.test(lm) && /隱藏信心圓盤/.test(lm) && /換穴/.test(lm) && /跳過這一穴/.test(lm),
-     '定位頁選單有：按摩手指、信心圓盤、換穴、跳過這一穴');
-  w.toggleDisc();
-  ok(w.eval('showDisc') === false && $('locate-menu').querySelector('[data-disc-label]').textContent === '顯示信心圓盤',
-     '圓盤可切換，選單文字跟著換');
-  w.toggleDisc();
+  ok(/按摩手指/.test(lm) && /換穴/.test(lm) && /跳過這一穴/.test(lm),
+     '定位頁選單有：按摩手指、換穴、跳過這一穴');
+  // 2026-11-01 用戶：「幫我把圓盤移除」
+  ok(!/信心圓盤/.test(lm) && !$('locate-menu').querySelector('[data-disc-label]'), '定位頁選單已經沒有信心圓盤開關');
+  ok(w.eval('showDisc') === false && w.eval('faceShowDisc') === false, '手部、臉部圓盤預設不畫');
 
   // 按摩手指：預設拇指＋食指（2026-09-25 用戶定，同 App）；可多選；最後一根不能取消
   const chip = f => $('locate-menu').querySelector(`[data-finger="${f}"]`);
@@ -370,12 +369,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(/按摩手指/.test($('massage-menu').textContent) &&
      $('massage-menu').querySelectorAll('[data-finger]').length === 4 && !$('massage-menu').querySelector('[data-finger="pinky"]'),
      '按摩頁選單也能選手指（四顆，沒有小指 —— 批 C 同 App）');
-  // 返回列一次只掛一頁的選單 → 按摩頁只有自己那顆圓盤開關；定位頁回來時 enterLocate 會重新同步文字
-  const discBtns = () => [...d.querySelectorAll('[data-disc-label]')];
-  ok(discBtns().length === 1, '按摩頁只有選單裡那一顆圓盤開關');
-  discBtns()[0].click();
-  ok(discBtns()[0].textContent === '顯示信心圓盤' && w.eval('showDisc') === false, '在按摩頁切圓盤，文字跟著換');
-  discBtns()[0].click();
+  ok(d.querySelectorAll('[data-disc-label]').length === 0, '按摩頁選單也沒有信心圓盤開關（2026-11-01 拿掉）');
 
   d.body.click();
   ok($('massage-menu').hidden, '點畫面別處會收起選單');

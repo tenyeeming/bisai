@@ -18,7 +18,7 @@ let camRunning = false, camStarting = false;
 //   ⇒ camWanted 記「現在到底要不要相機」，啟動完才看；camStartP 讓重複呼叫等同一次啟動。
 let camWanted = false, camStartP = null;
 let facingMode = 'user';
-let showDisc = true;
+let showDisc = false;   // 2026-11-01 用戶：「幫我把圓盤移除」→ 預設不畫、選單開關拿掉（判定半徑照用，只是不畫）
 let activeCanvas = null;
 let renderMode = 'locate';          // 'locate' | 'massage'
 let onTarget = false;               // 指尖是否對準（按摩頁計時用）

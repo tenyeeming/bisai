@@ -56,6 +56,12 @@ registerPage('settings-display', {
         <div class="seg" id="seg-acu-names"></div>
         <p class="d" id="acu-names-info" hidden data-i18n="settings-acu-names-desc"></p>
       </div>
+      <!-- 2026-11-01 用戶：「定版手肘的定位」「兩種都寫給我看」→ 三種並排給用戶比，選定後再定版 -->
+      <div class="fieldrow">
+        <div class="set-head"><p class="k" data-i18n="settings-fa-hold">手肘定位</p>${infoMark('fa-hold-info')}</div>
+        <div class="seg" id="seg-fa-hold"></div>
+        <p class="d" id="fa-hold-info" hidden data-i18n="settings-fa-hold-desc"></p>
+      </div>
     </div>
   </div>`,
 });
@@ -78,6 +84,19 @@ function renderDisplayToggles() {
   };
   two('seg-skeleton', () => showSkeleton, setShowSkeleton);
   two('seg-acu-names', () => showAcuNames, setShowAcuNames);
+  const hold = document.getElementById('seg-fa-hold');
+  if (hold) {
+    hold.innerHTML = '';
+    [['lock', 'fa-hold-lock'], ['freeze', 'fa-hold-freeze'], ['live', 'fa-hold-live']].forEach(([m, key]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t(key);
+      b.classList.toggle('on', faHoldMode === m);
+      b.setAttribute('aria-pressed', String(faHoldMode === m));
+      b.onclick = () => { setFaHoldMode(m); renderDisplayToggles(); };
+      hold.appendChild(b);
+    });
+  }
 }
 
 function updateFontSeg() {

@@ -20,7 +20,7 @@ let faceCamRunning = false, faceCamStarting = false;
 // 啟動中保護，原理同 js/vision.js 的 camWanted／camStartP（2026-09-23 修「相機容易打不開」）
 let faceCamWanted = false, faceCamStartP = null;
 let faceFacingMode = 'user';
-let faceShowDisc = true;
+let faceShowDisc = false;   // 2026-11-01 用戶：「幫我把圓盤移除」→ 預設不畫、選單開關拿掉（判定半徑照用，只是不畫）
 let faceCanvas = null;
 // 畫到哪、讀數寫到哪。原本寫死 'face-canvas' / 'face-gate'，
 // 2026-09-04 臉部穴道要能在「定位頁」（video-canvas / camera-gate）出現，

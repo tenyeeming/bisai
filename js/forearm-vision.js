@@ -47,9 +47,11 @@ const FA_MASK_TH = 0.5;
 //   正面幀中位 間使 ≈8mm、郄門 ≈18.5mm、外關 ≈10mm ⇒ 都沒過 2mm，記在 記錄控制/待驗證清單.md 第 10 項
 // ⚠️ 只進網頁 v2；App ForearmMath.kt 仍只有內關（新功能先網頁）
 const FA_POINTS = {
+  // 2026-11-01 用戶：「全部改成現行公式就好之後也這樣網頁和app都是」→ 四穴都走現行公式（faLocate＋每幀 Pose 寸），不再掛 ruler: 'palm'
+  //   依據：貼紙實驗/前臂四片_舊公式vs手掌尺_20261101/README.md 總表；手掌尺程式留著不用
   '內關穴': { n: 2, pc: true,  dorsal: false },
   '間使穴': { n: 3, pc: true,  dorsal: false },
-  '郄門穴': { n: 5, pc: true,  dorsal: false, ruler: 'palm' },   // 2026-10-31 用戶：「先做郄門」
+  '郄門穴': { n: 5, pc: true,  dorsal: false },
   '外關穴': { n: 2, pc: false, dorsal: true },
 };
 
@@ -388,6 +390,85 @@ class FaPressTracker {
 // ═══════════════════════════════════════════════════════════════════
 // 相機與迴圈
 // ═══════════════════════════════════════════════════════════════════
+// ── 穩住：鎖定／定格（2026-11-01 用戶：「定版手肘的定位」「兩種都寫給我看」）──────
+// 兩種都是「手穩住 1 秒 → 點就不再每幀重算」，差在之後點跟不跟手走：
+//   鎖定 lock：照 測試/前臂手掌尺即時_20261029 第 5 版（Python 寫好但沒跑過）。
+//              點＝平滑手腕＋固定偏移 —— 手腕平移點跟著走，手轉動／縮放點不動。
+//              手方向偏 >8° 或手掌長變 >10%（近 3 幀中位）→ 不顯示、鎖定保留，手回來點就在原位。
+//              重新定位：近 0.3 秒手腕淨位移 >20mm，或「手動了」停在新姿勢 >2 秒。
+//   定格 freeze：點直接釘在畫面上；手腕離開定格時的位置 >10mm（近 3 幀中位）就收掉、重新定位。
+//   即時 live：跟以前一樣每幀重算。
+// 每一穴（內關／間使／郄門／外關）都走這裡；閘門擋下時照樣不顯示（鎖定／定格保留）。
+// ⚠️ 5mm、20mm、8°、10%、2 秒照 Python 第 5 版，10mm（定格）是 Claude 定的 —— 都沒有實測過。
+const FA_HOLD_SEC = 1.0, FA_HOLD_STILL_MM = 5, FA_HOLD_FAST_MM = 20, FA_HOLD_FAST_SEC = 0.3;
+const FA_HOLD_DEG = 8, FA_HOLD_SCALE = 0.10, FA_HOLD_RELOCK_SEC = 2.0;
+const FA_HOLD_EURO = [0.5, 0.01];       // 鎖定後手腕平移的 One Euro（同 Python LOCK_EURO_H0）
+const FA_FREEZE_MM = 10;
+const FA_MM_PER_CUN = 250 / 12;         // 換算 mm 用（前臂 12 寸≈250mm，同 Python）
+
+const faHoldNew = () => ({ hist: [], cand: [], hand: [], lock: null, mmPx: 0 });
+
+/**
+ * 每幀呼叫一次。point＝這一幀算出來的點（閘門擋下是 null）；hp＝被按那隻手 21 點；cunPx＝這一幀 1 寸幾 px。
+ * 回 { point, state }：state = live｜seek（定位中）｜held（已鎖定／已定格）｜moved（鎖定中手動了）
+ */
+function faHoldStep(h, mode, point, hp, cunPx, now, W, H) {
+  if (mode !== 'lock' && mode !== 'freeze') { h.lock = null; h.cand = []; return { point, state: 'live' }; }
+  if (!hp || hp.length < 21) { h.cand = []; return { point: null, state: h.lock ? 'held' : 'seek' }; }
+  const t = now / 1000, k = FA_PR_REF_W / W;
+  const w = { x: hp[0].x * W, y: hp[0].y * H };
+  if (cunPx > 0) h.mmPx = FA_MM_PER_CUN / cunPx;
+  h.hist.push({ t, x: w.x, y: w.y });
+  h.hist = h.hist.filter(e => t - e.t <= FA_HOLD_SEC);
+  const cx = faMedian(h.hist.map(e => e.x)), cy = faMedian(h.hist.map(e => e.y));
+  const spread = Math.max(...h.hist.map(e => Math.hypot(e.x - cx, e.y - cy))) * h.mmPx;
+  const sh = h.hist.filter(e => t - e.t <= FA_HOLD_FAST_SEC);
+  const fast = Math.hypot(sh[sh.length - 1].x - sh[0].x, sh[sh.length - 1].y - sh[0].y) * h.mmPx > FA_HOLD_FAST_MM;
+  const still = h.mmPx > 0 && spread < FA_HOLD_STILL_MM;
+  const ang = faAng(faHandDir(hp, W, H)), palm = faPalmLen(hp, W, H);
+  h.hand.push({ ang, palm });
+  if (h.hand.length > 3) h.hand.shift();
+
+  // 還沒鎖：照常顯示即時點，同時收「穩住」的樣本
+  if (!h.lock) {
+    if (!point) { h.cand = []; return { point: null, state: 'seek' }; }
+    h.cand = h.cand.filter(c => t - c.t <= FA_HOLD_SEC);
+    h.cand.push({ t, ox: point.x - w.x, oy: point.y - w.y, px: point.x, py: point.y, ang, palm });
+    if (!still) h.cand = h.cand.slice(-1);
+    else if (h.cand[h.cand.length - 1].t - h.cand[0].t >= FA_HOLD_SEC * 0.9) {
+      const C = h.cand, a1 = C[C.length - 1].ang;
+      h.lock = {
+        off: { x: faMedian(C.map(c => c.ox)), y: faMedian(C.map(c => c.oy)) },
+        fixed: { x: faMedian(C.map(c => c.px)), y: faMedian(C.map(c => c.py)) },
+        w0: { x: cx, y: cy },
+        a0: a1 + faMedian(C.map(c => faWrap(c.ang - a1))),
+        p0: faMedian(C.map(c => c.palm)),
+        euro: new FaOneEuro(...FA_HOLD_EURO), movedSince: null,
+      };
+      h.lock.euro.filter({ x: w.x * k, y: w.y * k }, t);
+      return { point: mode === 'freeze' ? { ...h.lock.fixed } : point, state: 'held' };
+    }
+    return { point, state: 'seek' };
+  }
+
+  const L = h.lock;
+  const release = () => { h.lock = null; h.cand = []; return { point, state: 'seek' }; };
+  if (mode === 'freeze') {
+    const r = h.hist.slice(-3);
+    const away = Math.hypot(faMedian(r.map(e => e.x)) - L.w0.x, faMedian(r.map(e => e.y)) - L.w0.y) * h.mmPx;
+    if (away > FA_FREEZE_MM) return release();
+    return { point: point ? { x: L.fixed.x, y: L.fixed.y } : null, state: 'held' };
+  }
+  const hs = L.euro.filter({ x: w.x * k, y: w.y * k }, t);
+  const dAng = Math.abs(faWrap(faMedian(h.hand.map(e => faWrap(e.ang - L.a0)))));
+  const dScl = Math.abs(faMedian(h.hand.map(e => e.palm)) / L.p0 - 1);
+  const moved = dAng > FA_HOLD_DEG || dScl > FA_HOLD_SCALE;
+  L.movedSince = moved ? (L.movedSince ?? t) : null;
+  if (fast || (L.movedSince != null && t - L.movedSince > FA_HOLD_RELOCK_SEC && still)) return release();
+  if (moved) return { point: null, state: 'moved' };
+  return { point: point ? { x: hs.x / k + L.off.x, y: hs.y / k + L.off.y } : null, state: 'held' };
+}
+
 let faCamera = null, faVideo = null, faCanvas = null, faGateId = 'massage-gate';
 let faCamRunning = false, faCamStarting = false, faCamWanted = false, faCamStartP = null;
 let faFacing = 'user';
@@ -413,6 +494,7 @@ function faResetState() {
     // 手掌尺（郄門）
     prCalib: new FaPalmRulerCalib(), pr: null, prEuro: new FaOneEuro(...FA_PR_EURO_PT),
     prElbowEuro: new FaOneEuro(...FA_PR_EURO_EL), tw3dBlocked: false, parBlocked: false,
+    hold: faHoldNew(), holdState: 'live',
   };
   if (typeof onTarget !== 'undefined') onTarget = false;
 }
@@ -780,6 +862,12 @@ function faProcessFrame() {
   }
   fa.smooth = point;
 
+  // ── ②b 穩住：鎖定／定格（設定 › 顯示 › 手肘定位）──
+  const mode = typeof faHoldMode !== 'undefined' ? faHoldMode : 'live';
+  const held = faHoldStep(fa.hold, mode, point, hp, axis ? axis.cun : 0, now, W, H);
+  point = held.point;
+  fa.holdState = held.state;
+
   // ── ③ 按壓：另一隻手勾選的指尖中離內關最近那根 ──
   let tip = null, distCun = null;
   const presser = hands.find((h, i) => i !== (pick && pick.hand) && h && h.length >= 21) || null;
@@ -824,6 +912,19 @@ function faProcessFrame() {
     drawAcupoint(ctx, px, py, showAcuNames ? itemLabel(faAcu) : '', '#4FBF8B', appDotR(faCanvas), sc);
     if (tip) drawPresserTip(ctx, mx, tip, point, on, discR);
   }
+  // 穩住的狀態標在左上角（即時模式不畫）
+  if (fa.holdState !== 'live') {
+    const label = fa.holdState === 'held' ? t(mode === 'freeze' ? 'fa-hold-frozen' : 'fa-hold-locked')
+      : fa.holdState === 'moved' ? t('fa-hold-moved') : t('fa-hold-seek');
+    ctx.save();
+    ctx.font = `bold ${13 * sc}px 'Microsoft JhengHei', sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(label).width, bh = 24 * sc, x0 = 10 * sc, y0 = 10 * sc;
+    ctx.fillStyle = fa.holdState === 'held' ? 'rgba(46,140,96,.88)' : 'rgba(0,0,0,.6)';
+    ctx.fillRect(x0, y0, tw + 20 * sc, bh);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, x0 + 10 * sc, y0 + bh / 2);
+    ctx.restore();
+  }
 
   // ── 提示（一次只講一件事，順序同 App）──
   // 手背那面 Tb 正負對應哪邊轉沒驗過 → 外關不講往哪轉，只講轉回手背
@@ -834,6 +935,7 @@ function faProcessFrame() {
   else if (fa.gate.blocked && fa.gate.latched < 0) setFaGate('warn', t('fa-twist-thumb'));
   else if (ruler && fa.tw3dBlocked) setFaGate('warn', t('fa-twist-back'));
   else if (ruler && fa.parBlocked) setFaGate('warn', t('fa-not-parallel'));
+  else if (fa.holdState === 'moved') setFaGate('warn', t('fa-hold-moved'));
   else if (!point) setFaGate('warn', faT(noHand));
   else if (!presser) setFaGate('warn', t('massage-hint'));
   else setFaGate(on ? 'ok' : 'bad', t(on ? 'fa-on' : 'fa-off'));
