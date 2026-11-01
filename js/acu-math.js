@@ -864,17 +864,40 @@ function _calcShaoshang(lm, W, H, cp, dorsal) {
   return _fingertipAcu(lm, W, H, cp, 4, 3, SS_PROX, SS_LAT);
 }
 
-// 商陽穴 LI1 — 食指橈側甲角旁
-// calibrated ten_back 2026-07-12（單張，overfit 風險高）
-function _calcShangyang(lm, W, H, cp, dorsal) {
-  if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 8, 7, SY_PROX, SY_LAT);
+// ── 2026-10-31 照 App 批 102／103（App acu/AcuMath.kt nailCornerAcu／knuckleToWrist，逐式移植）──
+
+/**
+ * 指甲角穴：以末節指骨當座標。原點 lm[dipI]，軸 a = lm[tipI]−lm[dipI]，r = 垂直 a 的單位向量，
+ * 用 lm5−lm17（小指側→拇指側）定正負，radial=false 再反過來朝小指側。
+ * P = DIP + t·a + u·|a|·r —— 偏移用末節長度 |a| 當尺，不用寸。
+ */
+function _nailCornerAcu(lm, W, H, dipI, tipI, t, u, radial) {
+  const dx = lm[dipI].x * W, dy = lm[dipI].y * H;
+  const ax = lm[tipI].x * W - dx, ay = lm[tipI].y * H - dy;
+  const len = Math.hypot(ax, ay);
+  if (len < 1) return [{ x: dx, y: dy }];
+  let rx = -ay / len, ry = ax / len;
+  const toThumb = rx * (lm[5].x - lm[17].x) * W + ry * (lm[5].y - lm[17].y) * H;
+  if ((toThumb < 0) === radial) { rx = -rx; ry = -ry; }
+  return [{ x: dx + t * ax + u * len * rx, y: dy + t * ay + u * len * ry }];
 }
 
-// 少衝穴 HT9 — 小指橈側甲角旁（未校準）
+/** 掌心穴：兩個掌指關節的中點往手腕 lm0 走 t */
+function _knuckleToWrist(lm, W, H, a, b, t) {
+  const mx = (lm[a].x + lm[b].x) / 2, my = (lm[a].y + lm[b].y) / 2;
+  return { x: lerp(mx, lm[0].x, t) * W, y: lerp(my, lm[0].y, t) * H };
+}
+
+// 商陽穴 LI1 — 食指末節橈側（2026-10-31 照 App 改指甲角框架；舊 _fingertipAcu 版本見 SY_PROX／SY_LAT）
+function _calcShangyang(lm, W, H, cp, dorsal) {
+  if (!dorsal) return null;
+  return _nailCornerAcu(lm, W, H, 7, 8, SY_T, SY_U, true);
+}
+
+// 少衝穴 HT9 — 小指末節橈側（同上）
 function _calcShaoChong(lm, W, H, cp, dorsal) {
   if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 20, 19, SC_PROX, SC_LAT);
+  return _nailCornerAcu(lm, W, H, 19, 20, SC_T, SC_U, true);
 }
 
 // 少澤穴 SI1 — 小指尺側甲角旁（未校準）
@@ -883,19 +906,22 @@ function _calcShaoze(lm, W, H, cp, dorsal) {
   return _fingertipAcu(lm, W, H, cp, 20, 19, SZ_PROX, SZ_LAT);
 }
 
-// 關衝穴 TE1 — 無名指尺側甲角旁（未校準）
+// 關衝穴 TE1 — 無名指末節尺側（2026-10-31 照 App 改指甲角框架）
 function _calcGuanchong(lm, W, H, cp, dorsal) {
   if (!dorsal) return null;
-  return _fingertipAcu(lm, W, H, cp, 16, 15, GC_PROX, GC_LAT);
+  return _nailCornerAcu(lm, W, H, 15, 16, GC_T, GC_U, false);
 }
 
-// 勞宮穴 PC8 — 掌心 lerp(lm[0], lm[9])（未校準）
+// 勞宮穴 PC8 — 掌心，mid(lm5,lm9)→lm0（2026-10-31 照 App；舊版 lerp(lm0,lm9,LG_T) 留在常數）
 function _calcLaogong(lm, W, H, cp, dorsal) {
   if (dorsal) return null;
-  return [{
-    x: lerp(lm[0].x, lm[9].x, LG_T) * W,
-    y: lerp(lm[0].y, lm[9].y, LG_T) * H,
-  }];
+  return [_knuckleToWrist(lm, W, H, 5, 9, LG_T2)];
+}
+
+// 少府穴 HT8 — 掌心，mid(lm13,lm17)→lm0（2026-10-31 照 App 批 103 新增）
+function _calcShaofu(lm, W, H, cp, dorsal) {
+  if (dorsal) return null;
+  return [_knuckleToWrist(lm, W, H, 13, 17, SF_T)];
 }
 
 // ── DISPATCH TABLE + RAW ENTRY POINT ─────────────────────────────────────────
@@ -929,6 +955,7 @@ const _ACU_CALC_RAW = {
   "少澤穴": _calcShaoze,
   "勞宮穴": _calcLaogong,
   "關衝穴": _calcGuanchong,
+  "少府穴": _calcShaofu,   // 2026-10-31 照 App 批 103
 };
 
 function _computeAcupointRaw(name, lm, W, H, handedness, ov = {}) {
@@ -1235,6 +1262,18 @@ function drawConfidenceDisc(ctx, cx, cy, radiusPx, info, opts = {}) {
 // 穴道位置點（App 同款：#4FBF8B 實心＋白描邊，固定大小不跟圓盤縮放）。
 // 半徑是影像座標 px：640 寬的畫面在手機上約縮成 0.56 倍，5px ≈ 螢幕上 3 點多。
 const ACU_DOT_R = 5;
+/** canvas 像素 ÷ 螢幕 CSS 像素。還沒排版（clientWidth 0）回 1 */
+function screenScale(canvas) {
+  const cw = canvas && canvas.clientWidth;
+  return cw ? canvas.width / cw : 1;
+}
+/** App 的 ACU_DOT_R = 4dp：換成這張 canvas 上的像素 */
+// 2026-10-01 用戶：「電腦網頁版本的穴道位置的點太小了」—— 畫面寬時跟著放大
+// （取景框 CSS 寬 × 2%：手機 ~360px 約 7，桌面 ~900px 約 18；同日用戶：「還是太小再大點」，1.1% → 2%；再同日「穴道做成現在大小的四分之一」→ 整條 ÷4：0.5%、下限 1）。
+const appDotR = (canvas) => {
+  const cssW = (canvas && canvas.clientWidth) || 0;
+  return Math.max(1, cssW * 0.005) * screenScale(canvas);
+};
 function drawAcuCenterDot(ctx, x, y) {
   ctx.beginPath();
   ctx.arc(x, y, ACU_DOT_R, 0, Math.PI * 2);
@@ -1275,8 +1314,11 @@ function drawAcuLabel(ctx, x, y, text, discR) {
  *    改成「外圈半透明大圓 + 內圈實心點」，視覺上一樣是發光的點，但成本是普通填色。
  *    ⚠️ 純繪製改動，座標與半徑都沒動。
  */
-function drawAcupoint(ctx, x, y, label, color, radius) {
+// scale＝canvas 像素 ÷ 螢幕 CSS 像素（見 screenScale）。canvas 是影片解析度、顯示時被縮放，
+// 字級與留白要乘它，螢幕上才會跟 App 的 13sp 一樣大（2026-10-01）。
+function drawAcupoint(ctx, x, y, label, color, radius, scale) {
   radius = radius || 6;
+  scale = scale || 1;
   ctx.save();
   // 2026-09-24 拿掉外圈光暈（半徑 ×2.2，臉部上幾乎跟圓盤一樣大）—— App 的點沒有光暈。
   // 實心點
@@ -1284,14 +1326,17 @@ function drawAcupoint(ctx, x, y, label, color, radius) {
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${Math.max(11, radius + 6)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(label, x, y - radius - 4);
+  // 2026-10-01 照 App（drawAcuLabel）：點不描白邊；穴名白色粗體 13px＋深色陰影，寫在點正上方
+  if (label) {
+    ctx.font = `bold ${13 * scale}px 'Microsoft JhengHei', sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.78)";
+    ctx.shadowBlur = 4 * scale;
+    ctx.shadowOffsetY = 1 * scale;
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, x, y - radius - 4 * scale);
+  }
   ctx.restore();
 }
 

@@ -11,11 +11,8 @@ registerPage('gallery', {
   html: `
   <div id="page-gallery" class="page">
     <style>
-      /* 三欄 —— 與 App 的 GalleryScreen.kt 一致（GridCells.Fixed(3)）。
-         ⚠ 這段註解在 template literal 裡面，**不要用反引號**（會把字串切斷）。
-         2026-09-21 從四欄改過來：用戶「圖冊那些還是原來的樣子」。
-         欄少一欄 = 每格寬約多三成，圖與穴名跟著放大（下面兩個字級也是這次一起調的）。
-         ⚠️ 桌面（≥1024px）另有 auto-fill 的規則在 css/responsive.css:332，不受這行影響。 */
+      /* 三欄（App GalleryScreen GridCells.Fixed(3)）；寬螢幕的欄數在 css/responsive.css「圖冊」。
+         ⚠ 這段在 template literal 裡，註解不要用反引號。 */
       .collection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
       .collection-item {
         position: relative;
@@ -42,26 +39,24 @@ registerPage('gallery', {
       .collection-item .thumb-code {
         width: 100%; height: 84px; display: flex; align-items: center; justify-content: center;
         border-radius: calc(var(--r) - 2px); background: var(--surface-2);
-        font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.8125rem; color: var(--ink-soft);
       }
       .collection-item .nm {
-        font-family: var(--font-ming); font-size: 13px; line-height: 1.15;
+        font-family: var(--font-ming); font-size: 0.8125rem; line-height: 1.15;
         color: var(--ink);
       }
       .collection-item .lv {
-        font-family: var(--font-mono); font-size: 9px; line-height: 1.2;
+        font-family: var(--font-mono); font-size: 0.5625rem; line-height: 1.2;
         color: var(--brass);
       }
       /* 定位尚未支援的穴：仍可點進去看資料，只是標一行小字 */
       .collection-item .lv.soon { color: var(--ink-soft); }
 
-      /* ── 分組標題（2026-09-20 圖冊納入臉部）─────────────
-         49 格手臉混在一起看不出是兩群（連 id 都不同型：手部穴名、臉部代號）。
-         grid-column: 1/-1 讓標題橫跨整列，不佔格子—— 跟 App 的 GroupHeader 同一個做法。 */
+      /* ── 分組標題：橫跨整列（grid-column: 1/-1），同 App GroupHeader */
       .collection-grid .grp {
         grid-column: 1 / -1;
         display: flex; align-items: baseline; gap: 7px;
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .14em;
         text-transform: uppercase; color: var(--brass);
         padding: 4px 1px 1px;
       }
@@ -69,7 +64,7 @@ registerPage('gallery', {
         content: ''; flex: 1; height: 1px; background: var(--line);
       }
       .collection-grid .grp.note {
-        font-size: 9.5px; letter-spacing: .02em; text-transform: none;
+        font-size: 0.59375rem; letter-spacing: .02em; text-transform: none;
         color: var(--ink-soft); padding-top: 0;
       }
       .collection-grid .grp.note::after { content: none; }
@@ -93,8 +88,10 @@ function initCollectionGrid() {
 
   // 2026-09-22：手機圖冊與 App 同步為手部、臉部、前臂三組，共 64 穴。
   // 2026-09-24：格子改放各穴參考圖（原本三組共用一隻手掌小人）。
-  const hand = ACUPOINTS.map(a => a.name);
-  const face = FACE_ACUPOINTS.map(a => a.code);
+  // 2026-10-31 照 App：App 拿掉的穴不列（手部 removed: true 的 7 穴、臉部球後與兌端）→ 手部 20＋臉部 21＋前臂 15＝56
+  //   2026-10-31（晚）用戶再拿掉少商、少澤（removed）→ 手部 18，共 54
+  const hand = ACUPOINTS.filter(a => !a.removed).map(a => a.name);
+  const face = FACE_ACUPOINTS.filter(a => !FACE_REMOVED.has(a.code)).map(a => a.code);
   const forearm = FOREARM_ACUPOINTS;
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));

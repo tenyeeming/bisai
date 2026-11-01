@@ -4,6 +4,13 @@
 //   locate — WHO 標準解剖定位，抄自 `資料存放區/穴道資料庫_整合版.md`（來源：醫砭中醫資料庫）
 //   ref    — `assets/acu-ref/` 下的參考圖檔名，抄自 `自製穴道位置/`（原中文檔名已轉拼音）
 // 新增的 6 穴（少商/商陽/少衝/少澤/關衝/勞宮）兩者都缺，UI 顯示「尚無參考資料」。
+//
+// 🔴 2026-10-31 網頁 v2 照 App 同步穴道清單（用戶：「app刪除了某些穴道或者加入了某些穴道的照片都同步一下」）：
+//   ・removed: true ＝ App 已經拿掉的穴（側緣五穴 App 批 105、陽溪陽谷 批 109）。**資料與公式留著**
+//     （角度閘門測試、公式四檔逐點比對還在用），只是選穴、圖冊、症狀都不再出現 —— 同 App 的做法。
+//   ・商陽、少衝、關衝、勞宮＋新增少府：照 App 批 102／103 開放定位（公式見 js/acu-math.js 指甲角／掌心兩式），
+//     參考圖是用戶 10-29 自繪（App 批 107，從 App assets/acu-ref/ 複製過來）。
+//   ⚠️ 只改了網頁 v2。穴道按摩正式版本/网页版_2d、比賽專區/demo網站 還是舊的。
 
 const ACUPOINTS = [
   // 原有穴道（20 個）
@@ -11,9 +18,9 @@ const ACUPOINTS = [
     locate: "手背第 1～2 掌骨間，第 2 掌骨橈側的中點。拇食兩指並攏時，虎口部隆起最高處。" },
   { name: "陽池穴", code: "SJ4", side: "dorsal", ref: "yangchi.png",
     locate: "腕背橫紋中，指伸肌腱的尺側緣凹陷處" },
-  { name: "陽溪穴", code: "LI5", side: "dorsal", ref: "yangxi.png",
+  { name: "陽溪穴", code: "LI5", side: "dorsal", removed: true, ref: "yangxi.png",
     locate: "腕背橈側，拇短伸肌腱與拇長伸肌腱之間凹陷處；拇指上翹時位於「鼻煙窩」中" },
-  { name: "陽谷穴", code: "SI5", side: "dorsal", ref: "yanggu.png",
+  { name: "陽谷穴", code: "SI5", side: "dorsal", removed: true, ref: "yanggu.png",
     locate: "手腕尺側，尺骨莖突與三角骨之間凹陷處；屈腕時當腕中間橫紋尺側端" },
   { name: "液門穴", code: "SJ2", side: "dorsal", ref: "yemen.png",
     locate: "手背第 4～5 指間，指蹼緣後方赤白肉際處" },
@@ -27,15 +34,15 @@ const ACUPOINTS = [
     locate: "拇指背側指間關節的中點處" },
   { name: "八邪穴", code: "", side: "dorsal", ref: "baxie.png",
     locate: "手背側微握拳，第 1～5 指間指蹼緣後方赤白肉際處，左右共八穴" },
-  { name: "二間穴", code: "LI2", side: "dorsal", skipHullClamp: true, ref: "erjian.png",
+  { name: "二間穴", code: "LI2", side: "dorsal", removed: true, skipHullClamp: true, ref: "erjian.png",
     locate: "微握拳，食指橈側緣第 2 掌指關節前方赤白肉際凹陷處" },
-  { name: "三間穴", code: "LI3", side: "dorsal", skipHullClamp: true, ref: "sanjian.png",
+  { name: "三間穴", code: "LI3", side: "dorsal", removed: true, skipHullClamp: true, ref: "sanjian.png",
     locate: "微握拳，食指第 2 掌指關節後方橈側凹陷處" },
-  { name: "前谷穴", code: "SI2", side: "dorsal", skipHullClamp: true, ref: "qiangu.png",
+  { name: "前谷穴", code: "SI2", side: "dorsal", removed: true, skipHullClamp: true, ref: "qiangu.png",
     locate: "小指尺側，第 5 掌指關節前方赤白肉際處；握拳時當掌指橫紋尺側端" },
-  { name: "腕谷穴", code: "SI4", side: "dorsal", skipHullClamp: true, ref: "wangu.png",
+  { name: "腕谷穴", code: "SI4", side: "dorsal", removed: true, skipHullClamp: true, ref: "wangu.png",
     locate: "手掌尺側赤白肉際，第 5 掌骨基底與鉤骨之間凹陷處；屈腕時當腕遠側橫紋尺側端" },
-  { name: "後溪穴", code: "SI3", side: "dorsal", skipHullClamp: true, ref: "houxi.png",
+  { name: "後溪穴", code: "SI3", side: "dorsal", removed: true, skipHullClamp: true, ref: "houxi.png",
     locate: "小指第 5 掌指關節後緣，握拳時掌橫紋尺側端赤白肉際處" },
   { name: "中衝穴", code: "PC9", side: "palm", ref: "zhongchong.png",
     locate: "中指末節尖端中央，距指甲游離緣約 0.1 寸" },
@@ -50,12 +57,20 @@ const ACUPOINTS = [
 
   // 新增穴道（6 個，2026-07-12 新加，公式未定案）
   // 甲角旁的 5 個指尖穴都在指甲那一面 → side = dorsal（含少衝穴，雖屬心經）
-  { name: "少商穴", code: "LU11", side: "dorsal", type: "new", skipHullClamp: true },
-  { name: "商陽穴", code: "LI1", side: "dorsal", type: "new", skipHullClamp: true },
-  { name: "少衝穴", code: "HT9", side: "dorsal", type: "new", skipHullClamp: true },
-  { name: "少澤穴", code: "SI1", side: "dorsal", type: "new", skipHullClamp: true },
-  { name: "關衝穴", code: "TE1", side: "dorsal", type: "new", skipHullClamp: true },
-  { name: "勞宮穴", code: "PC8", side: "palm", type: "new" },
+  // 2026-10-31 用戶：「少商穴和少澤穴去掉」→ removed（資料、公式留著，圖冊不列）
+  { name: "少商穴", code: "LU11", side: "dorsal", type: "new", removed: true, skipHullClamp: true },
+  { name: "商陽穴", code: "LI1", side: "dorsal", skipHullClamp: true, ref: "shangyang.png",
+    locate: "食指末節橈側（靠拇指那側），指甲橈側角旁約 0.1 寸" },
+  { name: "少衝穴", code: "HT9", side: "dorsal", skipHullClamp: true, ref: "shaochong.png",
+    locate: "小指末節橈側（靠無名指那側），指甲橈側角旁約 0.1 寸" },
+  { name: "少澤穴", code: "SI1", side: "dorsal", type: "new", removed: true, skipHullClamp: true },
+  { name: "關衝穴", code: "TE1", side: "dorsal", skipHullClamp: true, ref: "guanchong.png",
+    locate: "無名指末節尺側（靠小指那側），指甲尺側角旁約 0.1 寸" },
+  { name: "勞宮穴", code: "PC8", side: "palm", ref: "laogong.png",
+    locate: "掌心，第 2～3 掌骨之間，掌指關節近端的凹陷處" },
+  // 2026-10-31 照 App 批 103 新增（WHO 2008 p94）
+  { name: "少府穴", code: "HT8", side: "palm", ref: "shaofu.png",
+    locate: "掌心，第 4～5 掌骨之間，第 5 掌指關節近端；握拳時小指尖處" },
 ];
 
 let selectedAcupoint = "合谷穴";
@@ -201,7 +216,7 @@ const ACU_NORMAL_SPEC = {
   // ── 橈側緣（拇指那一側）────────────────────────────────
   二間穴: { kind: "side", axis: [5, 6] }, // 食指橈側緣，第2掌指關節前
   三間穴: { kind: "side", axis: [5, 6] }, // 食指橈側，第2掌指關節後
-  商陽穴: { kind: "side", axis: [7, 8] }, // 食指遠節橈側甲角
+  // 商陽、少衝、關衝 2026-10-31 照 App 10-28 拿掉 → 預設 palm（手背正對最準，見 App acu/AcuData.kt）
   少商穴: { kind: "side", axis: [3, 4] }, // 拇指橈側甲角
   陽溪穴: { kind: "side", axis: [0, 9] }, // 腕背橈側「鼻煙窩」
 
@@ -210,8 +225,6 @@ const ACU_NORMAL_SPEC = {
   後溪穴: { kind: "side", axis: [17, 18] }, // 小指尺側，第5掌指關節後
   腕谷穴: { kind: "side", axis: [0, 17] }, // 手掌尺側緣，第5掌骨基底
   少澤穴: { kind: "side", axis: [19, 20] }, // 小指遠節尺側甲角
-  少衝穴: { kind: "side", axis: [19, 20] }, // 小指遠節橈側甲角（同軸，側緣性質相同）
-  關衝穴: { kind: "side", axis: [15, 16] }, // 無名指尺側甲角
   陽谷穴: { kind: "side", axis: [0, 9] }, // 腕背尺側，尺骨莖突與三角骨間
 
   // ── 指端（指尖正中，不是指甲角）──────────────────────
@@ -251,8 +264,8 @@ const ACU_NORMAL_SPEC = {
 //   從手心看被手掌擋住，不是單純的側緣。維持只有手背可定位。
 // ⚠ 合谷等 palm 類穴道更不能列進來：虎口肌肉隆起是手背側結構，從手心看不到。
 const BILATERAL_ACUPOINTS = new Set([
-  "二間穴", "三間穴", "商陽穴", "少商穴", // 橈側（食指、拇指）
-  "前谷穴", "後溪穴", "少澤穴", "少衝穴", "關衝穴", "腕谷穴", // 尺側（小指、無名指、手掌尺緣）
+  "二間穴", "三間穴", "少商穴", // 橈側（商陽 2026-10-31 照 App 拿掉：只有手背 GT）
+  "前谷穴", "後溪穴", "少澤穴", "腕谷穴", // 尺側（少衝、關衝同上）
 ]);
 
 // 信心度分級門檻（facing = |法向量的 z 分量|，1=正對鏡頭、0=完全切面）
@@ -446,6 +459,18 @@ const GC_LAT = -0.125;  // 尺側；中指換尺×1.132保位；拇指舊值 -0.
 // 勞宮穴 PC8 — 掌心，lerp(lm[0], lm[9])（⚠ 無 GT，t=0.5 為暫定值，解剖上約 0.55–0.60）
 const LG_T = 0.5;
 
+// ── 2026-10-31 照 App 批 102／103（App acu/AcuData.kt）：指甲角框架、掌心框架 ──
+// 上面 SY_／SC_／GC_／LG_T 那套舊值留著（版本快照、對照用），js/acu-math.js 改走下面這套。
+// 指甲角：P = lm[DIP] + _T·a + _U·|a|·r，a = lm[TIP]−lm[DIP]，r ⟂ a、朝指定的那一側（偏移用末節長度 |a| 當尺，不用寸）
+//   依據：用戶左手手背筆點影片各 1 支（貼紙實驗/20261028_1310 關衝、_1312 少衝、20261027_2347 商陽），傾斜 <15° 取中位。
+const SC_T = 0.29, SC_U = 0.21;   // 少衝 HT9：小指末節橈側（朝無名指）中位 0.8mm
+const GC_T = 0.67, GC_U = 0.28;   // 關衝 TE1：無名指末節尺側（朝小指）中位 1.1mm
+const SY_T = 0.65, SY_U = 0.21;   // 商陽 LI1：食指末節橈側（朝拇指）中位 ≈1mm
+// 掌心：P = lerp(mid(lm[a],lm[b]), lm0, t)（掌指關節中點往腕）
+//   依據：用戶左手手心筆點影片各 1 支（貼紙實驗/20261027_2337_勞宮、_2344_少府），傾斜 <15° 取中位。
+const LG_T2 = 0.29;               // 勞宮：mid(lm5,lm9)→lm0，中位 1.7～2.0mm
+const SF_T = 0.26;                // 少府：mid(lm13,lm17)→lm0，中位 2.1mm
+
 // ── 命中閾值 ─────────────────────────────────────────────────────────────────
 
 // 一寸的實際長度（mm），用於 px → mm 換算
@@ -546,10 +571,11 @@ const ACU_ANGLE_LIMIT = {
   腕谷穴: 32,
   後溪穴: 40,
   少商穴: 43,
-  商陽穴: 43,
-  少衝穴: 43,
   少澤穴: 43,
-  關衝穴: 43,
+  // 2026-10-31 照 App 10-28：筆點影片實測，不是反推（商陽 15～20° 已 3.1mm；少衝、關衝 15～20° 1.8／2.1mm）
+  商陽穴: 15,
+  少衝穴: 20,
+  關衝穴: 20,
 
   // ── 手心 palm 類 ──
   中衝穴: 60,
@@ -557,7 +583,9 @@ const ACU_ANGLE_LIMIT = {
   神門穴: 30,
   太淵穴: 27,
   四縫穴: 60,
-  勞宮穴: 60,
+  // 2026-10-31 照 App 10-28：勞宮、少府筆點 15～20° 已 5.5～5.8mm（疑似視差）→ 15°
+  勞宮穴: 15,
+  少府穴: 15,
 };
 
 // 全穴道共同上限：不管公式多不受投影縮短影響，皮膚斜到這個程度以上，
@@ -621,8 +649,6 @@ const DISC_MIN_MINOR_PX = 6;
 const IMPLEMENTED = new Set([
   "合谷穴",
   "陽池穴",
-  "陽溪穴",
-  "陽谷穴",
   "液門穴",
   "中渚穴",
   "小骨空",
@@ -634,82 +660,61 @@ const IMPLEMENTED = new Set([
   "太淵穴",
   "四縫穴",
   "八邪穴",
-  "二間穴",
-  "三間穴",
-  "前谷穴",
-  "腕谷穴",
-  "後溪穴",
+  // 2026-10-31 照 App：側緣五穴、陽溪、陽谷拿掉；商陽、少衝、關衝、勞宮、少府開放（App 批 102／103）
+  "商陽穴",
+  "少衝穴",
+  "關衝穴",
+  "勞宮穴",
+  "少府穴",
 ]);
 
+// 2026-10-31 照 App data/AcuData.kt SYMPTOM_MAP（側緣五穴、陽溪、陽谷拿掉；關衝、少衝、商陽、勞宮、少府掛上）
 const SYMPTOM_MAP = [
   {
     name: "緩解目痛",
     icon: "eye",
-    acupoints: ["大骨空", "小骨空", "陽溪穴", "三間穴"],
+    acupoints: ["大骨空", "小骨空", "關衝穴"],
   },
   {
     name: "緩解感冒症狀",
     icon: "thermometer",
-    acupoints: [
-      "合谷穴",
-      "四縫穴",
-      "太淵穴",
-      "魚際穴",
-      "前谷穴",
-      "三間穴",
-      "二間穴",
-    ],
+    acupoints: ["合谷穴", "四縫穴", "太淵穴", "魚際穴"],
   },
   {
     name: "腸胃不適",
     icon: "activity",
-    acupoints: ["合谷穴", "四縫穴", "中魁穴"],
+    acupoints: ["合谷穴", "四縫穴", "中魁穴", "勞宮穴"],
   },
   {
     name: "緩解牙痛",
     icon: "zap",
-    acupoints: ["合谷穴", "陽溪穴", "二間穴", "三間穴"],
+    acupoints: ["合谷穴", "商陽穴"],
   },
   {
     name: "緩解頭痛",
     icon: "brain",
-    acupoints: [
-      "合谷穴",
-      "陽池穴",
-      "陽溪穴",
-      "液門穴",
-      "中渚穴",
-      "前谷穴",
-      "腕谷穴",
-    ],
+    acupoints: ["合谷穴", "陽池穴", "液門穴", "中渚穴", "關衝穴"],
   },
-  { name: "改善失眠", icon: "moon", acupoints: ["神門穴", "後溪穴"] },
-  { name: "緩解胸痛", icon: "heart", acupoints: ["太淵穴"] },
+  { name: "改善失眠", icon: "moon", acupoints: ["神門穴"] },
+  { name: "緩解胸痛", icon: "heart", acupoints: ["太淵穴", "少衝穴", "勞宮穴", "少府穴"] },
   {
     name: "緩解耳鳴",
     icon: "volume-x",
-    acupoints: [
-      "陽池穴",
-      "陽溪穴",
-      "陽谷穴",
-      "液門穴",
-      "中渚穴",
-      "後溪穴",
-    ],
+    acupoints: ["陽池穴", "液門穴", "中渚穴", "關衝穴"],
   },
   {
     name: "緩解腕痛",
     icon: "move",
-    acupoints: ["陽池穴", "陽溪穴", "陽谷穴", "腕谷穴"],
+    acupoints: ["陽池穴"],
   },
   // 🔴 2026-09-20：「昏迷急救」整項刪除（對齊 App 09-17 那批）。中暑保留，但它現在是
   //    一般症狀，不再走急症擋話 —— 本系統定位為日常自我保健，不作為急救、診斷或治療工具。
   { name: "中暑", icon: "sun", acupoints: ["中衝穴"] },
-  { name: "放鬆手指", icon: "hand", acupoints: ["八邪穴"] },
+  { name: "放鬆手指", icon: "hand", acupoints: ["八邪穴", "少衝穴", "少府穴"] },
   {
     name: "緩解喉嚨痛",
     icon: "mic-off",
-    acupoints: ["二間穴", "三間穴"],
+    acupoints: ["關衝穴", "少衝穴", "商陽穴"],
   },
 
   // ── 臉部專屬（2026-09-20 併入）──────────────────────────────────
@@ -722,12 +727,12 @@ const SYMPTOM_MAP = [
   { name: "美容", icon: "sparkles", acupoints: [] },
   { name: "鼻子不適", icon: "wind", acupoints: [] },
   { name: "顏面神經麻痺", icon: "smile", acupoints: [] },
-  { name: "口腔衛生", icon: "droplet", acupoints: [] },
+  { name: "口腔衛生", icon: "droplet", acupoints: ["勞宮穴"] },
   // 前臂新增四類；手部清單為空，實際對應見 forearm-data.js。
-  { name: "肘臂痠痛", icon: "activity", acupoints: [] },
+  { name: "肘臂痠痛", icon: "activity", acupoints: ["少府穴"] },
   { name: "聲音沙啞", icon: "mic-off", acupoints: [] },
   { name: "便祕", icon: "menu", acupoints: [] },
-  { name: "肩頸痠痛", icon: "move", acupoints: [] },
+  { name: "肩頸痠痛", icon: "move", acupoints: ["關衝穴", "商陽穴"] },
 ];
 
 const ACUPOINT_DETAIL = {
@@ -751,6 +756,12 @@ const ACUPOINT_DETAIL = {
   腕谷穴: { en: "Wangu", side: "dorsal" },
   後溪穴: { en: "Houxi", side: "dorsal" },
   八邪穴: { en: "Baxie", side: "dorsal" },
+  // 2026-10-31 照 App：井穴醫典多為點刺放血 → 只寫指甲掐按（10-27 換穴決定）
+  少衝穴: { en: "Shaochong", side: "dorsal", note: "用指甲輕掐按壓，不要刺" },
+  關衝穴: { en: "Guanchong", side: "dorsal", note: "用指甲輕掐按壓，不要刺" },
+  商陽穴: { en: "Shangyang", side: "dorsal", note: "用指甲輕掐按壓，不要刺" },
+  勞宮穴: { en: "Laogong", side: "palm" },
+  少府穴: { en: "Shaofu", side: "palm" },
 };
 
 let currentSymptom = null;

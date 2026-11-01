@@ -368,10 +368,8 @@ function drawFaceDisc(ctx, x, y, r, pose) {
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(x, y, r * k, r, pose.rollDeg * Math.PI / 180, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(0, 229, 160, .85)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(0, 229, 160, .12)';
+  // 2026-10-01 用戶：「臉部的定位點做成全綠不要外面還有一個圈圈」→ 實心綠（同穴點 #4FBF8B）、不描外框
+  ctx.fillStyle = '#4FBF8B';
   ctx.fill();
   ctx.restore();
 }

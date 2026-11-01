@@ -206,7 +206,20 @@ if (!files.length) {
 {
   const an = new Function('isZh', src + '\n' + fs.readFileSync(DIR + 'js/face-anchor.js', 'utf8') + `
     ;return { FACE_FORMULA, computeFaceAcupoint, faceYawDeg, faceFarSide, faceAnchorReset,
-              computeFaceAcupointAnchored, FACE_ANCHOR_SKIP, FACE_FAR_HIDE_DEG, FACE_BIND_MAX_DEG };`)(() => true);
+              computeFaceAcupointAnchored, FACE_ANCHOR_SKIP, FACE_FAR_HIDE_DEG, FACE_BIND_MAX_DEG,
+              faceTurnUpdate, FACE_FAR_SHOW_DEG };`)(() => true);
+
+  // 轉太多（批 E-2，同 App FaceAnchor 批 65）：遲滯 30° 進、25° 出；只選側臉 6 穴不叫人回正
+  {
+    const flat = Array.from({ length: 478 }, () => ({ x: .5, y: .5, z: 0 }));
+    an.faceAnchorReset();
+    const seq = [20, 31, 26, 24].map(y => an.faceTurnUpdate(y, ['EX-HN3'], flat).turnedAway);
+    ok(seq.join() === 'false,true,true,false', `轉頭遲滯：20°不藏、31°藏、26°仍藏、24°解除（${seq}）`);
+    ok(an.faceTurnUpdate(40, ['ST7'], flat).turnedAway === false, '只選側臉穴 → 不叫人回正');
+    ok(an.faceTurnUpdate(40, ['EX-HN3'], flat).far === 'L' && an.faceTurnUpdate(-40, ['EX-HN3'], flat).far === 'R',
+       '遠側：正 yaw 藏 L、負 yaw 藏 R');
+    an.faceAnchorReset();
+  }
   const f0 = files.filter(f => /self/.test(f)).sort().pop();
   const ph = f0 && JSON.parse(fs.readFileSync(ANNOT + f0, 'utf8')).photos[0];
   if (!ph || !ph.landmarks || ph.landmarks[0].z == null) {
@@ -243,6 +256,13 @@ if (!files.length) {
     const got6 = an.computeFaceAcupointAnchored('ST6', L, W, H, yL, 10).pts;
     ok(an.FACE_ANCHOR_SKIP.has('ST6') && got6[0].x === raw6[0].x && got6[0].y === raw6[0].y,
        '側臉 6 穴不錨定（照舊公式）');
+
+    // 批 E-2：這一幀先 faceTurnUpdate（真實流程都會）→ 轉 40° 時正臉類兩側一起藏，側臉穴只藏遠側
+    an.faceAnchorReset();
+    an.faceTurnUpdate(yL, ['ST2', 'ST6'], L);
+    ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 10).pts === null, '轉 40°＋faceTurnUpdate：四白兩側一起藏（同 App）');
+    const g6 = an.computeFaceAcupointAnchored('ST6', L, W, H, yL, 10).pts;
+    ok(g6 && g6.every(p => p.side !== far), '側臉穴仍只藏遠側');
 
     an.faceAnchorReset();
     ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 0).unbound === true,

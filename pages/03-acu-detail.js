@@ -1,18 +1,22 @@
 // ══ 步驟二：認穴 ═════════════════════════════════════════════════
 // 定位文字來自 ACUPOINTS[].locate，安全警語來自 ACUPOINT_DETAIL[].note，
 // 兩者都在 js/acu-data.js。
+//
+// 2026-09-25（網頁v2 批 B）照 App AcuDetailScreen：
+//   · 倒數條拿掉「立即開始」（要快就按「開始定位」）；設 0 秒＝不顯示、**也不自動翻頁**。
+//   · 看教學、拉秒數滑桿 → 這一穴的倒數永久停掉（收合教學也不重啟）。
+//   · 秒數滑桿從按摩頁搬來這裡（App 批 72）：調的是這一穴，手臉共用；跑「我的流程」時不顯示。
+//   · 臉部：參考圖＋白話定位（沒有才退 WHO）、提示框放誠實聲明短句、教學是逐條「功效：按法」。
 
 registerPage('acu-detail', {
   tab: 'home',
   step: 2,
   stepLabel: 'step-2',
-  // 圖冊「練這一穴」進來的退回圖冊；我的流程開始的退回我的流程（2026-10-28）
-  backTo: () => (practiceFromGallery ? 'gallery'
-    : (typeof practiceFromPreset !== 'undefined' && practiceFromPreset) ? 'settings-presets'
-    : 'recommend'),
+  // 圖冊「練這一穴」進來的退回圖冊（我的流程 2026-10-31 拿掉）
+  backTo: () => (practiceFromGallery ? 'gallery' : 'recommend'),
   // 下一步就是定位頁，趁使用者在這頁讀說明時，先把 MediaPipe 在背景載好
   // （~16MB，不預熱的話會卡在「開始定位」那一下）。見 js/vision.js warmUpHands。
-  onEnter: () => { closeTutorial(); renderAcuDetail(); warmUpHands(); startReadyCountdown(); },
+  onEnter: () => { closeTutorial(); renderAcuDetail(); renderDetailSec(); warmUpHands(); if (itemDetector(curAcuName()) === 'forearm') warmUpForearm(); startReadyCountdown(); },
   onLeave: () => { stopReadyCountdown(); closeTutorial(); },
   onLanguage: () => { renderAcuDetail(); renderReadyBar(); },
 
@@ -29,6 +33,8 @@ registerPage('acu-detail', {
         padding: 4px;
       }
       .ref-frame img { width: 100%; height: auto; display: block; border-radius: 2px; }
+      /* 寬螢幕上限制參考圖寬度 */
+      #page-acu-detail .ref-frame, #page-acu-detail .ref-none { max-width: 260px; }
       .ref-frame .cap {
         font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: .1em;
         color: #7a8580; text-align: center; padding: 3px 0 1px;
@@ -39,9 +45,7 @@ registerPage('acu-detail', {
         padding: 18px 8px; text-align: center;
         font-size: 0.71875rem; color: var(--ink-soft);
       }
-      /* ── 認穴倒數（2026-09-02）─────────────────────────────
-         倒數到 0 就自己翻到定位頁，使用者不必點。但人可能還在讀定位說明，
-         所以「手指按住畫面就停住」—— 不另外做暫停鈕，按住是最不用學的動作。 */
+      /* ── 認穴倒數：到 0 自動進定位頁；按住畫面暫停 */
       .readybar {
         display: flex; align-items: center; gap: 10px;
         border: 1px solid var(--brass); border-radius: var(--r);
@@ -54,20 +58,13 @@ registerPage('acu-detail', {
       .readybar .txt { font-size: 0.78125rem; color: var(--ink-soft); line-height: 1.5; }
       .readybar.held { border-color: var(--line); }
       .readybar.held .num { color: var(--ink-soft); }
-      .readybar button {
-        margin-left: auto; flex: none;
-        font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .06em;
-        color: var(--ink-soft); background: none;
-        border: 1px solid var(--line); border-radius: var(--r);
-        padding: 6px 10px; cursor: pointer;
-      }
-      .readybar button:hover { border-color: var(--brass); color: var(--brass); }
-      #ready-bar[hidden] { display: none; }
+      #ready-bar[hidden], #detail-sec[hidden] { display: none; }
+      /* 這一穴按幾秒 */
+      #detail-sec .label { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .08em; color: var(--brass); }
+      #detail-sec input { width: 100%; accent-color: var(--brass); }
 
       #tutorial-box { display: none; }
-      /* ── 教學影片（2026-09-05）─────────────────────────────
-         內嵌小框試過，用戶說「不太好」（手機上那塊只有一指寬）→ 改成
-         這顆按鈕點了開全螢幕播放器，播放器本身是 .vid-overlay。 */
+      /* ── 教學影片：按鈕開全螢幕播放器（.vid-overlay） */
       .vid-open {
         display: flex; align-items: center; gap: 9px; width: 100%;
         border: 1px solid var(--brass); border-radius: var(--r);
@@ -81,6 +78,11 @@ registerPage('acu-detail', {
         padding: 5px 5px 5px 7px;
       }
       .vid-open:hover { background: var(--surface-3, var(--surface-2)); }
+      /* 沒片：灰、點不動（App 批 80 TutorialVideoPending） */
+      .device .vid-open.pending { cursor: default; color: var(--ink-soft); opacity: .7;
+        border-color: color-mix(in srgb, var(--ink-soft) 35%, transparent); }
+      .device .vid-open.pending .play { border-color: currentColor; opacity: .7; }
+      .device .vid-open.pending:hover { background: var(--surface-2); }
       /* 覆蓋層貼在 <body> 上（不在 .page 裡），所以要蓋過所有東西 */
       .vid-overlay {
         position: fixed; inset: 0; z-index: 900;
@@ -131,7 +133,11 @@ registerPage('acu-detail', {
       <div class="readybar" id="ready-bar" hidden>
         <span class="num" id="ready-num">5</span>
         <span class="txt" id="ready-txt"></span>
-        <button type="button" onclick="skipReadyCountdown()" data-i18n="btn-ready-now">立即開始</button>
+      </div>
+      <div id="detail-sec" hidden>
+        <p class="label"><span data-i18n="massage-timer">按摩時間（每隻手）</span>&nbsp;&nbsp;<span id="detail-sec-val"></span></p>
+        <input type="range" id="detail-sec-input" oninput="onDetailSecInput()" onchange="onDetailSecInput()"
+               aria-labelledby="detail-sec">
       </div>
       <div class="btn-row">
         <button class="btn ghost" onclick="toggleTutorial()" data-i18n="btn-tutorial">看教學</button>
@@ -143,9 +149,8 @@ registerPage('acu-detail', {
 });
 
 // ── 認穴倒數 ──────────────────────────────────────────────────────
-// flow.readySec = 0 代表「跳過認穴」：進頁就直接翻到定位頁。
-// ⚠️ 跳過的代價：MediaPipe（~16MB）原本靠使用者讀說明那幾秒在背景載完，
-//    設 0 會讓定位頁開頭卡一下。這是使用者自己選的，不擋。
+// flow.readyAuto 關：不倒數、**也不自動翻頁**，等使用者自己按「開始定位」（App 批 93；以前是 readySec = 0）。
+//   App 的理由：開相機要權限，突然跳到相機頁很唐突。以前網頁 0 秒＝進頁直接翻走。
 let readyTickId = null;
 let readyRemain = 0;
 let readyHeld = false;
@@ -153,9 +158,9 @@ let readyHeld = false;
 function startReadyCountdown() {
   stopReadyCountdown();
   const bar = document.getElementById('ready-bar');
-  const sec = Number(flow.readySec) || 0;
+  const sec = flow.readyAuto ? (Number(flow.readySec) || 0) : 0;
 
-  if (sec <= 0) { bar.hidden = true; setTimeout(() => { if (currentPage === 'acu-detail') startLocate(); }, 0); return; }
+  if (sec <= 0) { bar.hidden = true; return; }
 
   readyRemain = sec;
   readyHeld = false;
@@ -186,9 +191,9 @@ function stopReadyCountdown() {
   if (bar) { bar.hidden = true; bar.classList.remove('held'); }
 }
 
-// 「立即開始」按鈕自己會處理，按到它不要當成「按住暫停」
+// 拉秒數滑桿不算「按住暫停」—— 那一拉本身就會把倒數永久停掉（見 onDetailSecInput）
 function onReadyHold(e) {
-  if (e.target.closest && e.target.closest('#ready-bar button')) return;
+  if (e.target.closest && e.target.closest('#detail-sec')) return;
   readyHeld = true;
   const bar = document.getElementById('ready-bar');
   if (bar) bar.classList.add('held');
@@ -212,15 +217,35 @@ function renderReadyBar() {
     : (isZh() ? '秒後自動進入定位。按住畫面可暫停。' : 'sec until locating starts. Hold the screen to pause.');
 }
 
+// 畫面上已經沒有「立即開始」鈕（批 B）；留著給測試與其他入口直接跳定位。
 function skipReadyCountdown() {
   stopReadyCountdown();
   startLocate();
 }
 
+// ── 這一穴按幾秒（2026-09-25 從按摩頁搬來，App 批 72）──────────────
+function renderDetailSec() {
+  const box = document.getElementById('detail-sec');
+  const name = curAcuName();
+  box.hidden = !name;
+  if (box.hidden) return;
+  const input = document.getElementById('detail-sec-input');
+  input.min = PRESS_MIN; input.max = PRESS_MAX; input.step = PRESS_STEP;
+  input.value = acuSecOf(name);
+  document.getElementById('detail-sec-val').textContent = acuSecOf(name) + 's';
+}
+
+// 一拉就停掉自動倒數，免得調到一半被翻走（App 同）
+function onDetailSecInput() {
+  stopReadyCountdown();
+  const v = parseInt(document.getElementById('detail-sec-input').value, 10);
+  setAcuSec(curAcuName(), v);
+  document.getElementById('detail-sec-val').textContent = acuSecOf(curAcuName()) + 's';
+}
+
 // 從選穴頁進來：排序後從第一個穴道開始
 function goToAcuDetail() {
-  practiceFromGallery = false;   // 從選穴頁／我的流程開始的療程
-  if (typeof practiceFromPreset !== 'undefined') practiceFromPreset = false;   // 我的流程會在之後自己設回 true
+  practiceFromGallery = false;   // 從選穴頁開始的療程
   buildTreatmentList();
   if (state.selectedAcupoints.length === 0) {
     alert(isZh() ? '請選擇至少一個穴道' : 'Please select at least one acupoint');
@@ -247,7 +272,7 @@ function buildTreatmentList() {
 
   // 進到這裡時 selectedAcupoints 只有手部（臉部勾在 selectedFace），
   // 但保險起見還是濾一次 —— 從圖冊「練這一穴」等入口進來的形狀可能不同
-  const hands = state.selectedAcupoints.filter(n => !isFaceItem(n))
+  const hands = state.selectedAcupoints.filter(n => !isFaceItem(n) && !isForearmItem(n))
     .sort((a, b) => handOrder.indexOf(a) - handOrder.indexOf(b));
 
   // 只收公式做得出來的臉部穴道。選穴頁本來就擋著「準備中」那些，
@@ -255,7 +280,11 @@ function buildTreatmentList() {
   const faces = (state.selectedFace || []).filter(c => FACE_IMPLEMENTED.has(c))
     .sort((a, b) => faceOrder.indexOf(a) - faceOrder.indexOf(b));
 
-  state.selectedAcupoints = [...hands, ...faces];
+  // 2026-10-01：前臂接在手部後面、臉部前面（App 批 94 同）
+  const foreOrder = FOREARM_ACUPOINTS.map(a => a.name);
+  const fores = (state.selectedForearm || []).filter(isForearmItem)
+    .sort((a, b) => foreOrder.indexOf(a) - foreOrder.indexOf(b));
+  state.selectedAcupoints = [...hands, ...fores, ...faces];
 }
 
 /**
@@ -281,6 +310,7 @@ function renderAcuDetail() {
   const name = curAcuName();
   if (!name) { goHome(); return; }
   if (isFaceItem(name)) { renderFaceAcuDetail(name); return; }
+  if (isForearmItem(name)) { renderForearmAcuDetail(name); return; }
   const acu = ACUPOINTS.find(a => a.name === name);
   const detail = ACUPOINT_DETAIL[name] || {};
 
@@ -304,6 +334,7 @@ function renderAcuDetail() {
     acu && acu.locate ? acu.locate : (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
   const dorsal = acu && acu.side === 'dorsal';
+  document.getElementById('acu-side-hint').hidden = false;
   document.getElementById('acu-side-hint').textContent = BILATERAL_ACUPOINTS.has(name)
     ? (isZh() ? '此穴在手側緣，手背或手心朝鏡頭都可定位。' : 'Side-edge point: either hand side works.')
     : (isZh() ? `請將${dorsal ? '手背' : '手心'}朝向鏡頭。` : `Face your ${dorsal ? 'back of hand' : 'palm'} to the camera.`);
@@ -312,54 +343,73 @@ function renderAcuDetail() {
 }
 
 /**
- * 臉部項目的認穴頁（2026-09-04）。
+ * 臉部項目的認穴頁（2026-09-04；2026-09-25 網頁v2 批 B 照 App 改）。
  *
  * 跟手部同一頁、同一組 DOM，只是填不同的東西：
- *   定位說明 → WHO 原文（`faceWho`）。臉部刻意不編白話版 —— 這條線的公式
- *              就是照 WHO 字面實作的，改寫成白話等於偷偷加入沒驗過的詮釋。
- *   參考圖   → 沒有。臉部這條線只有 `臉部/對照圖/` 的研究用圖，不是給使用者看的
- *   正反面   → 換成「請正面對鏡頭」
+ *   參考圖   → assets/face-ref/<代號>.jpg（與圖冊同一份；沒有的畫「尚無參考圖」）
+ *   定位說明 → 白話（faceDetail，臉部穴道.pdf）優先，沒有才退 WHO 原文（同 App）
+ *   提示框   → 誠實聲明短句（手部這格是手背／手心）
  */
 function renderFaceAcuDetail(code) {
   document.getElementById('acu-name').textContent = faceLabel(code);
   document.getElementById('acu-progress').textContent =
     `${state.currentAcupointIndex + 1} / ${state.selectedAcupoints.length}`;
 
-  // 臉部目前沒有安全警語資料（ACUPOINT_DETAIL 是手部的表），但誠實話要講：
-  // 這條線只有 1 人 1 張照片的資料基礎
-  const noteBox = document.getElementById('acu-note');
-  noteBox.innerHTML = '';   // 2026-10-01 用戶：參數聲明刪掉
+  // 臉部沒有安全警語資料（ACUPOINT_DETAIL 是手部的表）
+  document.getElementById('acu-note').innerHTML = '';
 
-  // 參考圖區塊換成「臉部沒有參考圖」的說明，不要借手部的圖
-  const none = document.createElement('div');
-  none.className = 'ref-none';
-  none.textContent = t('face-ref-none');
-  swapRefBlock(none);
+  swapRefBlock(faceRefBlock(code));
 
+  const det = faceDetail(code);
   document.getElementById('acu-detail').textContent =
-    faceWho(code) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
+    (det && det.locate) || faceWho(code) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
-  document.getElementById('acu-side-hint').textContent = t('face-side-hint');
+  // 2026-10-01 用戶：「臉部定位的參數什麼的刪掉」→ 臉部不放提示框
+  const hint = document.getElementById('acu-side-hint');
+  hint.textContent = '';
+  hint.hidden = true;
   document.getElementById('tutorial-box').style.display = 'none';
 }
 
+/** 前臂項目的認穴頁（2026-10-01，App 批 94）：示意圖、定位、警語；提示框放按壓方式 */
+function renderForearmAcuDetail(name) {
+  const acu = forearmAcu(name);
+  document.getElementById('acu-name').textContent = itemLabel(name);
+  document.getElementById('acu-progress').textContent =
+    `${state.currentAcupointIndex + 1} / ${state.selectedAcupoints.length}`;
+  const noteBox = document.getElementById('acu-note');
+  noteBox.innerHTML = '';
+  if (acu && acu.caution) {
+    const d = document.createElement('p');
+    d.className = 'notice warn';
+    d.textContent = acu.caution;
+    noteBox.appendChild(d);
+  }
+  swapRefBlock(forearmRefBlock(name));
+  document.getElementById('acu-detail').textContent =
+    (acu && acu.locate) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
+  document.getElementById('acu-side-hint').hidden = false;
+  document.getElementById('acu-side-hint').textContent = FOREARM_PRESS;
+  document.getElementById('tutorial-box').style.display = 'none';
+}
+
+/** 前臂教學：功效＋按法（App ForearmTutorialBox） */
+function renderForearmTutorial(box) {
+  const acu = forearmAcu(curAcuName());
+  fillTutorial(box, curAcuName(), [acu && acu.note, FOREARM_PRESS].filter(Boolean));
+  box.insertBefore(acuVideoPending(), box.firstChild);   // 前臂還沒有片：灰的準備中（同 App）
+}
+
 /**
- * 臉部版的「怎麼做」四步。
- * ⚠️ 第 4 步刻意**不寫**「要真的碰到皮膚才算」——
- *    深度判定目前是關的（js/face-gate.js 的 FACE_DEPTH_CHECK），
- *    寫了就是承諾一個沒在跑的檢查。現在的判準就是畫面上對準，照實說。
+ * 臉部的教學（App FaceTutorialBox，批 B 改）：逐條「功效：按法」，
+ * 用現成的 faceDetail(code).uses —— 不再用一組泛用四步（套到臉上講不通、也會跟圖冊那份漂）。
  */
 function renderFaceTutorial(box) {
-  const steps = isZh()
-    ? ['把臉擺進畫面，正對鏡頭，不要低頭或側頭。',
-       '前鏡頭是鏡像的，畫面裡的左右跟你自己的左右相反 —— 看點的位置就好，不要用左右判斷。',
-       '圓盤接近正圓代表臉正對鏡頭、定位可信；被壓扁代表轉太多，讀數會標出信心百分比。',
-       '把指尖移到畫面上的穴位標記，計時才會前進。畫面是鏡像的，跟著標記走就好。']
-    : ['Put your face in frame and look straight at the camera.',
-       'The front camera is mirrored, so left and right are flipped — go by the marker, not by side.',
-       'A near-circular disc means you are facing the camera and the position is reliable; a flattened disc means you have turned too far.',
-       'Move your fingertip onto the marker on screen and the timer will run. The view is mirrored, so just follow the marker.'];
-
+  const det = faceDetail(curAcuName());
+  const uses = (det && det.uses) || [];
+  const steps = uses.length
+    ? uses.map(u => (u.func && u.func.trim() ? `${u.func}：` : '') + (u.press || ''))
+    : [isZh() ? '（尚無定位描述）' : '(no description yet)'];
   fillTutorial(box, curAcuName(), steps);
 }
 
@@ -397,6 +447,7 @@ function toggleTutorial() {
 
   const cur = curAcuName();
   if (isFaceItem(cur)) { renderFaceTutorial(box); return; }
+  if (isForearmItem(cur)) { renderForearmTutorial(box); return; }
   const acu = ACUPOINTS.find(a => a.name === cur);
   const dorsal = acu && acu.side === 'dorsal';
   const steps = isZh()

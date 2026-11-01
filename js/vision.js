@@ -22,6 +22,7 @@ let showDisc = true;
 let activeCanvas = null;
 let renderMode = 'locate';          // 'locate' | 'massage'
 let onTarget = false;               // 指尖是否對準（按摩頁計時用）
+let locatePrevOn = false;           // 定位頁自己的遲滯狀態（批 C：定位頁也量另一隻手；不碰按摩頁那組）
 // 對位判定的遲滯記憶（2026-09-23 對齊 App locate/AcuMath.kt 的 tolIn/tolOut）。
 // 只有「上一幀有走到按摩對位判定、而且判為對準」才是 true；任何一幀沒走到判定就歸零，
 // 所以手離開畫面、閘門擋下、換頁都不會把舊狀態帶過去。
@@ -197,6 +198,9 @@ function applyHandsOptions(h, mode) {
 //    ⚠️ 這不會開啟相機，也不會畫任何東西（onHandsResults 開頭就擋掉 camRunning=false）。
 //    ⚠️ 純載入時機改動，跟定位公式與精度完全無關。
 let handsWarmed = false;
+// 預熱那次 initialize 的 promise：前臂內關（js/forearm-vision.js）要等它做完才能載 Pose
+// （Solutions API 兩個模型同時 initialize 會互相打架）
+let handsInitP = null;
 function warmUpHands() {
   if (handsWarmed || typeof Hands === 'undefined') return;
   handsWarmed = true;
@@ -205,7 +209,8 @@ function warmUpHands() {
     try {
       const h = getHands();
       if (typeof h.initialize === 'function') {
-        h.initialize().catch(() => {});          // 失敗就算了，等使用者真的進定位頁再載一次
+        handsInitP = h.initialize();
+        handsInitP.catch(() => {});              // 失敗就算了，等使用者真的進定位頁再載一次
       }
     } catch (e) { /* 預熱失敗不能影響 UI */ }
   };
@@ -229,6 +234,13 @@ async function startCamera(canvasId, mode) {
     try {
       // 臉部頁跟這裡共用 hidden-video，它若還在啟動中要先等它收完
       if (typeof faceCamIdle === 'function') await faceCamIdle();
+      // 前臂內關那套也共用 hidden-video（2026-10-01 用戶：「手機攝像頭打不開，我按的是合谷」）
+      //   內關（按摩頁）→ 合谷（定位頁）時，定位頁 keepsCamera 不會觸發 nav.js 去關它，
+      //   前臂串流一直佔著鏡頭 → 這邊 getUserMedia 失敗。→ 在這裡一律先收掉。
+      // 但等的期間自己若已被叫停（前臂同時在啟動、先關了這邊），就別反過來關它（續 13）
+      if (!camWanted) return;
+      if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
+      if (typeof forearmCamIdle === 'function') await forearmCamIdle();
       if (!camWanted) return;
       if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
         throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
@@ -320,19 +332,12 @@ function setGate(kind, msg) {
   if (!el) return;
   el.textContent = msg;
   el.className = 'readout gate-' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : 'warn');
-  // 提示列每一幀都會更新，順路把數據面板也刷新 —— 迴圈裡有七、八個 return 點，
-  // 在每一個後面補一次 render 遲早會漏掉一個（漏掉的症狀是「數字卡在上一幀」）。
-  renderLiveStats();
 }
 
-// ── 即時數據面板（2026-09-20，桌面版型才顯示）──────────────────────
-// 用戶：「電腦屏幕太大沒辦法適配」。結論是不追著填滿跑，把大螢幕多出來的空間
-// 拿去顯示**系統本來就在算、但手機上沒地方放**的數字 —— 那正是評審要看的技術證據。
-//
-// ⚠️ 這裡**一個數字都不是新算的**，全部取自同一幀既有的判定結果：
-//    conf/tilt/angle 來自閘門那三段，距離來自按摩模式的 minD。
-//    所以面板與畫面必然一致，不會出現「圈說對準了、數字說差 5mm」。
-// ⚠️ `null` 一律顯示 —— 代表「這一幀沒得算」，不要拿 0 充數。
+// ── 每幀判定的數字（2026-09-20 起）──────────────────────────────────
+// 原本餵桌面「即時判定」面板；2026-09-25（網頁v2 批 A）面板照 App 拿掉，
+// 數字留著 —— 批 C 的「還差 X mm」提示（App gate_off_target_mm）要用 distMm。
+// ⚠️ 這裡一個數字都不是新算的，全部取自同一幀既有的判定結果；null＝這一幀沒得算。
 const liveStats = { conf: null, tilt: null, angle: null, limit: null, distMm: null, on: false };
 
 function resetLiveStats() {
@@ -340,22 +345,6 @@ function resetLiveStats() {
   liveStats.on = false;
 }
 
-function renderLiveStats() {
-  const box = document.getElementById(renderMode === 'massage' ? 'massage-stats' : 'camera-stats');
-  if (!box) return;
-  const put = (k, txt, cls) => {
-    const el = box.querySelector('[data-k="' + k + '"]');
-    if (!el) return;
-    el.textContent = txt;
-    if (cls !== undefined) el.className = 'v' + (cls ? ' ' + cls : '');
-  };
-  put('conf', liveStats.conf == null ? '—' : Math.round(liveStats.conf * 100) + '%');
-  put('tilt', liveStats.tilt == null ? '—' : Math.round(liveStats.tilt) + '°');
-  put('angle', liveStats.angle == null ? '—'
-    : Math.round(liveStats.angle) + '°' + (liveStats.limit == null ? '' : ' / ' + liveStats.limit + '°'));
-  put('dist', liveStats.distMm == null ? '—' : liveStats.distMm.toFixed(1) + ' mm',
-    liveStats.distMm == null ? '' : (liveStats.on ? 'ok' : 'warn'));
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // 主偵測迴圈：每一幀都會跑
@@ -369,6 +358,11 @@ function onHandsResults(results) {
   if (typeof faceMode !== 'undefined' && faceMode === 'massage' && faceCamRunning) {
     const hs = results.multiHandLandmarks || [];
     faceHandLm = hs.length ? hs[0] : null;
+    return;
+  }
+  // 前臂內關（2026-10-01）：同上，手只交給 js/forearm-vision.js，畫面由那邊畫
+  if (typeof faCamRunning !== 'undefined' && faCamRunning) {
+    faHandResults = results;
     return;
   }
 
@@ -421,10 +415,24 @@ function onHandsResults(results) {
   if (allHands.length === 0) {
     acuPointSmoother.reset();
     resetLiveStats();
-    setGate('warn', isZh() ? '請將手放入畫面中' : 'Put your hand in frame');
+    // 定位頁照 App camera_hint；按摩頁維持原句
+    setGate('warn', renderMode === 'locate' ? t('camera-hint')
+      : (isZh() ? '請將手放入畫面中' : 'Put your hand in frame'));
     onTarget = false;
     return;
   }
+
+  // 手部 21 點：設定 › 顯示 › 顯示手部節點（預設關，同 App 只畫白點不畫連線）。純顯示，不影響判定。
+  if (showSkeleton) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    allHands.forEach(lm => (lm || []).forEach(p => {
+      ctx.beginPath(); ctx.arc(mx(p.x * W), p.y * H, 3, 0, Math.PI * 2); ctx.fill();
+    }));
+    ctx.restore();
+  }
+  // 定位頁要兩隻手（App gate_need_presser）：一隻被按、一隻去按
+  const needPresser = renderMode === 'locate' && allHands.length < 2;
 
   const name = curAcuName();
   if (!name) return;
@@ -477,6 +485,8 @@ function onHandsResults(results) {
 
   // ── 閘門一：正反面 ──
   if (!best.sideOk) {
+    // App 的提示優先序：只有一隻手 → 先叫人把另一隻手放進來，再談翻面
+    if (needPresser) { setGate('warn', t('gate-need-presser')); onTarget = false; return; }
     setGate('bad', isZh()
       ? `偵測到${best.dorsal ? '手背' : '手心'}，${name}在${needDorsal ? '手背' : '手心'}，請翻面`
       : `Detected ${best.dorsal ? 'back of hand' : 'palm'}; this point is on the ${needDorsal ? 'back' : 'palm'}. Flip your hand.`);
@@ -518,7 +528,6 @@ function onHandsResults(results) {
   }
 
   const cunPx = computeCunPx(best.lm, W, H);
-  const r = acupointRadius(cunPx);
   const discR = CONF_DISC_CUN * cunPx;
 
   // 圓盤的形狀是 3D 基底投影出來的多邊形，整組頂點都要跟著翻，
@@ -546,85 +555,79 @@ function onHandsResults(results) {
     discDY = off * best.info.normal.y;
   }
 
-  // ⭐ 圓盤中心那顆白點就是穴道座標，所以**圓盤畫在點上、不再另外畫大光暈點**。
-  //    tip 類的外推只推圓盤外框、不推白點 —— 白點必須留在 lm[12]。
-  if (showDisc && best.info) {
-    ctx.save();
-    flip();
-    drawPts.forEach(p => {
-      drawConfidenceDisc(ctx, p.x + discDX, p.y + discDY, discR, best.info,
-        { degraded: gateBlocked, centerAt: { x: p.x, y: p.y } });
+  // ⭐ 2026-10-01 用戶：「網頁版本的穴位呈現好難看，模仿 app 的做法」→ 照 App AcuCameraView：
+  //    ① 閘門擋下時**不畫點**（App drawAcu 為空），只留回正箭頭與提示文字
+  //    ② 判定圈＝黃銅細圈 #B8894B（只圈第一個點，半徑同判定用的 discR，下限 18）
+  //       → 2026-10-02 改實心綠不描邊（同臉部）
+  //    ③ 穴位＝綠點 #4FBF8B（ACU_DOT_R），穴名白字寫在點正上方
+  //    以前的 3D 投影彩色圓盤（drawConfidenceDisc：扁掉＝斜看、灰虛線＝降級）不再畫；
+  //    判定、閘門、信心值一行都沒動，只換畫法。
+  if (!gateBlocked) {
+    const k = screenScale(canvas);
+    drawPts.forEach((p, i) => {
+      if (showDisc && i === 0) {
+        ctx.save();
+        ctx.beginPath();
+        // 2026-10-01 用戶：「手機版本的手部穴道定位的圈太小了，調整成現在的2.5倍」
+        //   只放大畫的圈（手機尺寸 isMobileWeb），判定仍用 discR —— 用戶選「判定不變」
+        // 2026-10-02 用戶：「太大了」「現在大小的5分之2」→ 續 12 那個半徑再 ×0.4（判定仍用 discR）
+        //   同日「平板的比例呢」→ 平板跟手機一樣：改看觸控（pointer: coarse）而不是 isMobileWeb（平板寬 ≥600 判不到）
+        //   同日「爲什麽會大成這樣改成現在的5分之2」→ 平板再 ×0.4（＝原大小 ×0.4，跟電腦一樣）
+        //   大的原因：圈跟著畫面裡的手一起縮放，平板取景框大、手大，圈就大
+        const touchScreen = isMobileWeb() || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+        const discScale = isMobileWeb() ? 1 : touchScreen ? 0.4 : 0.4;   // 手機／平板／電腦（對 10-01 放大前的原大小）
+        ctx.arc(mx(p.x + discDX), p.y + discDY, Math.max(discR, 18 * k) * discScale, 0, Math.PI * 2);
+        // 2026-10-02 用戶：「手部的也要同步」→ 跟臉部 drawFaceDisc 一樣：實心綠 #4FBF8B、不描外框
+        ctx.fillStyle = '#4FBF8B';
+        ctx.fill();
+        ctx.restore();
+      }
+      const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
+      // 穴名：設定 › 顯示 › 鏡頭中顯示穴位名稱（預設開，App 批 65）
+      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? label : '', '#4FBF8B', appDotR(canvas), k);
     });
-    ctx.restore();
   }
-  // 標籤不能被鏡射成反字，所以這裡不用 transform，改成把 x 座標自己翻過去畫。
-  //
-  // ⭐ 2026-08-18【規格改寫】用戶原話：**「反正就要做到在某些角度上也可以看出
-  //    正確位置在哪裏」**。舊寫法在 `gateBlocked` 時**整個點都不畫**，直接違反這條 ——
-  //    使用者在斜角時看到的是「位置消失了」，而他要的正是那時候還看得見位置。
-  //
-  //    改成照 `網頁版3d` 的分工：
-  //      **圓盤中心的白點** → 位置（永遠都在，不管扁成什麼樣、有沒有降級）
-  //      **圓盤的形狀與顏色** → 可不可信（扁掉＝正在切著看、灰虛線＝這一幀別當真）
-  //    位置與可信度分開表達，斜角時就不會因為可信度低而連位置一起丟掉。
-  const dotColor = best.gate ? best.gate.color : '#00e5a0';
-  const showingDisc = showDisc && best.info;
-  drawPts.forEach((p, i) => {
-    const label = pts.length > 1 ? `${acuLabel(name)}${i + 1}` : acuLabel(name);
-    if (showingDisc) {
-      // 圓盤已經把白點畫在正確位置上了，這裡只補標籤 ——
-      // 而且要畫在**圓盤外面**，不然會壓在色塊上看不清（3d 版 drawLabel 的做法）。
-      drawAcuLabel(ctx, mx(p.x), p.y, label, discR);
-    } else {
-      // 圓盤關掉時退回舊的點畫法，否則什麼都看不到。
-      drawAcupoint(ctx, mx(p.x), p.y, label, dotColor, r);
-    }
-  });
 
   if (renderMode === 'locate') {
-    const pct = Math.round((best.info ? best.info.conf : 0) * 100);
+    // 2026-09-25（網頁v2 批 C，App CameraScreen GateHint）：定位頁也要兩隻手，
+    //   提示照 App 的優先序：只有一隻手 → 角度擋下 → （翻錯面在上面）→ 按對了 → 還差 X mm。
+    //   ⚠️ 只改提示與繪製：信心、角度、閘門的判定一行都沒動；按摩頁的計時也不看這裡。
+    //   以前一隻手就顯示「定位中 信心 X% 傾斜 Y°」、偏角 warn/bad 也一路講；App 只在真的擋下時講角度。
     const g = best.gate;
-    // 數據面板：這一穴這一幀的皮膚偏角與它自己的上限
-    if (best.gate) { liveStats.angle = best.gate.angleDeg; liveStats.limit = best.gate.limitDeg; }
-    if (g && (g.level !== 'ok' || g.blocked)) {
-      // ── 閘門三：這個穴道自己的角度（2026-08-12 建立，08-18 改成兩層）──
-      // 講的是「**這塊皮膚**偏離鏡頭幾度」，不是「手歪幾度」——對側緣穴這兩件事差約 90°。
-      // 姿勢指引照 kind 給：side 類要手刀、palm 類要攤平。
-      // ⚠ 刻意不講「往左轉/往右轉」：方向要靠 azimuthDeg，而它是四個角度裡最不可信的
-      //   （acu-math.js computeAcuConfidence 註釋③：W≠H 時有非等向縮放偏差）。
-      const poseZh = g.kind === 'side' ? '請把手轉成手刀（側緣朝鏡頭）' : '請把手掌攤平正對鏡頭';
-      const poseEn = g.kind === 'side' ? 'Turn your hand edge-on to the camera.' : 'Lay your palm flat toward the camera.';
-      if (g.blocked) {
-        // 圓盤已經扁到看不出形狀 → 這時才擋。措辭要說明「為什麼看不到點」，
-        // 不能說「位置僅供參考」（根本沒畫點）。圓盤還是會畫（降級樣式），
-        // 使用者靠那條線的方向知道要往哪轉回來。
-        setGate('bad', isZh()
-          ? `${acuLabel(name)}這塊皮膚幾乎是側著看的（偏離 ${Math.round(g.angleDeg)}°）　暫不顯示　${poseZh}`
-          : `${acuLabel(name)} is almost edge-on (${Math.round(g.angleDeg)}° off) · hidden for now · ${poseEn}`);
-      } else {
-        // 圓盤還看得到 → 不擋，點照畫，只是提醒可能偏了。
-        // 使用者看得出圓盤被壓扁多少，自己就能轉回來。
-        const tailZh = g.level === 'bad' ? '　位置僅供參考' : '';
-        const tailEn = g.level === 'bad' ? ' · indicative only' : '';
-        setGate(g.level === 'bad' ? 'bad' : 'warn', isZh()
-          ? `${acuLabel(name)}這塊皮膚偏離 ${Math.round(g.angleDeg)}°（上限 ${g.limitDeg}°）${tailZh}　${poseZh}`
-          : `Surface tilted ${Math.round(g.angleDeg)}° (limit ${g.limitDeg}°)${tailEn} · ${poseEn}`);
-      }
-      // 擋下時沒有畫點，就不可能「對準」——按摩計時那頁靠這個旗標決定要不要扣秒。
-      onTarget = !g.blocked;
+    if (g) { liveStats.angle = g.angleDeg; liveStats.limit = g.limitDeg; }
+    if (needPresser) {
+      setGate('warn', t('gate-need-presser'));
+      onTarget = false; locatePrevOn = false;
       return;
     }
-    if (tiltBad) {
-      setGate('warn', isZh()
-        ? `已放行　傾斜 ${Math.round(tiltDeg)}°　位置僅供參考`
-        : `Shown anyway · tilt ${Math.round(tiltDeg)}° · indicative only`);
-    } else {
-      const lvl = best.info ? best.info.level : 'low';
-      setGate(lvl === 'low' ? 'warn' : 'ok', isZh()
-        ? `定位中　信心 ${pct}%　傾斜 ${Math.round(tiltDeg)}°`
-        : `Locating · confidence ${pct}% · tilt ${Math.round(tiltDeg)}°`);
+    if (g && g.blocked) {
+      const poseZh = g.kind === 'side' ? '請把手轉成手刀（側緣朝鏡頭）' : '請把手掌攤平正對鏡頭';
+      const poseEn = g.kind === 'side' ? 'Turn your hand edge-on to the camera.' : 'Lay your palm flat toward the camera.';
+      setGate('bad', isZh()
+        ? `${acuLabel(name)}這塊皮膚幾乎是側著看的（偏離 ${Math.round(g.angleDeg)}°）　暫不顯示　${poseZh}`
+        : `${acuLabel(name)} is almost edge-on (${Math.round(g.angleDeg)}° off) · hidden for now · ${poseEn}`);
+      onTarget = false; locatePrevOn = false;
+      return;
     }
-    onTarget = true;
+    // 另一隻手的指尖離穴道多遠：跟按摩頁同一套量法（pressPoints＋信心圓盤當判定圈＋遲滯），
+    // 但**不動**按摩頁用的那組狀態（pressWasOn／pressLastOnAt／occludeAnchor），自己記一個 locatePrevOn。
+    const presser = allHands.find((_, i) => i !== best.i);
+    const ltips = pressPoints(presser, pressTipIdx(), W, H);
+    let ld = Infinity, lPt = null, lTip = null;
+    pts.forEach(p => ltips.forEach(tp => {
+      const d = Math.hypot(tp.x - p.x, tp.y - p.y);
+      if (d < ld) { ld = d; lPt = p; lTip = tp; }
+    }));
+    const ltol = Math.max(discR, 18);
+    const lOn = pressOnTarget(ld, ltol, locatePrevOn);
+    locatePrevOn = lOn;
+    onTarget = lOn;
+    liveStats.distMm = cunPx > 0 ? (ld / cunPx) * CUN_MM : null;
+    liveStats.on = lOn;
+    drawPresserTip(ctx, mx, lTip, lPt, lOn, discR);
+    setGate(lOn ? 'ok' : 'warn', lOn ? t('gate-on-target')
+      : liveStats.distMm != null ? t('gate-off-target-mm').replace('{n}', Math.round(liveStats.distMm))
+      : t('gate-off-target'));
     return;
   }
 
@@ -649,7 +652,7 @@ function onHandsResults(results) {
     return;
   }
 
-  // 設定裡勾的指尖（state.js pressFingers，預設拇指＋食指＋中指 —— 中指是 73a3f2d 加的）：
+  // 設定裡勾的指尖（state.js pressFingers，預設拇指＋食指，同 App；齒輪裡可再勾中指、無名指）：
   // 取最靠近穴道的那個當「按壓點」
   // （2026-09-25 第二版：每根手指同時量指尖與指腹，見 pressPoints）
   const tips = pressPoints(other, pressTipIdx(), W, H);
@@ -670,22 +673,7 @@ function onHandsResults(results) {
   liveStats.distMm = cunPx > 0 ? (minD / cunPx) * CUN_MM : null;
   liveStats.on = touching;
 
-  // 指尖標記與引導箭頭：距離已經在原始座標算完了，這裡只是把畫的位置翻過去
-  if (hitTip) {
-    ctx.save();
-    if (!touching && hitPt) {
-      // 2026-09-12：虛線改成箭頭。虛線只連出兩點之間，往哪移要自己判斷；
-      // 箭頭把方向直接講出來。尖端留白避免蓋住信心圓盤。
-      drawGuideArrow(ctx, mx(hitTip.x), hitTip.y, mx(hitPt.x), hitPt.y,
-                     { gap: Math.max(16, discR * 0.9) });
-    }
-    ctx.beginPath();
-    ctx.arc(mx(hitTip.x), hitTip.y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = touching ? 'rgba(79,191,139,.9)' : 'rgba(224,112,92,.8)';
-    ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.restore();
-  }
+  drawPresserTip(ctx, mx, hitTip, hitPt, touching, discR);
 
   if (!massageRunning) {
     // 2026-09-12：原本是「再靠近 N px」。px 對使用者沒有意義，而且手離鏡頭
@@ -693,12 +681,32 @@ function onHandsResults(results) {
     // 文案只講要做什麼。措辭與臉部（face-vision.js）統一。
     setGate(touching ? 'ok' : 'warn', touching
       ? (isZh() ? '對準了　可按「開始按摩」' : 'On target · press Start')
-      : (isZh() ? '指尖沿箭頭移到穴道上' : 'Follow the arrow to the point'));
+      : (isZh() ? '指尖移到穴道上' : 'Move your fingertip onto the point'));   // 2026-10-31 箭頭拿掉，文案跟著改
   } else {
     setGate(touching ? 'ok' : 'bad', touching
       ? (isZh() ? '按對了　計時進行中' : 'On target · timing')
       : (isZh() ? '指尖離開穴道　計時暫停' : 'Off target · timer paused'));
   }
+}
+
+/**
+ * 按摩手的指尖標記與引導箭頭（定位頁、按摩頁共用）。距離已經在原始座標算完，這裡只翻 x 畫。
+ * 2026-09-25（網頁v2 批 C，App 批 72）：**箭頭永遠畫**（沒對準時），不吃任何開關；
+ *   指尖那顆點歸「顯示手部節點」管（App 09-19 用戶：關節點時一起關）。
+ */
+function drawPresserTip(ctx, mx, tip, pt, on, discR) {
+  if (!tip) return;
+  ctx.save();
+  // 2026-10-31 用戶：「按壓判定的時候不要就是有一個箭頭告訴我去哪裏」→ 指尖→穴道的箭頭拿掉（同 App 批 78）。
+  //   手部、臉部、前臂都走這裡或同一種畫法，三邊一起拿。drawGuideArrow（acu-math.js）本身留著沒刪。
+  if (showSkeleton) {
+    ctx.beginPath();
+    ctx.arc(mx(tip.x), tip.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = on ? 'rgba(79,191,139,.9)' : 'rgba(224,112,92,.8)';
+    ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
 }
 
 // 離開分頁或切到背景就關相機，不要偷偷佔著鏡頭

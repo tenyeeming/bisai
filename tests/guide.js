@@ -109,11 +109,12 @@ for (const [dx, dy, label] of [[300, 0, '右'], [-300, 0, '左'],
      `方向正確（往${label}）：最近頂點離目標 ${closest.toFixed(0)}px < 起點的 ${dist(from, to).toFixed(0)}px`);
 }
 
-// ── 兩邊都改用箭頭了，沒有人還留著虛線引導 ──
+// ── 2026-10-31 用戶：按壓時不要箭頭告訴我去哪裏（同 App 批 78）→ 手部、臉部、前臂都不再呼叫 drawGuideArrow ──
 {
-  const vision = read('js/vision.js'), face = read('js/face-vision.js');
-  ok(/drawGuideArrow\(/.test(vision), '手部（vision.js）有呼叫 drawGuideArrow');
-  ok(/drawGuideArrow\(/.test(face), '臉部（face-vision.js）有呼叫 drawGuideArrow');
+  const vision = read('js/vision.js'), face = read('js/face-vision.js'), forearm = read('js/forearm-vision.js');
+  ok(!/drawGuideArrow\(/.test(vision), '手部（vision.js）按壓時不畫指引箭頭');
+  ok(!/drawGuideArrow\(/.test(face), '臉部（face-vision.js）按壓時不畫指引箭頭');
+  ok(!/drawGuideArrow\(/.test(forearm), '前臂（forearm-vision.js）按壓時不畫指引箭頭');
   ok(!/setLineDash/.test(face),
      '臉部不再用 setLineDash 畫引導虛線');
 }
@@ -123,7 +124,7 @@ for (const [dx, dy, label] of [[300, 0, '右'], [-300, 0, '左'],
   const vision = read('js/vision.js');
   ok(!/再靠近\s*\$\{/.test(vision) && !/px['`]/.test(vision.match(/setGate\([^;]*?closer[^;]*?\)/s) || ''),
      '手部提示不再對使用者報 px 數字');
-  ok(/箭頭/.test(vision), '手部提示改成講箭頭');
+  ok(/指尖移到穴道上/.test(vision) && !/沿箭頭/.test(vision), '手部提示不再叫人沿箭頭走（2026-10-31 箭頭拿掉）');
 }
 
 console.log(fail ? `\n${fail} 項失敗` : '\n全部通過');

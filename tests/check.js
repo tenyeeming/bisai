@@ -11,10 +11,10 @@ const shell = read('acunavi-ideal.html');
 // ── 1. 外殼引用的檔案都存在 ──
 // vendor/ 是下載物（node vendor/下載.js，不進版控），沒抓也能跑（會退回 CDN），
 // 所以它不列入「一定要存在」，另外用第 1b 條守。
-const allSrcs = [...shell.matchAll(/<script src="([^"]+)"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
+const allSrcs = [...shell.matchAll(/<script src="([^"?]+)(?:\?[^"]*)?"/g)].map(x => x[1]).filter(s => !s.startsWith('http'));
 const vendorSrcs = allSrcs.filter(s => s.startsWith('vendor/'));
 const srcs = allSrcs.filter(s => !s.startsWith('vendor/'));
-const links = [...shell.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(x => x[1]);
+const links = [...shell.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^"]*)?"/g)].map(x => x[1]);   // 2026-10-31 css 也帶 ?v= 了
 const missingFiles = [...srcs, ...links].filter(f => !fs.existsSync(DIR + f));
 ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個檔案都存在` + (missingFiles.length ? ': ' + missingFiles : ''));
 
@@ -26,7 +26,8 @@ ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個
     const [, , pkg, file] = s.split('/');
     return !dl.includes(`dir: '${pkg}'`) || !dl.includes(`'${file}'`);
   });
-  ok(vendorSrcs.length === 3 && badVendor.length === 0,
+  // 2026-10-01 加 pose（前臂內關）→ 4 支
+  ok(vendorSrcs.length === 4 && badVendor.length === 0,
      `外殼的 ${vendorSrcs.length} 支 vendor 腳本都在 下載.js 的清單裡` + (badVendor.length ? ': ' + badVendor : ''));
 
   // 各包的版本號要一致（2026-09-25 加 pose，前臂實驗頁用）：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查
@@ -96,7 +97,10 @@ ok(!/XMLHttpRequest/.test(jsFiles.map(read).join('')), '也沒有用 XMLHttpRequ
   vm2.runInContext(read('js/acu-data.js'), ctx);
   vm2.runInContext(read('js/minions.js'), ctx);
   // 頂層 const 進的是 vm 的語彙環境不是 context 物件，所以要用 runInContext 取值
-  const names = JSON.parse(vm2.runInContext('JSON.stringify(ACUPOINTS.map(a=>a.name))', ctx));
+  // 2026-10-31 少府（照 App 批 103 新增）還沒有小人：App 也沒有（AcuMinionArt 走 fallback），
+  //   網頁的 celebrantImg 沒有代號就用共用角色 → 這兩項先排除它，畫好再拿掉這行。
+  const MINION_PENDING = ['少府穴'];
+  const names = JSON.parse(vm2.runInContext('JSON.stringify(ACUPOINTS.map(a=>a.name))', ctx)).filter(n => !MINION_PENDING.includes(n));
   const slugMap = JSON.parse(vm2.runInContext('JSON.stringify(MINION_SLUG)', ctx));
   const noSlug = names.filter(n => !slugMap[n]);
   ok(noSlug.length === 0, `${names.length} 個穴道都有小人代號` + (noSlug.length ? ': ' + noSlug : ''));

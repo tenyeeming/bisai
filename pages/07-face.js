@@ -233,19 +233,6 @@ function renderFaceList(list) {
     // 秒數仍可在按摩頁調整。
   });
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn wide';
-  btn.style.gridColumn = '1 / -1';
-  btn.className = 'btn wide ghost';    // 次要動作：主要的路是上面那顆「開始療程」
-  btn.textContent = t('face-btn-peek');
-  btn.onclick = () => {
-    if (!state.selectedFace.length) {
-      alert(isZh() ? '請至少選一個臉部穴道' : 'Please select at least one facial acupoint');
-      return;
-    }
-    faceSelected = [...state.selectedFace];
-    showPage('face');
-  };
-  list.appendChild(btn);
+  // 2026-09-25（網頁v2 批 A）：「只看定位」旁路按鈕拿掉 —— App 批 72 起已沒有獨立臉部頁的入口，
+  // 臉部只在療程中按（用戶 09-25 確認網頁跟著拿掉）。page 'face' 的程式碼留著，沒有入口。
 }

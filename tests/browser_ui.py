@@ -45,10 +45,11 @@ def no_overflow(page, name):
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        sizes = [('phone',390,844), ('small',320,568), ('tablet',820,1180),
+        sizes = [('phone',390,844), ('small',320,568), ('tablet',820,1180), ('tablet-land',1180,820),
                  ('desktop',1440,900), ('landscape',844,390), ('large-text',390,844), ('zoom-layout',720,450)]
         for name, width, height in sizes:
-            context = browser.new_context(viewport={'width':width,'height':height}, reduced_motion='reduce')
+            # tablet-land：iPad 橫放。has_touch 讓 (pointer: coarse) 成立，才分得出平板與桌機（2026-09-26）
+            context = browser.new_context(viewport={'width':width,'height':height}, reduced_motion='reduce', has_touch=(name == 'tablet-land'))
             page = context.new_page()
             page.on('pageerror', lambda e: errors.append(str(e)))
             page.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))
@@ -87,7 +88,8 @@ try:
             # The overflow check alone never told us whether the grid *looks* right.
             page.evaluate("showPage('gallery')")
             no_overflow(page, name + '/gallery')
-            check(page.locator('#collection-grid .collection-item').count() == 64, name + ': gallery lists 64 acupoints')
+            # 2026-10-31 照 App 拿掉手部 7 穴、加少府、臉部拿掉球後兌端 → 20＋21＋15＝56；再拿掉少商少澤 → 54
+            check(page.locator('#collection-grid .collection-item').count() == 54, name + ': gallery lists 54 acupoints')
             check(page.locator('#collection-grid .locked').count() == 0, name + ': gallery has no locked cells')
             page.wait_for_timeout(300)
             broken = page.evaluate("[...document.querySelectorAll('#collection-grid img.thumb')].filter(i => i.complete && !i.naturalWidth).length")
@@ -99,7 +101,7 @@ try:
             page.evaluate("infoAcuName='內關穴'; renderAcuInfo()")
             no_overflow(page, name + '/acu-info-forearm')
             check(page.locator('#info-locate').inner_text().strip() != '', name + ': forearm detail has location')
-            check(page.locator('#btn-practice').is_disabled(), name + ': forearm locating stays disabled')
+            check(not page.locator('#btn-practice').is_disabled(), name + ': forearm practice enabled (App batch 94)')
             page.screenshot(path=str(args.output / f'{name}-gallery-forearm.png'), full_page=True)
             page.evaluate("showPage('recommend')")
             page.evaluate("state.selectedAcupoints=['合谷穴']; state.selectedFace=[]; state.currentAcupointIndex=0; flow.readySec=120; showPage('acu-detail'); stopReadyCountdown()")
@@ -125,7 +127,7 @@ try:
             check(not page.evaluate('massageFsOn'), name + ': Escape shrinks camera')
             # 2026-09-24: completion page = the acupoint's own minion celebrating, no records written
             page.evaluate("goHome(); state.selectedAcupoints=['合谷穴','三間穴']; state.currentAcupointIndex=0; flow.autoAdvance=false; sessionLog=[{name:'合谷穴',ms:60000}]; completeMassage()")
-            check(page.evaluate("document.querySelector('#page-complete.active #minion-badge img')?.getAttribute('src')") == 'assets/minions/hegu.webp', name + ': complete page shows the acupoint minion')
+            check(page.evaluate("document.querySelector('#page-complete.active #done-minion img')?.getAttribute('src')") == 'assets/minions/hegu.webp', name + ': complete page shows the acupoint minion')
             check(page.evaluate("['acuHistory','acuStreak','minions'].every(k => localStorage.getItem(k) === null)"), name + ': completing writes no records')
             no_overflow(page, name + '/complete')
             page.screenshot(path=str(args.output / f'{name}-complete.png'), full_page=True)
@@ -140,7 +142,7 @@ try:
             no_overflow(page, name + '/home-en')
             page.evaluate("state.selectedSymptoms=[0,4]; goToRecommendation()")
             no_overflow(page, name + '/recommend-en')
-            for route in ['gallery','settings','settings-lang','settings-display','settings-notify','settings-flow','settings-presets','settings-accuracy']:
+            for route in ['gallery','settings','settings-lang','settings-display','settings-notify','settings-flow','settings-accuracy']:
                 page.evaluate('(route)=>showPage(route)', route)
                 no_overflow(page, name + '/' + route + '-en')
             page.emulate_media(color_scheme='dark')

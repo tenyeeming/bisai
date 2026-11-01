@@ -38,10 +38,7 @@ registerPage('recommend', {
       }
       .acu-item.checked .tick { opacity: 1; }
 
-      /* ── ⓘ 詳情（2026-09-02 用戶提）─────────────────────────
-         原本要選完、按「開始療程」進到認穴頁才看得到穴道說明，
-         等於「先選再看」。這顆 ⓘ 讓人在勾之前就看得到，
-         而且點它不會順手把穴道勾起來（onclick 有 stopPropagation）。 */
+      /* ── ⓘ 詳情：勾選前就能看穴道說明；點它不會勾選（onclick 有 stopPropagation） */
       .acu-item .info {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
@@ -53,10 +50,7 @@ registerPage('recommend', {
       .acu-item .tick { margin-left: auto; }
       .acu-item .tick + .info { margin-left: 0; }
 
-      /* ── ▾ 展開：這一穴按幾秒（2026-09-08 用戶要）─────────────
-         以前只有一個全域「單手秒數」，而且設定頁只給 15/30/45/60 四個選項。
-         合谷跟少商需要的時間本來就不一樣 → 每一格旁邊多一顆 ▾，
-         往下展開一條滑桿，逐穴拉。 */
+      /* ── ▾ 展開：逐穴調整按壓秒數的滑桿 */
       .acu-item .expand {
         flex: none; width: 18px; height: 18px; padding: 0;
         border: 1px solid var(--line); border-radius: 50%;
@@ -105,10 +99,7 @@ registerPage('recommend', {
       .acu-time .reset:hover { border-color: var(--brass); color: var(--brass); }
       .acu-time .reset[hidden] { display: none; }
 
-      /* 詳情面板：置中（2026-09-02 用戶定，原本貼在畫面下緣）。
-         ⚠️ App 那邊不照抄這一版 —— 用戶要的是「從下往上滑出」的行動裝置作法。
-            網頁在桌機上開的機率高，置中比較穩；手機是單手持握，下緣才好按。
-            見 記錄控制/PROGRESS.md 2026-09-02 條的 App 待辦。 */
+      /* 詳情面板（寬螢幕基準樣式；底部面板的覆寫在 css/responsive.css） */
       .sheet-mask {
         position: fixed; inset: 0; z-index: 40;
         background: rgba(28, 37, 34, .42);
@@ -163,47 +154,23 @@ registerPage('recommend', {
         font-size: 0.71875rem; color: var(--ink-soft);
       }
 
-      /* ── 臉部詳情（2026-09-11）────────────────────────────────
-         臉部的參考圖是單獨一塊、不跟文字並排，所以不吃上面那個 42%。
-         圖本身是 443×504 的卡通臉，放太大會佔掉整個彈窗。 */
-      .sheet .ref-frame.face-ref,
-      .sheet .ref-none.face-ref { width: 62%; max-width: 240px; margin: 0 auto 4px; }
+      /* 臉部詳情與手部同版面：參考圖與定位並排 */
 
-      /* 一個穴道有多條用法（不同功效、不同按法），一條一塊 */
-      .sheet .face-use {
-        margin-top: 10px; padding: 9px 11px;
-        border: 1px solid var(--line); border-radius: var(--r);
-        background: color-mix(in srgb, var(--line) 12%, transparent);
-      }
-      .sheet .face-use-func {
-        font-size: 0.78125rem; font-weight: 600; color: var(--brass);
-        margin-bottom: 4px;
-      }
-      .sheet .face-use-note { font-size: 0.8125rem; color: var(--ink); line-height: 1.6; }
-      .sheet .face-use-press {
-        margin-top: 5px; font-size: 0.75rem; color: var(--ink-soft); line-height: 1.55;
-      }
+      /* 底部面板的樣式在 css/responsive.css「ⓘ 詳情」 */
 
-      /* 手機版跟 App 一樣從底部拉出；桌面仍保留原本的置中視窗。 */
-      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
-        .sheet-mask { align-items: flex-end; padding: 0; }
-        .sheet {
-          max-width: none; max-height: 90dvh;
-          border-left: 0; border-right: 0; border-bottom: 0;
-          border-radius: 14px 14px 0 0;
-          padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
-        }
-        @media (prefers-reduced-motion: no-preference) {
-          .sheet { animation: sheet-up .2s ease-out; }
-          @keyframes sheet-up { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
-        }
-      }
+      /* ── 症狀覆蓋條：一個症狀一顆膠囊，數字＝已勾穴道中能治這個症狀的數量。
+         點膠囊只看該症狀的穴道；0 的那顆標警示色。 */
+      /* App 批 85／93：選穴頁標題、穴名、部位分頁一律粗體 */
+      #page-recommend h2, .acu-item > .nm, #region-seg button { font-weight: 700; }
+      /* ⓘ 底部：教學影片＋主治（App 批 91 InfoExtras）。主治只顯示、不可點 */
+      .sheet .info-extras { margin-top: 13px; display: flex; flex-direction: column; gap: 10px; }
+      .sheet .info-extras .vid-open { margin-bottom: 0; }
+      .sheet .info-extras .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+      .sheet .info-extras .tag { font-size: 0.75rem; padding: 4px 9px; border: 1px solid var(--line);
+        border-radius: 999px; color: var(--ink-soft); background: var(--surface); }
+      .sheet .info-extras .tag .hash { font-family: var(--font-mono); color: var(--brass); margin-right: 2px; }
+      .sheet .info-extras .none { font-size: 0.78125rem; color: var(--ink-soft); }
 
-      /* ── 症狀覆蓋條（2026-09-14）─────────────────────────────
-         用戶提的問題：「選了 a 和 b 兩個症狀，穴道全列在一起，
-         萬一我不小心只勾到治 a 的怎麼辦」。
-         → 一個症狀一顆膠囊，右邊數字 = 這個症狀現在被幾個已勾的穴道覆蓋。
-         點膠囊 = 只看這個症狀的穴道。0 的那顆標警示色。 */
       .cover-row { display: flex; flex-wrap: wrap; gap: 6px; }
       .cover-chip {
         display: inline-flex; align-items: center; gap: 6px;
@@ -306,6 +273,7 @@ function startFromSymptom(name) {
   state.selectedSymptoms = [idx];
   state.selectedAcupoints = [];
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.currentAcupointIndex = 0;
   if (typeof sessionLog !== 'undefined') sessionLog = [];   // 換一次療程，上一次的紀錄不要跟過來
   applySymptomRecommendation();
@@ -355,10 +323,12 @@ function symptomCoverage() {
     if (!s) return null;                                  // 索引失效就跳過，別整頁炸掉
     const hand = s.acupoints.filter(n => IMPLEMENTED.has(n));
     const face = (FACE_SYMPTOM_MAP[s.name] || []).filter(c => FACE_IMPLEMENTED.has(c));
+    const fore = FOREARM_SYMPTOM_MAP[s.name] || [];          // 2026-10-01 前臂可選（App 批 94）
     const count =
       hand.filter(n => state.selectedAcupoints.includes(n)).length +
-      face.filter(c => state.selectedFace.includes(c)).length;
-    return { idx, name: s.name, count, locatable: hand.length + face.length > 0 };
+      face.filter(c => state.selectedFace.includes(c)).length +
+      fore.filter(n => (state.selectedForearm || []).includes(n)).length;
+    return { idx, name: s.name, count, locatable: hand.length + face.length + fore.length > 0 };
   }).filter(Boolean);
 }
 
@@ -444,6 +414,7 @@ function initRecommendList() {
   currentRegion = defaultRegion();
   state.selectedAcupoints = [];
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.acuSecs = {};        // 逐穴秒數跟著新療程重來
   openTimeFor = null;
   filterSymptom = null;      // 症狀篩選不要跨療程留著
@@ -480,8 +451,9 @@ function renderRegionSeg() {
       // 0 會被讀成「這症狀根本沒有臉部穴道」，那是兩件不同的事
       badge = count > 0 ? String(count) : (codes.length ? (isZh() ? '準備中' : 'SOON') : '0');
     } else if (r.key === 'elbow') {
-      // 前臂資料已可閱讀，但定位尚未開放；跟 App 一樣以省略號表示不可選入療程。
-      badge = '…';
+      // 2026-10-01（App 批 94）：前臂可選 → 徽章改數量
+      const fs = filterSymptom !== null && SYMPTOM_MAP[filterSymptom];
+      badge = String(forearmRecommend(fs ? [fs.name] : symptomNames).length);
     } else {
       const only = filterHandNames();          // 同上：篩選中徽章要跟著縮
       count = state.recommendedAcupoints
@@ -557,6 +529,7 @@ function renderAcuList() {
     dot.style.background = acuColor(acuName);
 
     const nm = document.createElement('span');
+    nm.className = 'nm';
     nm.textContent = acuLabel(acuName);
 
     const tick = document.createElement('span');
@@ -585,10 +558,6 @@ function renderForearmList(list) {
   const only = filterForearmNames();
   if (only) names = names.filter(n => only.includes(n));
 
-  list.appendChild(notice('notice', isZh()
-    ? '前臂穴道目前可查看資料，但尚未開放相機定位。'
-    : 'Forearm point information is available, but camera locating is not yet supported.'));
-
   if (!names.length) {
     list.appendChild(notice('small', isZh()
       ? '你選的症狀在前臂沒有對應穴道。'
@@ -596,28 +565,35 @@ function renderForearmList(list) {
     return;
   }
 
+  // 2026-10-01（App 批 94）：前臂跟臉部一樣可勾、進療程（相機那步黑畫面）
   names.forEach(name => {
-    const acu = forearmAcu(name);
+    const checked = (state.selectedForearm || []).includes(name);
     const item = document.createElement('div');
-    item.className = 'acu-item';
+    item.className = 'acu-item' + (checked ? ' checked' : '');
     item.tabIndex = 0;
-    item.setAttribute('role', 'button');
-    item.setAttribute('aria-label', `${itemLabel(name)} — ${t('a11y-info')}`);
+    item.setAttribute('role', 'checkbox');
+    item.setAttribute('aria-checked', String(checked));
 
     const dot = document.createElement('span');
     dot.className = 'dot';
     dot.style.background = forearmColor(name);
     const nm = document.createElement('span');
+    nm.className = 'nm';
     nm.textContent = itemLabel(name);
-    const soon = document.createElement('span');
-    soon.className = 'secs';
-    soon.textContent = isZh() ? '準備中' : 'SOON';
-    item.append(dot, nm, soon, infoButton(() => openForearmInfo(name)));
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.textContent = '✓';
+    item.append(dot, nm, tick, infoButton(() => openForearmInfo(name)));
 
-    const open = () => openForearmInfo(name);
-    item.onclick = open;
+    const toggle = () => {
+      const cur = state.selectedForearm || [];
+      state.selectedForearm = cur.includes(name) ? cur.filter(x => x !== name) : [...cur, name];
+      renderRegionSeg();
+      renderAcuList();
+    };
+    item.onclick = toggle;
     item.onkeydown = e => {
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); open(); }
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
     };
     list.appendChild(item);
   });
@@ -795,67 +771,27 @@ function openAcuInfo(name) {
     ? (isZh() ? '手側緣，手背或手心朝鏡頭都可定位。' : 'Side edge — either hand side works.')
     : (isZh() ? `${dorsal ? '手背' : '手心'}朝向鏡頭。` : `Face your ${dorsal ? 'back of hand' : 'palm'} to the camera.`)));
 
+  body.appendChild(infoExtras(acuVideoOrPending(name),
+    SYMPTOM_MAP.filter(s => s.acupoints.includes(name)).map(s => s.name)));
   openInfoSheet();
 }
 
-// 臉部穴道：說明用 WHO 標準定位原文（js/face-data.js 的 who / whoEn），
-// 臉部沒有參考線稿，所以只有文字。
+// 臉部穴道 ⓘ（2026-09-25 網頁v2 批 B，照 App FaceInfoSheetLite／批 77）：
+//   版面照手部 openAcuInfo：穴名＋英文名 → 備注警示 → 尚未開放 → 參考圖＋定位並排 → 按壓方式。
+//   文字改讀 Excel（js/face-sheet.js），不再放 WHO 原文、逐條用法、資料來源。
 function openFaceInfo(code) {
-  const a = faceAcu(code);
+  const sheet = faceSheet(code);
   const body = document.getElementById('info-sheet-body');
 
   document.getElementById('info-sheet-name').textContent = faceLabel(code);
-  document.getElementById('info-sheet-en').textContent = code;
+  document.getElementById('info-sheet-en').textContent = (sheet && sheet.en) || code;
   body.innerHTML = '';
 
-  // 參考圖擺最前面 —— 使用者第一個想知道的是「在哪」，看圖比讀字快
-  body.appendChild(faceRefBlock(code));
-
-  const det = faceDetail(code);
-
-  // ⭐ 兩種定位描述都給，但**白話的擺前面**：
-  //    WHO 那句是解剖術語（「在面部，眶下孔處」），一般人看不懂；
-  //    PDF 的白話版（「瞳孔直下，眼眶下孔凹陷處」）才是拿來對著鏡子找的。
-  if (det && det.locate) {
-    body.appendChild(infoField(t('info-locate'), det.locate));
-    if (faceWho(code)) body.appendChild(infoField(isZh() ? 'WHO 標準定位' : 'WHO definition', faceWho(code)));
-  } else {
-    body.appendChild(infoField(t('info-locate'),
-      faceWho(code) || (isZh() ? '（尚無定位描述）' : '(no description yet)')));
-  }
-
-  // 一個穴道可能有多種用法（不同功效、不同按法），逐條列出來
-  if (det && det.uses.length) {
-    det.uses.forEach(u => {
-      const wrap = document.createElement('div');
-      wrap.className = 'face-use';
-      // func 可以是空字串（GV26 水溝穴沒有症狀歸屬）—— 空的就不要畫出一條空標題
-      if (u.func && u.func.trim()) {
-        const h = document.createElement('div');
-        h.className = 'face-use-func';
-        h.textContent = u.func;
-        wrap.appendChild(h);
-      }
-      if (u.note) {
-        const n = document.createElement('div');
-        n.className = 'face-use-note';
-        n.textContent = u.note;
-        wrap.appendChild(n);
-      }
-      if (u.press) {
-        const pz = document.createElement('div');
-        pz.className = 'face-use-press';
-        pz.textContent = (isZh() ? '按法：' : 'How: ') + u.press;
-        wrap.appendChild(pz);
-      }
-      body.appendChild(wrap);
-    });
-    const src = document.createElement('p');
-    src.className = 'small';
-    src.textContent = isZh()
-      ? '資料來源：資料存放區/臉部穴道.pdf'
-      : 'Source: facial acupoint reference (project data)';
-    body.appendChild(src);
+  if (sheet && sheet.note) {
+    const d = document.createElement('p');
+    d.className = 'notice warn';
+    d.textContent = sheet.note;
+    body.appendChild(d);
   }
 
   if (!FACE_IMPLEMENTED.has(code)) {
@@ -867,6 +803,20 @@ function openFaceInfo(code) {
     body.appendChild(d);
   }
 
+  const row = document.createElement('div');
+  row.className = 'ref-row';
+  row.append(
+    faceRefBlock(code),
+    infoField(t('info-locate'),
+      sheet && sheet.locate ? sheet.locate : (isZh() ? '（尚無定位描述）' : '(no description yet)'))
+  );
+  body.appendChild(row);
+
+  // 手部這一格是「手背／手心」提示；臉部沒有正反面，放每穴不同的按壓方式
+  if (sheet && sheet.press) body.appendChild(infoField(t('face-sheet-press'), sheet.press));
+
+  body.appendChild(infoExtras(acuVideoPending(),
+    Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code))));
   openInfoSheet();
 }
 
@@ -892,20 +842,57 @@ function openForearmInfo(name) {
   body.appendChild(infoField(isZh() ? '用途' : 'Uses', acu.note));
   body.appendChild(infoField(isZh() ? '按法' : 'How to press', FOREARM_PRESS));
 
-  const noticeBox = document.createElement('p');
-  noticeBox.className = 'notice';
-  noticeBox.textContent = isZh()
-    ? '這個穴道目前可查看資料，但尚未開放相機定位。'
-    : 'Information is available, but camera locating is not yet supported.';
-  body.appendChild(noticeBox);
+  body.appendChild(infoExtras(acuVideoPending(),
+    Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name))));
   openInfoSheet();
+}
+
+// ⓘ 面板底部（App 批 91 InfoExtras，照圖冊）：教學影片（沒片＝灰的準備中）＋主治標籤。
+// 主治在這裡只顯示、不可點 —— 點了會開新療程，把正在選的這一組洗掉。
+function infoExtras(videoEl, symptomNames) {
+  const box = document.createElement('div');
+  box.className = 'info-extras';
+  box.appendChild(videoEl);
+  const sec = document.createElement('div');
+  sec.className = 'field';
+  const k = document.createElement('div');
+  k.className = 'k';
+  k.textContent = t('info-symptoms');
+  sec.appendChild(k);
+  if (!symptomNames.length) {
+    const none = document.createElement('div');
+    none.className = 'none';
+    none.textContent = t('info-nosymptom');
+    sec.appendChild(none);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'tag-row';
+    symptomNames.forEach(n => {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      const hash = document.createElement('span');
+      hash.className = 'hash';
+      hash.textContent = '#';
+      hash.setAttribute('aria-hidden', 'true');
+      tag.append(hash, document.createTextNode(symptomLabel(n)));
+      row.appendChild(tag);
+    });
+    sec.appendChild(row);
+  }
+  box.appendChild(sec);
+  return box;
 }
 
 let infoReturnFocus = null;
 
 function openInfoSheet() {
   infoReturnFocus = document.activeElement;
-  document.getElementById('info-sheet').hidden = false;
+  // 2026-10-01：設定 › 我的流程 也用這個面板（用戶：「也要可以看詳情，界面和選穴那裏一樣」）。
+  //   面板 DOM 在選穴頁裡，別頁打開時要先搬到目前那一頁，不然會跟著藏起來的選穴頁一起看不見。
+  const box = document.getElementById('info-sheet');
+  const host = document.getElementById('page-' + currentPage);
+  if (host && box.parentNode !== host) host.appendChild(box);
+  box.hidden = false;
   document.addEventListener('keydown', onInfoSheetKey);
   document.querySelector('#info-sheet .x').focus();
 }
@@ -916,6 +903,9 @@ function closeInfoSheet(e) {
   if (e && e.target && e.target.id !== 'info-sheet') return;
   const box = document.getElementById('info-sheet');
   if (box) box.hidden = true;
+  // 搬回選穴頁（見 openInfoSheet）：別頁的全域查詢不會意外撞到它
+  const home = document.getElementById('page-recommend');
+  if (box && home && box.parentNode !== home) home.appendChild(box);
   document.removeEventListener('keydown', onInfoSheetKey);
   if (infoReturnFocus && infoReturnFocus.isConnected) infoReturnFocus.focus({ preventScroll: true });
   infoReturnFocus = null;
@@ -949,7 +939,8 @@ function tryStartTreatment() {
   const missing = missingSymptoms();
   // 一穴都沒勾 → 交給 goToAcuDetail() 原本那個「請選擇至少一個穴道」，
   // 不要在這裡再疊一層提醒，同一件事講兩次
-  const nothingPicked = !state.selectedAcupoints.length && !state.selectedFace.length;
+  const nothingPicked = !state.selectedAcupoints.length && !state.selectedFace.length &&
+    !(state.selectedForearm || []).length;
   if (!missing.length || nothingPicked) { goToAcuDetail(); return; }
 
   const box = document.getElementById('start-warn');
@@ -976,6 +967,7 @@ function tryStartTreatment() {
     const first = (s.acupoints || []).find(n => IMPLEMENTED.has(n));
     if (first) currentRegion = acuRegion(first);
     else if ((FACE_SYMPTOM_MAP[s.name] || []).some(c => FACE_IMPLEMENTED.has(c))) currentRegion = 'face';
+    else if ((FOREARM_SYMPTOM_MAP[s.name] || []).length) currentRegion = 'elbow';
     openTimeFor = null;
     renderRegionSeg();
     renderAcuList();          // 這一步會 clearStartWarn()

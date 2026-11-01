@@ -118,6 +118,15 @@
   #page-complete > .stack, #page-summary > .stack { max-width: 640px; margin-inline: auto; }
   #page-complete .done-minion img { width: 180px; height: 180px; }
 
+  /* ── 設定目錄：字放大、列加高（2026-10-31 用戶：「設定頁面空白那麽多，但是字體很小調整到大點」）
+     頁內 <style> 排在這支後面 → 前面加 .device 提高權重 ── */
+  .device #settings-menu { gap: 28px; max-width: 860px; }
+  .device #settings-menu .grp-title { font-size: .9375rem; margin-bottom: 10px; }
+  .device #settings-menu button { padding: 20px 22px; gap: 14px; font-size: 1.1875rem; }
+  .device #settings-menu .value { font-size: 1.0625rem; }
+  .device #settings-menu .chev { font-size: 1.25rem; }
+  .device #page-settings .hand-mark { width: 460px; }
+
   /* ── 圖冊：一排六格 ── */
   #page-gallery .collection-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 

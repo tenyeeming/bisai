@@ -24,7 +24,8 @@ let currentPage = null;
  * @param cfg.tab     屬於底部哪個分頁（預設同頁名）
  * @param cfg.step    療程第幾步；0 = 不在步驟軌上
  * @param cfg.stepLabel  步驟軌上的字（i18n key）
- * @param cfg.backTo   返回列要退到哪一頁；沒填就不顯示返回鈕
+ * @param cfg.backTo   返回列要退到哪一頁；沒填就不顯示返回鈕。也可以是函式（按下時才決定，
+ *                     例：按摩頁的臉部項目退回認穴頁，因為臉部沒有定位頁 —— 批 E）
  * @param cfg.backLabel 返回列的字（i18n key），預設 'btn-back'
  * @param cfg.actions  掛在返回列右邊的 HTML（如按摩頁的齒輪選單）
  * @param cfg.hideTabbar 進這頁要不要把分頁列收起來
@@ -106,7 +107,6 @@ function updateBackbar(page) {
 
 function goBack() {
   const cfg = PAGES[currentPage];
-  // backTo 也可以是函式（按下時才決定；同 網頁v2 nav.js）—— 2026-10-27 圖冊進來的認穴頁要退回圖冊
   if (cfg && cfg.backTo) showPage(typeof cfg.backTo === 'function' ? cfg.backTo() : cfg.backTo);
 }
 
@@ -125,6 +125,57 @@ function updateTabbar(page) {
   // ⚠️ 用 class 而不是讓 CSS 去嗅 inline style（`[style*="none"]`）：那種寫法綁死字串序列化，
   //    哪天有人改成 hidden 屬性或 class 就會靜靜失效。
   document.querySelector('.device').classList.toggle('in-flow', hide);
+}
+
+// ── 電腦版左側欄（2026-10-31 方案 D）─────────────────────────────────
+// 用戶選的「側欄導覽」：左邊深藍欄常駐，放 首頁／圖冊／設定，下面依分頁換內容：
+//   首頁（療程）→ 療程四步（選症狀＋步驟軌那四頁）；認穴之後多一份「這次療程」穴道清單
+//   設定 → 設定目錄（點了直接進子頁）
+//   圖冊 → 只有分頁鈕
+// 手機／平板這個 <aside> 是 display:none（css/desktop.css），畫了也看不到，所以不必判斷螢幕。
+// 預覽稿：比賽專區 介面討論（Artifact「AcuNavi 方案 D」）。
+function renderSidenav(page) {
+  const box = document.getElementById('sidenav');
+  if (!box || !PAGES[page]) return;
+  const tab = PAGES[page].tab;
+  const tabs = [['home', 'nav-home'], ['gallery', 'nav-gallery'], ['settings', 'nav-settings']];
+  let html = `<div class="sn-brand wordmark">Acu<span>Navi</span></div>
+    <nav class="sn-tabs">${tabs.map(([k, key]) =>
+      `<button type="button" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}
+        onclick="goTab('${k}')">${t(key)}</button>`).join('')}</nav>`;
+
+  if (tab === 'home') {
+    // 療程步驟：選症狀（首頁，不在步驟軌上）＋ 步驟軌四頁。完成頁、總結頁算在按摩之後
+    const flow = ['home', ...STEP_ORDER];
+    let idx = flow.indexOf(page);
+    if (idx < 0) idx = flow.length;                 // complete／summary：四步都做完了
+    const label = (n) => n === 'home' ? t('side-step-home') : t(PAGES[n].stepLabel);
+    html += `<div class="sn-sec"><p class="sn-k">${t('side-steps')}</p><ol class="sn-steps">${flow.map((n, i) => {
+      const cls = i < idx ? 'ok' : i === idx ? 'on' : '';
+      // 只有「選症狀」「選穴」做過了可以點回去（之後的頁面要靠療程狀態，用返回鈕退）
+      const go = i < idx && (n === 'home' || n === 'recommend') ? ` onclick="showPage('${n}')" role="button" tabindex="0"` : '';
+      return `<li class="${cls}"${go}><b>${i < idx ? '✓' : i + 1}</b><span>${label(n)}</span></li>`;
+    }).join('')}</ol></div>`;
+    // 這次療程：認穴之後才有清單
+    const list = state.selectedAcupoints || [];
+    if (list.length && ['acu-detail', 'camera', 'massage', 'complete', 'summary'].includes(page)) {
+      const cur = state.currentAcupointIndex || 0, done = page === 'summary';
+      html += `<div class="sn-sec"><p class="sn-k">${t('side-session')}</p><ol class="sn-steps">${list.map((n, i) => {
+        const cls = done || i < cur || (page === 'complete' && i === cur) ? 'ok' : i === cur ? 'on' : '';
+        return `<li class="${cls}"><b>${cls === 'ok' ? '✓' : i + 1}</b><span>${itemLabel(n)}</span></li>`;
+      }).join('')}</ol></div>`;
+    }
+  } else if (tab === 'settings') {
+    const rows = [['settings-lang', 'settings-lang'], ['settings-display', 'settings-display'],
+                  ['settings-flow', 'settings-flow'], ['settings-notify', 'settings-notify']];
+    html += `<div class="sn-sec"><p class="sn-k">${t('nav-settings')}</p><ol class="sn-steps sn-menu">${rows.map(([p, key]) =>
+      `<li class="${p === page ? 'on' : ''}" onclick="showPage('${p}')" role="button" tabindex="0"><span>${t(key)}</span></li>`).join('')}</ol></div>`;
+  }
+  html += `<p class="sn-disc">${t('side-disclaimer')}</p>`;
+  box.innerHTML = html;
+  box.querySelectorAll('[role="button"]').forEach(el => {
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
+  });
 }
 
 // 點分頁列的「首頁」＝回到療程起點，跟 LINE 點回同一分頁會回到頂端一樣
@@ -149,6 +200,7 @@ function showPage(name) {
   // 「啟動中」也要關（2026-09-23）：權限視窗還沒按就切頁，不關的話啟動完會在背景佔住鏡頭
   if (typeof camRunning !== 'undefined' && (camRunning || camStarting) && !cfg.keepsCamera) stopCamera();
   if (typeof faceCamRunning !== 'undefined' && (faceCamRunning || faceCamStarting) && !cfg.keepsFaceCamera) stopFaceCamera();
+  if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting) && !cfg.keepsCamera) stopForearmCamera();
 
   const previous = currentPage;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active', 'page-enter'));
@@ -166,6 +218,7 @@ function showPage(name) {
   updateBackbar(name);
   updateStepRail(name);
   updateTabbar(name);
+  renderSidenav(name);
   window.scrollTo(0, 0);
 
   if (cfg.onEnter) cfg.onEnter();
@@ -178,15 +231,12 @@ function showPage(name) {
 
 function goHome() {
   if (typeof practiceFromGallery !== 'undefined') practiceFromGallery = false;
-  if (typeof practiceFromPreset !== 'undefined') practiceFromPreset = false;
-  // 跑完（或中途離開）一組預設流程：節奏還原成使用者的全域設定。
-  // 這裡是療程的唯一出口，所以還原只要放這一個地方（見 state.js applyPresetFlow）。
-  if (typeof restorePresetFlow === 'function') restorePresetFlow();
   state.selectedSymptoms = [];
   state.selectedAcupoints = [];
   // 臉部另外存，也要清。不清的話從圖冊「練這一穴」進去時，buildTreatmentList
   // 會把上一次殘留的臉部穴道一起排進療程（2026-09-08 接預設流程時發現）。
   state.selectedFace = [];
+  state.selectedForearm = [];
   state.acuSecs = {};          // 逐穴秒數也是這一次療程的事
   state.recommendedAcupoints = [];
   state.currentAcupointIndex = 0;
@@ -199,6 +249,7 @@ function notifyLanguageChange() {
   buildStepRail();
   updateStepRail(currentPage);
   updateBackbar(currentPage);
+  renderSidenav(currentPage);
   const cfg = PAGES[currentPage];
   if (cfg && cfg.onLanguage) cfg.onLanguage();
 }

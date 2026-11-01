@@ -1,6 +1,10 @@
 // ══ 設定 › 每日提醒 ═══════════════════════════════════════════════
 //
-// 三件事：要不要提醒、幾點提醒、提醒你按什麼。
+// 2026-10-31 照 App 批 112：只剩「要不要提醒」「幾點提醒」兩件事。
+//   用戶（對 App）：「提醒內容如下面全部刪掉」。以前存的 notifyPlan 沒刪，但不再讀它：
+//   通知一律是「該按摩了」，點了回首頁（App 那邊舊內容會照舊帶著，網頁這裡直接不用）。
+//
+// 以下是 2026-10-31 以前的設計（留著當歷史）：三件事：要不要提醒、幾點提醒、提醒你按什麼。
 //
 // 「提醒你按什麼」分三種：
 //   none      只提醒你來按，不指定
@@ -20,14 +24,12 @@ registerPage('settings-notify', {
   <div id="page-settings-notify" class="page">
     <style>
       #notify-time-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
-      #notify-time-row .grow { flex: 1; font-size: 13.5px; }
+      #notify-time-row .grow { flex: 1; font-size: 0.84375rem; }
       #notify-time {
-        font-family: var(--font-mono); font-size: 14px;
+        font-family: var(--font-mono); font-size: 0.875rem;
         background: var(--surface); color: var(--ink);
         border: 1px solid var(--line); border-radius: var(--r); padding: 5px 7px;
       }
-      #notify-plan-body { margin-top: 8px; }
-      #notify-plan-body:empty { display: none; }
     </style>
 
     <div class="stack">
@@ -47,76 +49,15 @@ registerPage('settings-notify', {
         </div>
       </div>
 
-      <div>
-        <p class="small" data-i18n="settings-notify-plan">提醒內容</p>
-        <div class="seg" id="notify-mode-seg">
-          <button type="button" data-mode="none" onclick="setNotifyMode('none')"
-                  data-i18n="settings-notify-mode-none">不指定</button>
-          <button type="button" data-mode="symptom" onclick="setNotifyMode('symptom')"
-                  data-i18n="settings-notify-mode-symptom">依症狀</button>
-          <button type="button" data-mode="acupoint" onclick="setNotifyMode('acupoint')"
-                  data-i18n="settings-notify-mode-acupoint">直接選穴道</button>
-        </div>
-        <p class="small" id="notify-mode-desc"></p>
-        <div id="notify-plan-body"></div>
-      </div>
-
       <p class="notice" data-i18n="settings-notify-limit">提醒只在這個網頁開著的時候會響。瀏覽器關掉之後系統不會叫你——這一版沒有背景排程，我們不假裝有。</p>
     </div>
   </div>`,
 });
 
 // ── 畫面 ──────────────────────────────────────────────────────────
-// key 寫成字面值而不是 't("...-" + mode)"：靜態檢查靠字面比對抓死掉的翻譯
-const NOTIFY_MODE_DESC = {
-  none:     'settings-notify-desc-none',
-  symptom:  'settings-notify-desc-symptom',
-  acupoint: 'settings-notify-desc-acupoint',
-};
-
 function renderNotifyPage() {
-  const p = notifyPlan();
   document.getElementById('notify-enable').checked = jget(LS.notify, false);
   document.getElementById('notify-time').value = notifyTime();
-
-  document.querySelectorAll('#notify-mode-seg button').forEach(b => {
-    const on = b.getAttribute('data-mode') === p.mode;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', String(on));
-  });
-  document.getElementById('notify-mode-desc').textContent = t(NOTIFY_MODE_DESC[p.mode]);
-  document.getElementById('notify-plan-body').innerHTML =
-    p.mode === 'symptom'  ? notifySymptomList(p)
-  : p.mode === 'acupoint' ? notifyAcuList(p)
-  : '';
-}
-
-// 2026-09-20：急症排除邏輯拿掉（對齊 App 09-17 那批）——「昏迷急救」已從症狀表刪除，
-// 中暑是一般症狀，沒有理由把它排除在提醒之外。
-function notifySymptomList(p) {
-  const rows = SYMPTOM_MAP
-    .map((s, idx) => ({ s, idx }))
-    .map(({ s, idx }) => `
-      <label>
-        <input type="checkbox" ${p.symptoms.includes(s.name) ? 'checked' : ''}
-               onchange="toggleNotifySymptom(${idx})">
-        <span class="grow">${symptomLabel(s.name)}</span>
-      </label>`).join('');
-  return `<div class="optlist">${rows}</div>`;
-}
-
-// 只列已經算得出位置的穴道 —— 排一個按下去定位不了的穴，等於自己排一個失敗
-function notifyAcuList(p) {
-  const rows = ACUPOINTS
-    .map((a, idx) => ({ a, idx }))
-    .filter(({ a }) => IMPLEMENTED.has(a.name))
-    .map(({ a, idx }) => `
-      <label>
-        <input type="checkbox" ${p.acupoints.includes(a.name) ? 'checked' : ''}
-               onchange="toggleNotifyAcu(${idx})">
-        <span class="grow">${acuLabel(a.name)}</span>
-      </label>`).join('');
-  return `<div class="optlist">${rows}</div>`;
 }
 
 // ── 存檔 ──────────────────────────────────────────────────────────
@@ -134,40 +75,10 @@ function onNotifyTimeChange(v) {
   scheduleReminder();
 }
 
-function setNotifyMode(mode) {
-  const p = notifyPlan();
-  p.mode = mode;
-  saveNotifyPlan(p);
-  renderNotifyPage();
-}
-
-function toggleNotifySymptom(idx) {
-  const name = SYMPTOM_MAP[idx].name;
-  const p = notifyPlan();
-  p.symptoms = p.symptoms.includes(name) ? p.symptoms.filter(n => n !== name) : [...p.symptoms, name];
-  saveNotifyPlan(p);
-}
-
-function toggleNotifyAcu(idx) {
-  const name = ACUPOINTS[idx].name;
-  const p = notifyPlan();
-  p.acupoints = p.acupoints.includes(name) ? p.acupoints.filter(n => n !== name) : [...p.acupoints, name];
-  saveNotifyPlan(p);
-}
-
 // ── 摘要（設定目錄那一列的灰字，也是通知的內文）───────────────────
+// 同 App：目錄那一列只寫時間
 function notifySummary() {
-  if (!jget(LS.notify, false)) return t('settings-notify-off');
-  return notifyTime() + ' · ' + notifyPlanText();
-}
-
-function notifyPlanText() {
-  const p = notifyPlan();
-  const list = p.mode === 'symptom'  ? p.symptoms.map(symptomLabel)
-             : p.mode === 'acupoint' ? p.acupoints.map(acuLabel)
-             : [];
-  if (!list.length) return t('settings-notify-mode-none');
-  return list.length === 1 ? list[0] : `${list[0]} +${list.length - 1}`;
+  return jget(LS.notify, false) ? notifyTime() : t('settings-notify-off');
 }
 
 // ── 排程 ──────────────────────────────────────────────────────────
@@ -191,28 +102,10 @@ function scheduleReminder() {
 function fireReminder() {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   const n = new Notification(isZh() ? 'AcuNavi · 該按摩了' : 'AcuNavi · Time to massage', {
-    body: notifyPlanText(),
+    body: isZh() ? '花幾分鐘按一按，打開 AcuNavi 開始' : 'Take a few minutes — open AcuNavi to start',
     tag: 'acunavi-daily',        // 同一個 tag：漏看幾天也不會堆一疊通知
   });
-  n.onclick = () => { window.focus(); startNotifyPlan(); };
-}
-
-// 點了通知之後要落在哪一頁。刻意不自動開始按摩：
-// 幫你把東西準備好，但「開始」還是你自己按。
-function startNotifyPlan() {
-  const p = notifyPlan();
-
-  if (p.mode === 'acupoint' && p.acupoints.length) {
-    state.selectedAcupoints = p.acupoints.filter(n => IMPLEMENTED.has(n));
-    if (state.selectedAcupoints.length) { goToAcuDetail(); return; }
-  }
-  if (p.mode === 'symptom' && p.symptoms.length) {
-    state.selectedSymptoms = p.symptoms
-      .map(n => SYMPTOM_MAP.findIndex(s => s.name === n))
-      .filter(i => i >= 0);
-    if (state.selectedSymptoms.length) { goToRecommendation(); return; }
-  }
-  goHome();
+  n.onclick = () => { window.focus(); goHome(); };
 }
 
 // 開站就排一次：使用者上次設好的提醒，這次打開網頁要繼續有效

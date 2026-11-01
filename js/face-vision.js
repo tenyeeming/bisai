@@ -81,6 +81,10 @@ async function startFaceCamera(canvasId, gateId, mode) {
     // 手部那邊可能還開著或還在啟動（例如從定位頁直接切過來），先確保只有一邊在用鏡頭
     if (typeof camRunning !== 'undefined' && (camRunning || camStarting)) stopCamera();
     if (typeof camIdle === 'function') await camIdle();
+    // 前臂內關那套也共用鏡頭（2026-10-01，同 vision.js startCamera）
+    if (!faceCamWanted) return;         // 等的期間已被前臂叫停：別反過來關它（續 13）
+    if (typeof faCamRunning !== 'undefined' && (faCamRunning || faCamStarting)) stopForearmCamera();
+    if (typeof forearmCamIdle === 'function') await forearmCamIdle();
     if (!faceCamWanted) return;
     if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
       throw Object.assign(new Error('no mediaDevices'), { name: 'NoMediaDevices' });
@@ -240,6 +244,10 @@ function onFaceResults(results) {
   const allPts = [];
   // 2026-09-24：轉頭偏移 → 改走 face-anchor.js（A 網格錨定 ＋ D 遠側隱藏）
   const yaw3d = faceYawDeg(lm, W);
+  // 批 E-2（同 App）：這一幀轉太多沒有 —— 正臉類全藏、畫回正箭頭、提示優先講這件事
+  const turn = faceTurnUpdate(yaw3d, faceSelected, lm);
+  faceTurnedAway = turn.turnedAway;
+  if (turn.turnedAway && turn.backDirX) drawFaceBackArrow(ctx, W, H, mirror ? -turn.backDirX : turn.backDirX);
 
   faceSelected.forEach(code => {
     const res = computeFaceAcupointAnchored(code, lm, W, H, yaw3d);
@@ -252,7 +260,8 @@ function onFaceResults(results) {
       if (faceShowDisc) drawFaceDisc(ctx, mx(p.x), p.y, r, pose);
       // 穴名不能被鏡射成反字，所以只把 x 翻過去畫，不用 canvas transform
       // 2026-09-24：點改固定大小（原本 r×0.42 再加 2.2 倍光暈，幾乎跟圓盤一樣大）
-      drawAcupoint(ctx, mx(p.x), p.y, faceLabel(code), '#4FBF8B', ACU_DOT_R);
+      // 穴名歸「鏡頭中顯示穴位名稱」管（2026-09-25 網頁v2 批 C，App 批 65：手部與臉部都一樣）
+      drawAcupoint(ctx, mx(p.x), p.y, showAcuNames ? faceLabel(code) : '', '#4FBF8B', appDotR(canvas), screenScale(canvas));
     });
   });
 
@@ -265,7 +274,9 @@ function onFaceResults(results) {
   // ── 讀數：連續信心度，不是「行 / 不行」二選一 ──
   const pct = Math.round(pose.facing * 100);
   const roll = Math.round(pose.rollDeg);
-  if (!drawn) {
+  if (faceTurnedAway) {
+    setFaceGate('warn', t('face-turn-back'));
+  } else if (!drawn) {
     setFaceGate('warn', isZh() ? '請先選要定位的穴道' : 'Select an acupoint first');
   } else if (unbound) {
     // 還沒在正臉時記住這張臉 → 現在的點是舊公式，轉頭會偏
@@ -321,16 +332,20 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
       }
     }
     ctx.save();
-    if (!faceHeld) {
-      // 沒對準就指向穴道，使用者才知道要往哪邊移。
-      // 2026-09-12：虛線改成箭頭，與手部（vision.js）共用 drawGuideArrow。
-      drawGuideArrow(ctx, mx(tip.x), tip.y, mx(near.x), near.y);
+    // 2026-10-31 用戶：「按壓判定的時候不要就是有一個箭頭告訴我去哪裏」→ 指尖→穴道箭頭拿掉（同 App 批 78、手部 vision.js）
+    // 指尖點歸「顯示手部節點」管（App 批 64：臉部指尖點跟手部一樣吃這個開關）
+    if (showSkeleton) {
+      ctx.fillStyle = faceHeld ? '#00e5a0' : '#e0a33c';
+      ctx.beginPath(); ctx.arc(mx(tip.x), tip.y, 7, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = faceHeld ? '#00e5a0' : '#e0a33c';
-    ctx.beginPath(); ctx.arc(mx(tip.x), tip.y, 7, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
 
+  // App 的提示優先序：轉太多排第一（這時點本來就藏了，講「算不出穴位」是錯的原因）
+  if (faceTurnedAway) {
+    setFaceGate('warn', t('face-turn-back'));
+    return;
+  }
   if (!acuPts.length) {
     setFaceGate('warn', isZh() ? '算不出穴位' : 'Cannot compute acupoint');
     return;
@@ -351,6 +366,24 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
     // （深度檢查開回來的話，這裡要多一句「手指還浮在前面」。）
     setFaceGate('warn', zh ? '指尖再靠近穴位一點' : 'Move your fingertip onto the point');
   }
+}
+
+/**
+ * 臉部回正箭頭（App drawCenterArrow，批 65）：取景框正中、只指左右、寬 30%、35% 不透明、綠＋深色描邊。
+ * 外觀同手部扭轉箭頭（vision.js drawTwistArrow）。dir：**畫面上**的方向（+1 右／−1 左，鏡像已處理）。
+ */
+let faceTurnedAway = false;
+function drawFaceBackArrow(ctx, W, H, dir) {
+  const len = W * .30, cy = H / 2, x0 = W / 2 - dir * len / 2;
+  const tip = x0 + dir * len, neck = tip - dir * len * .36;
+  const headHalf = len * .26, shaftHalf = len * .137;
+  ctx.save(); ctx.globalAlpha = .35; ctx.beginPath();
+  ctx.moveTo(x0, cy - shaftHalf); ctx.lineTo(neck, cy - shaftHalf);
+  ctx.lineTo(neck, cy - headHalf); ctx.lineTo(tip, cy);
+  ctx.lineTo(neck, cy + headHalf); ctx.lineTo(neck, cy + shaftHalf);
+  ctx.lineTo(x0, cy + shaftHalf); ctx.closePath();
+  ctx.fillStyle = '#4ADE80'; ctx.fill();
+  ctx.strokeStyle = '#06101F'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
 }
 
 window.addEventListener('pagehide', stopFaceCamera);

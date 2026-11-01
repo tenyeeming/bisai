@@ -18,6 +18,8 @@
 
 /** D：轉頭超過這個角度，遠側的點不畫。⭐ 預設值，用戶覺得不對再調 */
 const FACE_FAR_HIDE_DEG = 30;
+/** 回到這個角度以內才解除「轉太多」（遲滯，免得在 30° 附近閃）—— 同 App FACE_FAR_SHOW_DEG */
+const FACE_FAR_SHOW_DEG = 25;
 /** A：|yaw| 在這以內才（重新）綁定 —— 只有接近正臉時公式才可信 */
 const FACE_BIND_MAX_DEG = 12;
 /** A：正對時權重的 EMA 係數（越大越跟得快，越小越穩） */
@@ -118,8 +120,36 @@ function faceApplyBind(lm, W, H, bind) {
 // ── 有狀態的部分 ─────────────────────────────────────────────────────
 let faceAnchorBinds = {};      // key = code + side → {i, w}
 let faceAnchorLastSeen = 0;
+// 2026-09-25（網頁v2 批 E-2，同 App FaceAnchor.kt 批 65）：轉太多 → 正臉類穴位兩側一起藏＋回正箭頭。
+//   用戶 09-25 對網頁確認「這個功能是要的」。每幀先呼叫一次 faceTurnUpdate，再逐穴 computeFaceAcupointAnchored。
+let faceTurned = false;
+// null＝這一輪還沒呼叫過 faceTurnUpdate → computeFaceAcupointAnchored 退回舊行為（只藏遠側、無遲滯）
+let faceTurnState = null;
 
-function faceAnchorReset() { faceAnchorBinds = {}; faceAnchorLastSeen = 0; }
+function faceAnchorReset() {
+  faceAnchorBinds = {}; faceAnchorLastSeen = 0;
+  faceTurned = false; faceTurnState = null;
+}
+
+/**
+ * 這一幀轉頭狀態（有遲滯：超過 30° 進入、回到 25° 以內才退出）。
+ *   turnedAway：轉太多且選的穴裡有正臉類 → 正臉類全藏、要出回正箭頭（只選側臉 6 穴不叫人回正）
+ *   backDirX：回正方向，**影像原始座標** +1 往右／−1 往左（取鼻尖 → 兩外眥中點），畫的時候再依鏡像翻
+ *   far：遠側（'R'/'L'），側臉 6 穴只藏這一側
+ */
+function faceTurnUpdate(yawDeg, codes, lm) {
+  const ay = yawDeg == null ? null : Math.abs(yawDeg);
+  faceTurned = ay == null ? false : faceTurned ? ay > FACE_FAR_SHOW_DEG : ay > FACE_FAR_HIDE_DEG;
+  const far = faceTurned ? (yawDeg > 0 ? 'L' : 'R') : null;
+  const turnedAway = faceTurned && codes.some(c => !FACE_ANCHOR_SKIP.has(c));
+  let backDirX = 0;
+  if (turnedAway && lm[FLM.outerR] && lm[FLM.outerL] && lm[4]) {
+    const midX = (lm[FLM.outerR].x + lm[FLM.outerL].x) / 2;
+    backDirX = midX - lm[4].x >= 0 ? 1 : -1;
+  }
+  faceTurnState = { turned: faceTurned, turnedAway, backDirX, far };
+  return faceTurnState;
+}
 
 /**
  * computeFaceAcupoint 的替代入口：套 A（錨定）＋ D（遠側隱藏）。
@@ -127,12 +157,14 @@ function faceAnchorReset() { faceAnchorBinds = {}; faceAnchorLastSeen = 0; }
  *   unbound = 臉轉開了、這穴卻還沒在正臉時綁過（只能照舊走公式）
  */
 function computeFaceAcupointAnchored(code, lm, W, H, yawDeg, now = Date.now()) {
-  if (faceAnchorLastSeen && now - faceAnchorLastSeen > FACE_ANCHOR_RESET_MS) faceAnchorBinds = {};
+  if (faceAnchorLastSeen && now - faceAnchorLastSeen > FACE_ANCHOR_RESET_MS) { faceAnchorBinds = {}; }
   faceAnchorLastSeen = now;
 
   const raw = computeFaceAcupoint(code, lm, W, H);
   if (!raw) return { pts: null, unbound: false };
-  const far = faceFarSide(yawDeg);
+  // 遠側改讀這一幀的轉頭狀態（有遲滯，同 App）；沒先呼叫 faceTurnUpdate 時退回舊的無遲滯判法
+  const far = faceTurnState ? faceTurnState.far : faceFarSide(yawDeg);
+  const hideFront = !!(faceTurnState && faceTurnState.turned);
   const frontal = yawDeg != null && Math.abs(yawDeg) <= FACE_BIND_MAX_DEG;
   let unbound = false;
 
@@ -152,6 +184,8 @@ function computeFaceAcupointAnchored(code, lm, W, H, yawDeg, now = Date.now()) {
       }
       if (bind) faceAnchorBinds[key] = bind;
     }
+    // 正臉類：轉太多就兩側一起藏（用戶：「其中一個被擋掉另一個也擋掉」），綁定照樣維護 —— 轉回來不必重綁
+    if (hideFront) continue;
     if (bind) pts.push({ ...faceApplyBind(lm, W, H, bind), side: p.side });
     else { pts.push(p); if (!frontal) unbound = true; }
   }

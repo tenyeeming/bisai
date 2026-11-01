@@ -57,6 +57,26 @@ function acuVideoButton(name) {
   return btn;
 }
 
+/**
+ * 沒片時的灰色「教學影片（準備中）」，點不動（App 批 80 TutorialVideoPending）。
+ * 圖冊與選穴頁 ⓘ 用：整塊不畫會被讀成「這穴沒做完／壞了」。
+ */
+function acuVideoPending() {
+  const box = document.createElement('div');
+  box.className = 'vid-open pending';
+  box.setAttribute('aria-disabled', 'true');
+  const play = document.createElement('span');
+  play.className = 'play';
+  play.textContent = '▶';
+  const label = document.createElement('span');
+  label.textContent = t('btn-play-video-pending');
+  box.append(play, label);
+  return box;
+}
+
+/** 有片給按鈕、沒片給準備中 —— 永遠回一個元素 */
+const acuVideoOrPending = (name) => acuVideoButton(name) || acuVideoPending();
+
 // ── 全螢幕播放器 ──────────────────────────────────────────────────
 // 自己做一層覆蓋層，不靠 requestFullscreen()：
 //   iOS Safari 的全螢幕只吃 <video> 自己（webkitEnterFullscreen），

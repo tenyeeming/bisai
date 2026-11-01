@@ -21,30 +21,27 @@ registerPage('acu-info', {
         display: flex; align-items: center; justify-content: center;
         overflow: hidden; position: relative;
       }
-      .info-portrait .minion { width: 84%; height: auto; display: block; }
       .info-code {
-        font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: .1em;
         color: var(--brass);
       }
-      .info-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+      .info-meta { font-size: 0.78125rem; color: var(--ink-soft); margin-top: 3px; }
 
       .info-sec + .info-sec { margin-top: 13px; }
       .info-sec h3 {
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
         text-transform: uppercase; color: var(--brass); font-weight: 500;
         margin-bottom: 5px;
       }
-      .info-sec p { font-size: 13px; color: var(--ink); }
+      .info-sec p { font-size: 0.8125rem; color: var(--ink); }
 
       .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
       .tag {
-        font-size: 12px; padding: 4px 9px;
+        font-size: 0.75rem; padding: 4px 9px;
         border: 1px solid var(--line); border-radius: 999px;
         color: var(--ink-soft); background: var(--surface);
       }
-      /* 可點的主治標籤（2026-09-04，補上 App 已有的互動）：
-         點下去＝以那個症狀開一次療程。長得像 # 標籤，所以要讓人看出「這是能按的」——
-         用 <button> 而不是 <span>，鍵盤 Tab 得到、螢幕閱讀器唸得出來。 */
+      /* 可點的主治標籤：點下去以該症狀開始療程。用 <button> 才能鍵盤操作與報讀 */
       button.tag {
         font-family: inherit; cursor: pointer;
         display: inline-flex; align-items: center; gap: 2px;
@@ -54,9 +51,7 @@ registerPage('acu-info', {
       button.tag:hover { border-color: var(--brass); color: var(--ink); background: var(--surface-2); }
       button.tag:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 
-      /* 臉部的「頭像」（2026-09-20）：臉部沒有小人，用代號圓標。
-         字從 13px 起跳、太長的代號（EX-HN7）縮到 11px —— 用 clamp 而不是寫死，
-         不然 92px 的圓圈裝不下七個字，在手機上會溢出。 */
+      /* 臉部用代號圓標；字級用 clamp，長代號（EX-HN7）才放得進 92px 圓圈 */
       .info-portrait .code-badge-lg {
         font-family: var(--font-mono); font-weight: 700; color: #fff;
         font-size: clamp(11px, 3.4vw, 15px); letter-spacing: .02em;
@@ -66,30 +61,28 @@ registerPage('acu-info', {
       #info-ref .ref-frame, #info-ref .ref-none { width: 100%; }
       #info-ref .ref-frame img { max-height: 340px; object-fit: contain; }
       .info-use {
-        border: 1px solid var(--line-soft); border-radius: var(--r-cell);
+        border: 1px solid var(--line-soft); border-radius: var(--r);
         padding: 9px 11px; display: grid; gap: 4px;
       }
-      .info-use strong { color: var(--brass); font-size: 13px; }
-      .info-use p { font-size: 12.5px; color: var(--ink-soft); }
-      @media (max-width: 599px), ((max-height: 599px) and (pointer: coarse)) {
-        #page-acu-info {
-          position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
-          max-height: 90dvh; overflow-y: auto;
-          /* 2026-09-23 修：底部膠囊分頁列（約 58px ＋ 離底 6px）疊在這張 sheet 上面，
-             捲到底時「練習」鈕整顆被它蓋住、按下去會按到「圖冊」分頁（手部／臉部都中）。
-             留白多墊 76px，讓最後一顆鈕停在分頁列上方。 */
-          padding: 18px 16px calc(22px + 76px + env(safe-area-inset-bottom));
-          border-radius: 22px 22px 0 0; background: var(--bg);
-          box-shadow: 0 -18px 60px rgba(10,28,42,.28);
-        }
-        #page-acu-info::before {
-          content: ''; display: block; width: 42px; height: 4px; margin: -7px auto 14px;
-          border-radius: 999px; background: var(--line);
-        }
-        #page-acu-info .info-head { align-items: flex-end; }
-        #page-acu-info .info-portrait { display: none; }
-        #page-acu-info .stack { gap: 13px; }
+      .info-use strong { color: var(--brass); font-size: 0.8125rem; }
+      .info-use p { font-size: 0.78125rem; color: var(--ink-soft); }
+      /* 所有尺寸都是底部面板，寬螢幕最寬 900 置中（left/right 0 ＋ margin auto） */
+      #page-acu-info {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+        max-width: 900px; margin-inline: auto;
+        max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain;
+        /* 底部多留 76px，最後一顆按鈕才不會被浮動分頁列蓋住 */
+        padding: 18px var(--gutter, 16px) calc(22px + 76px + env(safe-area-inset-bottom));
+        border-radius: var(--r-sheet) var(--r-sheet) 0 0; background: var(--surface);
+        box-shadow: 0 -18px 60px rgba(10,28,42,.28);
       }
+      #page-acu-info::before {
+        content: ''; display: block; width: 42px; height: 4px; margin: -7px auto 14px;
+        border-radius: 999px; background: var(--line);
+      }
+      #page-acu-info .info-head { align-items: flex-end; }
+      #page-acu-info .info-portrait { display: none; }
+      #page-acu-info .stack { gap: 13px; }
     </style>
 
     <div class="stack">
@@ -145,7 +138,12 @@ function renderAcuInfo() {
   portrait.innerHTML = '';
   portrait.className = 'info-portrait';
   portrait.style.background = acuColor(name);
-  portrait.appendChild(minionImg(name));
+  // 2026-09-25（網頁v2 批 A）：頭像不放小人（網頁小人只留慶祝）→ 代號圓標，同臉部／前臂。
+  //   參考圖在下面「參考圖」那一塊，這裡不重複放。
+  const hb = document.createElement('div');
+  hb.className = 'code-badge-lg';
+  hb.textContent = acu.code || acuLabel(name).slice(0, 2);
+  portrait.appendChild(hb);
 
   document.getElementById('info-code').textContent = acu.code || '';
   document.getElementById('info-name').textContent = acuLabel(name);
@@ -179,17 +177,12 @@ function renderAcuInfo() {
 
   // ── 教學影片（2026-09-05）──
   // 跟認穴頁共用同一顆按鈕與同一個全螢幕播放器（js/acu-video.js）。
-  // 只有白名單上有片的穴道才出現這一區，沒有就整塊不畫 —— 不要留一個空標題。
+  // 2026-10-01（App 批 80）：沒片也畫灰的「準備中」，整塊不畫會被讀成這穴壞了。
+  // 不放 <h3> 標題：按鈕上就寫著「教學影片」，再加一行標題是同一句話講兩次
   const vidSec = document.getElementById('info-video');
   vidSec.innerHTML = '';
-  const vidBtn = acuVideoButton(name);
-  if (vidBtn) {
-    // 不放 <h3> 標題：按鈕上就寫著「教學影片」，再加一行標題是同一句話講兩次
-    vidSec.append(vidBtn);
-    vidSec.hidden = false;
-  } else {
-    vidSec.hidden = true;
-  }
+  vidSec.append(acuVideoOrPending(name));
+  vidSec.hidden = false;
 
   // ── 主治：從症狀表反查 ──
   const sym = SYMPTOM_MAP.filter(s => s.acupoints.includes(name));
@@ -233,8 +226,9 @@ function practiceThisAcu() {
   if (infoAcuName && FOREARM_LAB[infoAcuName]) { location.href = FOREARM_LAB[infoAcuName]; return; }
   if (!infoAcuName || !itemImplemented(infoAcuName)) return;
   state.selectedSymptoms = [];
-  state.recommendedAcupoints = isFaceItem(infoAcuName) ? [] : [infoAcuName];
+  state.recommendedAcupoints = (isFaceItem(infoAcuName) || isForearmItem(infoAcuName)) ? [] : [infoAcuName];
   state.selectedFace = isFaceItem(infoAcuName) ? [infoAcuName] : [];
+  state.selectedForearm = isForearmItem(infoAcuName) ? [infoAcuName] : [];
   state.selectedAcupoints = [infoAcuName];
   state.currentAcupointIndex = 0;
   practiceFromGallery = true;
@@ -269,48 +263,50 @@ function renderFaceAcuInfo(code) {
   badge.textContent = code;
   portrait.appendChild(badge);
 
-  document.getElementById('info-code').textContent = code;
+  // 2026-09-25（網頁v2 批 E，App 批 75）：文字一律改讀 Excel（js/face-sheet.js），版面照手部：
+  //   代號＋英文名 → 「臉部（· 尚未支援定位）」→ Excel 備注 → Excel 定位 → 參考圖 → 按壓方式、說明 → 主治 → 練習。
+  //   不再放 WHO 原文、PDF 逐條用法、經外奇穴標記、誠實聲明（App 同；誠實聲明仍在選穴 ⓘ 與認穴頁）。
+  const sheet = faceSheet(code);
+  document.getElementById('info-code').textContent = sheet && sheet.en ? `${code} · ${sheet.en}` : code;
   document.getElementById('info-name').textContent = faceLabel(code);
-
-  // 臉部沒有「手背／手心」，改標經外奇穴與定位狀態 —— 那兩件才是這條線要講的
   document.getElementById('info-meta').textContent =
-    [
-      t('region-face'),
-      acu.inWHO ? 'WHO' : (isZh() ? '經外奇穴' : 'Extra point'),
-      implemented ? null : t('info-nolocate'),
-    ].filter(Boolean).join('　·　');
+    [t('region-face'), implemented ? null : t('info-nolocate')].filter(Boolean).join('　·　');
 
-  // 誠實聲明取代手部的安全警語：這條線的參數只建立在極少數照片上
   const noteBox = document.getElementById('info-note');
   noteBox.innerHTML = '';
-  const p = document.createElement('p');
-  p.className = 'notice';
-  p.textContent = t('face-honest-short');
-  noteBox.appendChild(p);
+  if (sheet && sheet.note) {
+    const p = document.createElement('p');
+    p.className = 'notice warn';
+    p.textContent = sheet.note;
+    noteBox.appendChild(p);
+  }
 
   document.getElementById('info-locate').textContent =
-    (detail && detail.locate) || faceWho(code) ||
-    (isZh() ? '（尚無定位描述）' : '(no description yet)');
+    (sheet && sheet.locate) || (isZh() ? '（尚無定位描述）' : '(no description yet)');
 
-  const uses = document.getElementById('info-uses');
-  uses.innerHTML = '';
-  if (detail && Array.isArray(detail.uses)) detail.uses.forEach(u => {
-    const card = document.createElement('div');
-    card.className = 'info-use';
-    if (u.func) { const h = document.createElement('strong'); h.textContent = u.func; card.appendChild(h); }
-    if (u.note) { const p = document.createElement('p'); p.textContent = u.note; card.appendChild(p); }
-    if (u.press) { const p = document.createElement('p'); p.textContent = (isZh() ? '按法：' : 'Method: ') + u.press; card.appendChild(p); }
-    uses.appendChild(card);
-  });
+  // 按壓方式、說明：Excel 兩欄（手部那份是通用句所以手部不列，臉部每穴不同才列 —— App 同）。
+  // 位置照 App 排在參考圖後面（見下）；#info-uses 這一格臉部不用。
+  document.getElementById('info-uses').innerHTML = '';
 
   const refSec = document.getElementById('info-ref');
   refSec.innerHTML = `<h3>${t('ref-title')}</h3>`;
   refSec.appendChild(faceRefBlock(code));
+  // 按壓方式／說明排在參考圖之後（App 順序）：直接接在參考圖那一塊裡，不搬 #info-uses（手部、前臂也用它）
+  [['face-sheet-press', sheet && sheet.press], ['face-sheet-desc', sheet && sheet.desc]].forEach(([k, v]) => {
+    if (!v) return;
+    const box = document.createElement('div');
+    box.className = 'info-sec face-sheet-sec';
+    const h = document.createElement('h3'); h.textContent = t(k);
+    const p = document.createElement('p'); p.textContent = v;
+    box.append(h, p);
+    refSec.appendChild(box);
+  });
 
-  // 臉部目前一支教學片都沒有 —— 整塊不畫，不要留一個空標題
+  // 臉部目前一支教學片都沒有 → 灰的「準備中」（App 批 80）
   const vidSec = document.getElementById('info-video');
   vidSec.innerHTML = '';
-  vidSec.hidden = true;
+  vidSec.append(acuVideoPending());
+  vidSec.hidden = false;
 
   // ── 主治：查臉部那張表 ──
   const names = Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code));
@@ -350,25 +346,24 @@ function renderForearmAcuInfo(name) {
   portrait.appendChild(fb);
   document.getElementById('info-code').textContent = acu.code;
   document.getElementById('info-name').textContent = acu.name;
-  document.getElementById('info-meta').textContent = `${isZh() ? '前臂' : 'Forearm'}　·　` +
-    (FOREARM_LAB[name] ? (isZh() ? '實驗定位' : 'Experimental locating') : t('info-nolocate'));
+  document.getElementById('info-meta').textContent = isZh() ? '前臂' : 'Forearm';
   const note = document.getElementById('info-note'); note.innerHTML = '';
   if (acu.caution) { const p=document.createElement('p'); p.className='notice warn'; p.textContent=acu.caution; note.appendChild(p); }
   document.getElementById('info-locate').textContent = acu.locate;
   const uses = document.getElementById('info-uses');
   uses.innerHTML = `<div class="info-use"><strong>${isZh() ? '說明' : 'About'}</strong><p>${acu.note}</p><p>${isZh() ? '按法：' : 'Method: '}${FOREARM_PRESS}</p></div>`;
   const ref = document.getElementById('info-ref'); ref.innerHTML = `<h3>${t('ref-title')}</h3>`; ref.appendChild(forearmRefBlock(name));
-  const vid = document.getElementById('info-video'); vid.innerHTML=''; vid.hidden=true;
+  const vid = document.getElementById('info-video'); vid.innerHTML=''; vid.append(acuVideoPending()); vid.hidden=false;  // App 批 80
   const sym = Object.keys(FOREARM_SYMPTOM_MAP).filter(n => FOREARM_SYMPTOM_MAP[n].includes(name));
   const box = document.getElementById('info-symptoms'); box.innerHTML='';
   sym.forEach(n => { const b=document.createElement('button'); b.type='button'; b.className='tag'; b.innerHTML='<span class="hash">#</span>'; b.appendChild(document.createTextNode(symptomLabel(n))); b.onclick=()=>startFromSymptom(n); box.appendChild(b); });
   // 2026-09-23 用戶：「專門在他的圖冊裏面開通」「開小海就行」——
   // 只有 FOREARM_LAB 裡的穴開放，點了進獨立實驗頁 forearm-lab.html（Hands＋Pose），
   // 不走認穴→相機→按摩那條療程流程：vision.js 只有 Hands，Pose 錨定沒接進去。
-  const lab = FOREARM_LAB[name];
+  // 2026-10-01（App 批 94）：前臂 15 穴都能練 —— 小海仍進實驗頁，其他走療程（相機那步黑畫面）
   const btn = document.getElementById('btn-practice');
-  btn.disabled = !lab;
-  btn.textContent = lab ? (isZh() ? '練習（實驗版）' : 'Try (experimental)') : t('info-nolocate');
+  btn.disabled = false;
+  btn.textContent = t('btn-practice');
 }
 
 // 前臂開放實驗定位的穴 → 實驗頁網址

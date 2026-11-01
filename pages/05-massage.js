@@ -28,6 +28,7 @@ function onPressCheckOff() { if (massageRunning && !massageUserPaused) armPressO
 const pressOffPrepLeft = () => Math.max(0, pressOffPrepUntil - performance.now());
 function massageHeld() {
   const now = performance.now();
+  if (massageDetector() === 'none') return true;   // 前臂黑畫面：沒有影像可判定，計時照走
   if (!pressCheck) return now >= pressOffPrepUntil;
   if (onTarget) massageLastOnAt = now;
   return onTarget || (now - massageLastOnAt < PRESS_GRACE_MS);
@@ -52,7 +53,8 @@ registerPage('massage', {
   tab: 'home',
   step: 4,
   stepLabel: 'step-4',
-  backTo: 'camera',
+  // 臉部項目沒有定位頁（2026-09-25 網頁v2 批 E，同 App：認穴頁「開始定位」直接進按摩頁）→ 退回認穴頁
+  backTo: () => (itemDetector(curAcuName()) === 'hand' ? 'camera' : 'acu-detail'),
   hideTabbar: true,     // 按摩中手在鏡頭前，誤觸切頁會直接中斷計時
   keepsCamera: true,
   keepsFaceCamera: true,   // 臉部項目在這頁跑 FaceMesh（＋Hands 供閘門用）
@@ -71,7 +73,8 @@ registerPage('massage', {
     resetMassageSession();
     syncMassageControls();
     startMassageCamera();
-    startEntryCountdown();
+    // 內關要先做放平檢測（js/forearm-vision.js），量好才開始進頁倒數（同 App ForearmScreen）
+    if (massageDetector() === 'forearm') holdForForearmCalib(); else startEntryCountdown();
   },
   onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
   onLanguage: () => {
@@ -86,70 +89,47 @@ registerPage('massage', {
   html: `
   <div id="page-massage" class="page">
     <style>
-      /* ── 輪次條：現在該按哪隻手，這是這一頁最需要一眼看到的資訊 ── */
+      /* ── 輪次條（App RoundBar）：● ○ 1/2 本輪 · 右手 ── */
       .roundbar {
-        display: flex; align-items: center; gap: 10px;
-        border: 1px solid var(--brass);
-        border-radius: var(--r);
-        background: var(--surface-2);
-        padding: 9px 12px;
-        margin-bottom: 10px;
+        display: flex; align-items: center; gap: 8px;
+        margin-bottom: 8px; font-size: 0.8125rem; color: var(--ink-soft);
       }
-      .roundbar .k {
-        font-family: var(--font-mono); font-size: 0.59375rem;
-        letter-spacing: .14em; text-transform: uppercase; color: var(--brass);
-      }
-      .roundbar .hand {
-        font-family: var(--font-ming); font-size: 1.1875rem; font-weight: 600;
-        color: var(--ink); line-height: 1.2;
-      }
-      .roundbar .pips { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+      .roundbar .pips { display: flex; gap: 5px; align-items: center; }
       .roundbar .pip {
-        width: 9px; height: 9px; border-radius: 50%;
+        width: 8px; height: 8px; border-radius: 50%;
         border: 1px solid var(--brass); background: none;
       }
-      .roundbar .pip.done { background: var(--brass); }
-      .roundbar .pip.now  { box-shadow: 0 0 0 3px var(--warn-bg); background: var(--brass); }
+      .roundbar .pip.done, .roundbar .pip.now { background: var(--brass); }
       .roundbar .n {
-        font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft);
+        font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-soft);
         font-variant-numeric: tabular-nums; margin-left: 4px;
       }
+      .roundbar .hand { color: var(--ink); font-weight: 600; }
 
-      .meter {
-        border: 1px solid var(--line);
-        border-radius: var(--r);
-        padding: 16px;
-        text-align: center;
-        background: var(--surface);
+      /* ── 取景框右上角計時（App TimerOverlay）：白底黑字，只在計時中出現；
+            沒對準／自己暫停／判定關時的準備期變黃底 ── */
+      .vp-timer {
+        position: absolute; top: 8px; right: 8px; z-index: 2;
+        min-width: 3.2ch; padding: 4px 10px; border-radius: var(--r);
+        font-family: var(--font-mono); font-size: 1.5rem; font-weight: 600; line-height: 1.1;
+        text-align: center; font-variant-numeric: tabular-nums;
+        background: #fff; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+        display: none;
       }
-      .meter .label {
-        font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: .16em;
-        text-transform: uppercase; color: var(--brass);
+      .vp-timer.on { display: block; }
+      .vp-timer.paused { background: #F2C14E; color: #111; }
+      /* ── 取景框左上角放大鈕（App ZoomButton）：⤢ 放大／⤡ 縮小 ── */
+      .vp-zoom {
+        position: absolute; top: 8px; left: 8px; z-index: 3;
+        width: 40px; height: 40px; border-radius: 50%;
+        font-size: 1.125rem; line-height: 1; color: #fff; cursor: pointer;
+        background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.5);
       }
-      .timer-display {
-        font-family: var(--font-mono);
-        font-size: 3.375rem;
-        font-weight: 600;
-        line-height: 1;
-        margin: 10px 0 4px;
-        color: var(--ink);
-        font-variant-numeric: tabular-nums;
-        transition: color .2s;
-      }
-      /* 指尖離開穴道時變灰：計時暫停這件事要看得出來 */
-      .timer-display.paused { color: var(--ink-soft); }
-      .timer-slider { width: 100%; margin: 12px 0 4px; accent-color: var(--brass); }
-      .hint { font-family: var(--font-mono); font-size: 0.65625rem; color: var(--ink-soft); letter-spacing: .04em; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
       #round-switch[hidden] { display: none; }
-      #btn-massage-zoom { margin-top: 8px; }
-      #btn-massage-zoom[hidden] { display: none; }
 
-      /* ── 全螢幕按摩（2026-08-13）────────────────────────────────
-         按下「開始按摩」之後滑桿與按鈕都鎖住了，底下那塊面板就變成佔位子的死角；
-         而這時使用者真正要盯的只剩兩件事：穴道圓盤、指尖有沒有對準。
-         所以整個取景框跳出手機外框鋪滿視窗，計時與讀數條**搬**進畫面下緣
-         （搬 DOM 而不是複製一份，才不會有兩個計時器要同步）。
-         一輪結束時 stopMassageTimer() 會自動退回，Esc 或「縮小」也能手動退。 */
+      /* ── 全螢幕按摩：取景框鋪滿視窗，計時、讀數條與暫停鈕疊在畫面上。
+         一輪結束時 stopMassageTimer() 自動退出，Esc 或縮小鈕也可退出。 */
       #massage-viewport { position: relative; }
       .fs-hud { display: none; }
 
@@ -172,7 +152,8 @@ registerPage('massage', {
       .fs-top {
         position: absolute; top: 0; left: 0; right: 0;
         display: flex; align-items: center; gap: 10px;
-        padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+        /* 左邊讓出放大鈕（.vp-zoom）的位置 */
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px 60px;
         background: linear-gradient(rgba(0,0,0,.55), transparent);
       }
       .fs-hand {
@@ -188,19 +169,8 @@ registerPage('massage', {
       }
       .fs-btn:hover { border-color: var(--brass); color: var(--brass); }
 
-      .fs-bottom {
-        position: absolute; left: 0; right: 0; bottom: 0;
-        display: flex; align-items: flex-end; gap: 12px;
-        padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
-        background: linear-gradient(transparent, rgba(0,0,0,.72));
-      }
-      /* 搬進來的那兩個元件要改裝成「疊在影像上」的樣子 */
-      .fs-bottom .timer-display {
-        flex: none; margin: 0; font-size: 3.25rem; color: #fff;
-        text-shadow: 0 2px 14px rgba(0,0,0,.75);
-      }
-      .fs-bottom .timer-display.paused { color: rgba(255,255,255,.4); }
-      .fs-bottom .readout { flex: 1; margin: 0; border-radius: var(--r); }
+      /* 全螢幕時計時留在右上角，讓出暫停鈕那一列 */
+      body.massage-fs .vp-timer { top: calc(58px + env(safe-area-inset-top, 0px)); font-size: 2.25rem; }
     </style>
 
     <div class="stack">
@@ -211,23 +181,23 @@ registerPage('massage', {
 
       <div class="massage-preview">
         <div class="roundbar">
-          <div>
-            <div class="k" data-i18n="round-label">本輪</div>
-            <div class="hand" id="round-hand">左手</div>
-          </div>
           <div class="pips" id="round-pips"></div>
+          <span><span data-i18n="round-label">本輪</span> · <span class="hand" id="round-hand">左手</span></span>
         </div>
 
         <div class="viewport" id="massage-viewport">
           <canvas id="massage-canvas" class="cam"></canvas>
-          <!-- 全螢幕時才看得到；計時與讀數條會被搬進 .fs-bottom（見 enterMassageFullscreen） -->
+          <!-- 2026-09-25（網頁v2 批 C）：計時疊在右上、放大鈕在左上（App TimerOverlay／ZoomButton）。
+               全螢幕時整個取景框鋪滿視窗，這兩個與讀數條都留在原位，不再搬節點。 -->
+          <div class="vp-timer" id="timer-display">30</div>
+          <button type="button" class="vp-zoom" id="btn-massage-zoom" onclick="toggleMassageFullscreen()"
+                  aria-label="放大顯示">⤢</button>
+          <!-- 全螢幕時才看得到：本輪哪隻手＋暫停鈕 -->
           <div class="fs-hud" id="massage-hud">
             <div class="fs-top">
               <span class="fs-hand" id="fs-hand"></span>
               <button class="fs-btn fs-pause" id="fs-pause" onclick="toggleMassagePause()">暫停</button>
-              <button class="fs-btn" onclick="exitMassageFullscreen()" data-i18n="btn-shrink">⤡ 縮小</button>
             </div>
-            <div class="fs-bottom" id="massage-hud-slot"></div>
           </div>
           <!-- ⭐ 2026-09-22：讀數條搬進 .viewport（原本在它外面）。理由同 04-camera.js。
                ⚠️ 全螢幕時這個節點會被 enterMassageFullscreen() **搬進** .fs-bottom，
@@ -238,36 +208,19 @@ registerPage('massage', {
           <div class="readout gate-warn" id="massage-gate">用另一隻手的指尖對準穴道圓盤</div>
         </div>
       </div>
-      <!-- 即時數據面板（2026-09-20）：只在桌面（≥1024px）看得見。
-           數字全部來自 js/vision.js 同一幀的既有判定（liveStats），**沒有任何新計算** ——
-           所以面板與畫面必然一致，不會出現「圈說對準了、數字說差 5mm」。 -->
-      <div class="live-stats" id="massage-stats" aria-live="off">
-        <div class="ls-title" data-i18n="stats-title">即時判定</div>
-        <div class="ls-row big"><span class="k" data-i18n="stats-dist">指尖離穴道</span><span class="v" data-k="dist">—</span></div>
-        <div class="ls-row"><span class="k" data-i18n="stats-conf">定位信心</span><span class="v" data-k="conf">—</span></div>
-        <div class="ls-row"><span class="k" data-i18n="stats-tilt">整手傾角</span><span class="v" data-k="tilt">—</span></div>
-        <div class="ls-row"><span class="k" data-i18n="stats-angle">皮膚偏角 / 上限</span><span class="v" data-k="angle">—</span></div>
-        <div class="ls-note" data-i18n="stats-note">數值每幀更新，全部在本機運算</div>
-      </div>
 
       <p class="notice warn" id="round-switch" hidden></p>
       <button class="btn ghost wide" id="btn-switch-now" hidden
               onclick="skipSwitchCountdown()" data-i18n="btn-ready-now">立即開始</button>
 
-      <div class="meter">
-        <p class="label" data-i18n="massage-timer">按摩時間（每隻手）</p>
-        <div class="timer-display" id="timer-display">30</div>
-        <p class="hint" id="timer-label"></p>
-        <p class="timer-state" id="timer-state" role="status" aria-live="polite"></p>
-        <input type="range" class="timer-slider" id="timer-input" min="5" max="120" step="5" value="30"
-               oninput="onPressSecChange()">
-        <button class="btn wide" id="btn-massage-start" onclick="toggleMassagePause()">開始按摩</button>
-        <!-- 只在「計時中但已經縮小」時出現，讓人能再放大回去 -->
-        <button class="btn ghost wide" id="btn-massage-zoom" hidden
-                onclick="enterMassageFullscreen()" data-i18n="btn-zoom">⤢ 放大顯示</button>
-        <p class="hint" id="timer-tip" style="margin-top:10px" data-i18n="timer-tip">計時只在指尖對準穴道時前進</p>
-        <p class="hint" style="margin-top:4px" id="round-tip">同一個穴道左右手各有一個，兩隻手都按完才算完成。</p>
-      </div>
+      <!-- 2026-09-25（網頁v2 批 C，App A10）：下方大計時面板、說明小字拿掉，只留主按鈕。
+           秒數滑桿在認穴頁（批 B）；這顆藏起來的 input 仍是本頁計時的數值來源
+           （armTimer 寫入、startMassage 讀出），不刪以免動到計時邏輯。
+           timer-state 只給螢幕報讀用（role=status），畫面上不顯示。 -->
+      <input type="range" class="timer-slider" id="timer-input" min="5" max="90" step="5" value="30"
+             oninput="onPressSecChange()" hidden>
+      <p class="sr-only" id="timer-state" role="status" aria-live="polite"></p>
+      <button class="btn wide" id="btn-massage-start" onclick="toggleMassagePause()">開始按摩</button>
     </div>
   </div>`,
 });
@@ -309,7 +262,7 @@ function startLabel() {
 function renderRound() {
   // 臉部只有一輪，講「右手／左手」是錯的（按臉用哪隻手都行）
   document.getElementById('round-hand').textContent =
-    hasRounds() ? t(curHandKey()) : t('round-face');
+    hasRounds() ? t(curHandKey()) : isForearmItem(curAcuName()) ? t('region-elbow') : t('round-face');
 
   const pips = document.getElementById('round-pips');
   pips.innerHTML = '';
@@ -331,12 +284,32 @@ function renderRound() {
 // 輪次說明與讀數條的初始提示：手部講「左右手兩輪」，臉部講「只有一輪」。
 // ⚠️ 不用 data-i18n：那是「一個元素固定一個 key」，這兩處的 key 會隨項目變。
 function syncMassageHints() {
-  const tip = document.getElementById('round-tip');
-  if (tip) tip.textContent = t(hasRounds() ? 'round-tip' : 'round-tip-face');
   // 讀數條：這裡寫的是「還沒偵測到之前」的那句。模型一活起來，
   // setGate / setFaceGate 每幀都會蓋掉它，所以不必判斷現在是不是空的。
   const gate = document.getElementById('massage-gate');
-  if (gate) gate.textContent = t(massageDetector() === 'face' ? 'massage-hint-face' : 'massage-hint');
+  if (gate) gate.textContent = massageDetector() === 'face' ? t('massage-hint-face')
+    : massageDetector() === 'forearm' ? faCalibTitle(curAcuName()) : t('massage-hint');
+}
+
+// ── 前臂內關：先檢測，再倒數（App ForearmScreen：wasCalibrated → entryRemain）────
+// 檢測中主按鈕按不下去：沒有基準就沒有扭轉閘門（App 同，前臂沒有「略過檢測」可退）。
+function holdForForearmCalib() {
+  stopSwitchCountdown();
+  document.getElementById('round-switch').hidden = true;
+  document.getElementById('btn-massage-start').disabled = true;
+}
+function onForearmCalibrated() {
+  if (currentPage !== 'massage' || massageDetector() !== 'forearm' || massageRunning) return;
+  document.getElementById('btn-massage-start').disabled = false;
+  startEntryCountdown();
+}
+// 換鏡頭＝重新檢測：計時歸零、回到等檢測（App recalib）
+function restartForearmCalib() {
+  stopMassageTimer();
+  acuElapsedMs = 0;
+  armTimer();
+  holdForForearmCalib();
+  syncMassageControls();
 }
 
 // 全螢幕時輪次條被蓋住了，所以那個資訊要在 HUD 左上角再出現一次
@@ -372,29 +345,19 @@ function endMassageEarly() {
   if (!confirm(t('confirm-end-early'))) return;
 
   stopMassageTimer();
-  if (state.currentAcupointIndex < state.selectedAcupoints.length - 1) {
-    state.currentAcupointIndex++;
-    showPage('acu-detail');
-  } else {
-    goHome();
-  }
+  // 2026-09-25（網頁v2 批 D，同 App MassageScreen onSkip）：記一筆「跳過」→ 一律到完成頁（標題「這一穴跳過了」、沒有小人）
+  sessionLog.push({ name: curAcuName(), ms: acuElapsedMs, completed: false });
+  completeMassage(true);
 }
 
 // ── 全螢幕 ────────────────────────────────────────────────────────
-// 計時器與讀數條是「搬」進 HUD 的，不是複製一份 —— 兩份就會有同步問題，
-// 而且 updateTimerDisplay / setGate 都是靠 id 找元件，搬走了照樣寫得到。
+// 2026-09-25（網頁v2 批 C）：計時與讀數條本來就疊在取景框裡，全螢幕只是把取景框鋪滿視窗，
+// 不再把節點搬進 HUD（以前搬進 .fs-bottom，退出時再放回原位）。
 let massageFsOn = false;
-let fsMoved = null;              // [{ el, parent, next }]：退出時放回原位用
 
 function enterMassageFullscreen() {
   if (massageFsOn) return;
-  const slot = document.getElementById('massage-hud-slot');
-  const els = ['timer-display', 'massage-gate'].map(id => document.getElementById(id));
-  if (!slot || els.some(el => !el)) return;
-
   closeMassageMenu();            // 齒輪選單在 backbar 上，等一下會被蓋住
-  fsMoved = els.map(el => ({ el, parent: el.parentNode, next: el.nextSibling }));
-  els.forEach(el => slot.appendChild(el));
   renderFsHand();
   document.body.classList.add('massage-fs');
   document.addEventListener('keydown', onFsKey);
@@ -404,21 +367,25 @@ function enterMassageFullscreen() {
 
 function exitMassageFullscreen() {
   if (!massageFsOn) return;
-  fsMoved.forEach(({ el, parent, next }) => parent.insertBefore(el, next));
-  fsMoved = null;
   document.body.classList.remove('massage-fs');
   document.removeEventListener('keydown', onFsKey);
   massageFsOn = false;
   syncZoomBtn();
 }
 
+function toggleMassageFullscreen() {
+  if (massageFsOn) exitMassageFullscreen(); else enterMassageFullscreen();
+}
+
 // Esc 退出是瀏覽器的慣例，不照做的話使用者會以為卡住了
 function onFsKey(e) { if (e.key === 'Escape') exitMassageFullscreen(); }
 
-// 縮小之後計時還在跑，要留一個回得去的入口
+// 左上角那顆：一直都在（App ZoomButton），放大時變「縮小」
 function syncZoomBtn() {
   const b = document.getElementById('btn-massage-zoom');
-  if (b) b.hidden = !(massageRunning && !massageFsOn);
+  if (!b) return;
+  b.textContent = massageFsOn ? '⤡' : '⤢';
+  b.setAttribute('aria-label', t(massageFsOn ? 'btn-shrink' : 'btn-zoom'));
 }
 
 // ── 計時 ──────────────────────────────────────────────────────────
@@ -427,7 +394,6 @@ function updateTimerDisplay() {
   if (!massageRunning) massageRemainMs = v * 1000;
   document.getElementById('timer-display').textContent =
     massageRunning ? Math.ceil(massageRemainMs / 1000) : v;
-  document.getElementById('timer-label').textContent = isZh() ? `${v} 秒` : `${v} SEC`;
 }
 
 // 滑桿改的是**這一穴**的秒數，不是全域設定（2026-09-08 改）。
@@ -447,6 +413,25 @@ const massageDetector = () => itemDetector(curAcuName());
 
 function startMassageCamera() {
   const id = curAcuName();
+  if (itemDetector(id) !== 'forearm' && typeof stopForearmCamera === 'function') stopForearmCamera();
+  if (itemDetector(id) === 'forearm') {
+    // 前臂內關（App 批 89／90）：Hands＋Pose，自己開相機（會先關掉手部／臉部那兩套）
+    recalibForearm();
+    syncMassageHints();
+    startForearmCamera('massage-canvas', 'massage-gate', onForearmCalibrated, id);
+    return;
+  }
+  if (itemDetector(id) === 'none') {
+    // 前臂（App 批 94 blackout）：兩邊相機都關，取景框塗黑，讀數條清空
+    stopCamera();
+    stopFaceCamera();
+    const cv = document.getElementById('massage-canvas');
+    const c = cv && cv.getContext('2d');
+    if (c) { c.fillStyle = '#000'; c.fillRect(0, 0, cv.width, cv.height); }
+    const gate = document.getElementById('massage-gate');
+    if (gate) { gate.textContent = ''; gate.className = 'gate'; }
+    return;
+  }
   if (itemDetector(id) === 'face') {
     stopCamera();                       // 手部那邊可能還開著（定位頁過來）
     faceSelected = [id];                // 按摩頁只畫現在這一穴
@@ -460,10 +445,14 @@ function startMassageCamera() {
 
 // 齒輪選單那兩顆要分流，否則在臉部項目上按會去動已經關掉的手部相機
 function flipMassageCamera() {
+  if (massageDetector() === 'none') return;
+  if (massageDetector() === 'forearm') { restartForearmCalib(); switchForearmCamera(); return; }
   if (massageDetector() === 'face') switchFaceCamera(); else switchCamera();
 }
 
 function toggleMassageDisc() {
+  if (massageDetector() === 'none') return;
+  if (massageDetector() === 'forearm') { toggleDisc(); return; }
   if (massageDetector() === 'face') { toggleFaceDisc(); syncDiscLabels(); return; }
   toggleDisc();
 }
@@ -475,6 +464,9 @@ function stopMassageTimer() {
   // 一輪按完就要退回來 —— 換手提示、開始鈕都在小畫面上，蓋著就看不到
   exitMassageFullscreen();
   syncZoomBtn();
+  // 批 C 起右上角計時只在計時中顯示（.on 由 syncMassageControls 切）——
+  // 停掉時也要同步一次，不然一輪按完、換手倒數期間計時框還掛著（本機檢查 e2e 抓到）
+  syncMassageControls();
 }
 
 function syncMassageControls() {
@@ -483,6 +475,11 @@ function syncMassageControls() {
     : massageUserPaused ? (isZh() ? '繼續' : 'Resume') : (isZh() ? '暫停' : 'Pause');
   btn.textContent = label;
   document.getElementById('fs-pause').textContent = label;
+  // 右上角計時只在計時中出現；準備期（判定關的 3 秒）也算「還沒在走」→ 黃底
+  const disp = document.getElementById('timer-display');
+  disp.classList.toggle('on', massageRunning);
+  if (massageRunning && massageUserPaused) disp.classList.add('paused');
+  if (massageRunning && !pressCheck && pressOffPrepLeft() > 0) disp.classList.add('paused');
   const status = document.getElementById('timer-state');
   const text = !massageRunning && switchTickId ? (isZh() ? '倒數完自動開始' : 'Starting after countdown')
     : !massageRunning ? (isZh() ? '準備好了就開始' : 'Start when ready')
@@ -540,8 +537,8 @@ function finishRound() {
     return;
   }
   // 這一穴按完了，記進本次療程清單給總結頁（網頁不存長期紀錄）
-  sessionLog.push({ name: curAcuName(), ms: acuElapsedMs });
-  completeMassage();
+  sessionLog.push({ name: curAcuName(), ms: acuElapsedMs, completed: true });
+  completeMassage(false);
 }
 
 // ── 換手倒數 ──────────────────────────────────────────────────────
@@ -564,6 +561,8 @@ function startEntryCountdown() {
 
 function startSwitchCountdown(secOverride) {
   stopSwitchCountdown();
+  // 換手倒數關掉（App 批 93）：不倒數、停在「換手」提示，等使用者按開始
+  if (secOverride == null && !flow.switchAuto) return;
   const sec = secOverride != null ? secOverride : (Number(flow.switchSec) || 0);
   const btn = document.getElementById('btn-switch-now');
 

@@ -5,7 +5,7 @@
 //   settings-lang      語言
 //   settings-display   顯示（字體大小）
 //   settings-flow      療程節奏
-//   settings-presets   我的流程（一組穴道＋一套節奏，點一下直接開始）
+//   （settings-presets「我的流程」2026-10-31 拿掉：網頁存不住，用戶：「不需要」）
 //   settings-notify    每日提醒（含每天要按什麼）
 //   （settings-data「資料與紀錄」2026-09-24 拿掉：網頁不再存按摩紀錄，沒有東西可清）
 //
@@ -24,7 +24,7 @@ registerPage('settings', {
     <style>
       #settings-menu { display: flex; flex-direction: column; gap: 18px; }
       #settings-menu .grp-title {
-        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+        font-family: var(--font-mono); font-size: 0.65625rem; letter-spacing: .1em;
         text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; padding-left: 2px;
       }
       #settings-menu .grp-rows {
@@ -35,14 +35,24 @@ registerPage('settings', {
         display: flex; align-items: center; gap: 10px; width: 100%;
         padding: 12px; background: none; color: var(--ink); border: 0;
         border-top: 1px solid var(--line-soft);
-        font-family: var(--font-sans); font-size: 13.5px; text-align: left; cursor: pointer;
+        font-family: var(--font-sans); font-size: 0.84375rem; text-align: left; cursor: pointer;
       }
       #settings-menu button:first-child { border-top: 0; }
       #settings-menu button:hover { background: var(--surface-2); }
       #settings-menu .label { flex: 1; }
-      #settings-menu .value { color: var(--ink-soft); font-size: 12.5px; }
-      #settings-menu .chev { color: var(--ink-soft); font-size: 15px; line-height: 1; }
+      #settings-menu .value { color: var(--ink-soft); font-size: 0.78125rem; }
+      #settings-menu .chev { color: var(--ink-soft); font-size: 0.9375rem; line-height: 1; }
+      /* 右下角手掌浮水印（App SettingsMenuScreen HandMark）。
+         ⚠️ 會往右溢出，#page-settings 的 overflow:hidden 防止橫向捲軸。 */
+      #page-settings { position: relative; overflow: hidden; }
+      #page-settings > .stack { position: relative; z-index: 1; }
+      #page-settings .hand-mark {
+        position: absolute; right: -40px; bottom: -6px; width: 360px; max-width: 90%;
+        opacity: .13; transform: rotate(-8deg); transform-origin: 100% 100%;
+        pointer-events: none; user-select: none; z-index: 0;
+      }
     </style>
+    <img class="hand-mark" src="assets/hand.png" alt="" aria-hidden="true" loading="lazy">
 
     <div class="stack">
       <div>
@@ -70,7 +80,6 @@ function renderSettingsMenu() {
     ]},
     { title: t('settings-group-flow'), rows: [
       { page: 'settings-flow',    label: t('settings-flow'),    value: flowSummary() },
-      { page: 'settings-presets', label: t('settings-presets'), value: presetsSummary() },
       { page: 'settings-notify',  label: t('settings-notify'),  value: notifySummary() },
     ]},
   ];
@@ -87,4 +96,30 @@ function renderSettingsMenu() {
           </button>`).join('')}
       </div>
     </div>`).join('');
+}
+
+
+// ── 「!」說明鈕（2026-10-31 照 App 批 112 InfoMark）─────────────────────
+// 說明平常收著，點「!」才展開、再點收起；離開頁面就收回（不存）。
+// 看得到的圈 22px、可點範圍 40px（同 App）。各設定子頁的 html 直接用 ${infoMark('某 id')}。
+function infoMark(targetId) {
+  return `<button type="button" class="info-mark" aria-expanded="false" aria-controls="${targetId}"
+    aria-label="說明" onclick="toggleInfo(this)"><span aria-hidden="true">!</span></button>`;
+}
+function toggleInfo(btn) {
+  const el = document.getElementById(btn.getAttribute('aria-controls'));
+  if (!el) return;
+  const open = el.hidden;
+  el.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.classList.toggle('on', open);
+}
+/** 進頁時把這一頁的說明都收回去 */
+function collapseInfo(pageId) {
+  document.querySelectorAll(`#${pageId} .info-mark`).forEach(b => {
+    const el = document.getElementById(b.getAttribute('aria-controls'));
+    if (el) el.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+    b.classList.remove('on');
+  });
 }

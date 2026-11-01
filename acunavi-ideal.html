@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>AcuNavi 理想版</title>
+  <title>AcuNavi</title>
 
   <!-- ═══════════════════════════════════════════════════════════════
        這是「外殼」：只有 header、步驟軌、底部分頁列。
@@ -22,10 +22,12 @@
 
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">
-  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/responsive.css?v=20261031c">
+  <!-- 電腦版型（方案 D：左側深藍側欄）。只在寬 ≥ 1024 且有滑鼠的螢幕生效，手機／平板不受影響 -->
+  <link rel="stylesheet" href="css/desktop.css?v=20261031i">
 
   <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
-  <script src="js/mp-loader.js"></script>
+  <script src="js/mp-loader.js?v=20261002c"></script>
 
   <!-- 本機優先，沒下載過就退回 CDN（onerror）。本機檔怎麼來：node vendor/下載.js
        ⚠️ 版本號要與 mp-loader.js / vendor/下載.js 一致，
@@ -37,56 +39,63 @@
   <!-- 臉部用另一個模型 -->
   <script src="vendor/mediapipe/face_mesh/face_mesh.js"
           onerror="mpFallback(this,'face_mesh','face_mesh.js')"></script>
+  <!-- 前臂內關用 Pose（肘點＋人體遮罩）；模型只在進內關按摩頁才下載 -->
+  <script src="vendor/mediapipe/pose/pose.js"
+          onerror="mpFallback(this,'pose','pose.js')"></script>
 
   <!-- 手部定位公式（正式版的複本）。⚠️ 改這兩支要回頭同步 网页版_2d -->
-  <script src="js/acu-data.js"></script>
-  <script src="js/acu-math.js"></script>
+  <script src="js/acu-data.js?v=20261031g"></script>
+  <script src="js/acu-math.js?v=20261031e"></script>
 
   <!-- 臉部定位（另一套資料與公式）。⚠️ 改 face-math.js 要同步 臉部/face_acu.py -->
-  <script src="js/face-data.js"></script>
-  <script src="js/face-math.js"></script>
-  <script src="js/face-anchor.js"></script>
-  <script src="js/forearm-data.js"></script>
+  <script src="js/face-data.js?v=20261031e"></script>
+  <script src="js/face-sheet.js?v=20261002c"></script>
+  <script src="js/face-math.js?v=20261002c"></script>
+  <script src="js/face-anchor.js?v=20261002c"></script>
+  <script src="js/forearm-data.js?v=20261027a"></script>
   <!-- 臉部按摩的對準判定（跨兩個模型，不是定位公式，所以獨立一支） -->
-  <script src="js/face-gate.js"></script>
+  <script src="js/face-gate.js?v=20261002c"></script>
 
   <!-- 共用 -->
-  <script src="js/i18n.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/regions.js"></script>
-  <script src="js/minions.js"></script>
-  <script src="js/acu-ref.js"></script>
-  <script src="js/acu-video.js"></script>
-  <script src="js/splash.js"></script>
-  <script src="js/nav.js"></script>
-  <script src="js/session-menu.js"></script>
-  <script src="js/vision.js"></script>
-  <script src="js/face-vision.js"></script>
+  <script src="js/i18n.js?v=20261031d"></script>
+  <script src="js/state.js?v=20261031e"></script>
+  <script src="js/regions.js?v=20261002c"></script>
+  <script src="js/minions.js?v=20261002c"></script>
+  <script src="js/acu-ref.js?v=20261002c"></script>
+  <script src="js/acu-video.js?v=20261002c"></script>
+  <script src="js/splash.js?v=20261002c"></script>
+  <script src="js/nav.js?v=20261031d"></script>
+  <script src="js/session-menu.js?v=20261002c"></script>
+  <script src="js/vision.js?v=20261031b"></script>
+  <script src="js/face-vision.js?v=20261031b"></script>
+  <script src="js/forearm-vision.js?v=20261031a"></script>
 
   <!-- 一頁一檔：順序＝療程順序 -->
   <script src="pages/01-home.js"></script>
   <script src="pages/02-recommend.js"></script>
-  <script src="pages/03-acu-detail.js"></script>
+  <script src="pages/03-acu-detail.js?v=20261031c"></script>
   <script src="pages/04-camera.js"></script>
   <script src="pages/05-massage.js"></script>
   <script src="pages/06-complete.js"></script>
   <script src="pages/07-face.js"></script>
-  <script src="pages/08-summary.js"></script>
-  <script src="pages/tab-gallery.js"></script>
+  <script src="pages/08-summary.js?v=20261031c"></script>
+  <script src="pages/tab-gallery.js?v=20261031g"></script>
   <script src="pages/tab-gallery-info.js"></script>
-  <script src="pages/tab-settings.js"></script>
+  <script src="pages/tab-settings.js?v=20261031c"></script>
   <!-- 設定的子頁：一個功能一頁，目錄在 tab-settings.js -->
-  <script src="pages/settings-lang.js"></script>
-  <script src="pages/settings-display.js"></script>
-  <script src="pages/settings-notify.js"></script>
+  <script src="pages/settings-lang.js?v=20261031c"></script>
+  <script src="pages/settings-display.js?v=20261031c"></script>
+  <script src="pages/settings-notify.js?v=20261031c"></script>
   <script src="pages/settings-accuracy.js"></script>
-  <script src="pages/settings-presets.js"></script>
-  <script src="pages/settings-flow.js"></script>
+  <script src="pages/settings-flow.js?v=20261031c"></script>
 </head>
 
 <body>
   <div class="device">
     <div class="bezel"></div>
+
+    <!-- 2026-10-31 方案 D：電腦版左側欄（js/nav.js renderSidenav 畫內容）。手機／平板 display:none -->
+    <aside class="sidenav" id="sidenav" aria-label="導覽"></aside>
 
     <!-- 功能全在底部分頁列，語言在「設定」裡，所以 header 只剩品牌 -->
     <header>
@@ -114,17 +123,15 @@
     <main id="pages"></main>
 
     <!-- 2026-09-24：「個人」分頁拿掉（網頁不存紀錄，那頁全是連續天數／排行／等級），剩三個 -->
+    <!-- 2026-09-25（網頁v2 批 A）：照 App（AcuScaffold.TabBar）只留文字、拿掉圖示 -->
     <nav class="tabbar" id="tabbar" aria-label="主功能">
       <button type="button" data-tab="home" onclick="goTab('home')">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.75 20v-5.5h4.5V20"/></svg>
         <span data-i18n="nav-home">首頁</span>
       </button>
       <button type="button" data-tab="gallery" onclick="goTab('gallery')">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7"/><rect x="13.5" y="3.5" width="7" height="7"/><rect x="3.5" y="13.5" width="7" height="7"/><rect x="13.5" y="13.5" width="7" height="7"/></svg>
         <span data-i18n="nav-gallery">圖冊</span>
       </button>
       <button type="button" data-tab="settings" onclick="goTab('settings')">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h9"/><path d="M17 7.5h3"/><circle cx="15" cy="7.5" r="2"/><path d="M4 16.5h3"/><path d="M11 16.5h9"/><circle cx="9" cy="16.5" r="2"/></svg>
         <span data-i18n="nav-settings">設定</span>
       </button>
     </nav>
