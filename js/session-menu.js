@@ -24,6 +24,13 @@ function sessionGearHtml(prefix, opts) {
   const flip = opts.flip
     ? `<button type="button" role="menuitem" onclick="${opts.flipFn}()" data-i18n="btn-flip">切換鏡頭</button>`
     : '';
+  // 定位頁「重新檢測手部」（App CameraScreen onRecalib；2026-11-01 搬到網頁）。顯示與否由 syncRecalibItem 管
+  const recalib = opts.recalibFn
+    ? `<button type="button" role="menuitem" data-recalib-item onclick="${opts.recalibFn}()">
+        <span data-i18n="menu-recalib">重新檢測手部</span>
+        <small data-i18n="menu-recalib-desc">清掉量過的手，馬上重新量</small>
+      </button>`
+    : '';
   return `
     <button class="gear-btn" id="${prefix}-gear" onclick="toggleGearMenu(event, '${prefix}')"
             aria-haspopup="true" aria-expanded="false">
@@ -49,6 +56,7 @@ function sessionGearHtml(prefix, opts) {
       <!-- 信心圓盤開關 2026-11-01 拿掉（用戶：「幫我把圓盤移除」） -->
       <button type="button" role="menuitem" data-advance-label onclick="toggleAutoAdvance()">換穴：自動</button>
       <button type="button" role="menuitem" data-presscheck-label onclick="togglePressCheck()">按壓判定：開</button>
+      ${recalib}
       <hr>
       <button type="button" role="menuitem" class="danger" onclick="${opts.skipFn}()">
         <span data-i18n="menu-end-early">跳過這一穴</span>

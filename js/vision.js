@@ -108,17 +108,21 @@ const median = values => {
   return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
 };
 class TwistTracker {
-  constructor() { this.reset(); }
+  // fixedBaseline：定位前檢測量到的正面 Tb（js/calib.js，App TwistTracker.fixedBaseline）。
+  //   有值就不再滾動收基準，直接用它；reset() 不清它（onHandsResults 每幀照這隻手這一穴設）。
+  constructor() { this.fixedBaseline = null; this.reset(); }
   reset() { this.baseline = []; this.recent = []; this.active = false; }
   update(tb, tilt, blocked) {
     if (tb == null) { this.recent = []; return null; }
     this.recent.push(tb); if (this.recent.length > 5) this.recent.shift();
     const smooth = median(this.recent);
-    if (!blocked && tilt <= 15) {
+    if (this.fixedBaseline == null && !blocked && tilt <= 15) {
       this.baseline.push(tb); if (this.baseline.length > 40) this.baseline.shift();
     }
-    if (this.baseline.length < 8) return null;
-    const delta = smooth - median(this.baseline);
+    const base = this.fixedBaseline != null ? this.fixedBaseline
+      : this.baseline.length >= 8 ? median(this.baseline) : null;
+    if (base == null) return null;
+    const delta = smooth - base;
     this.active = this.active ? Math.abs(delta) > .14 : Math.abs(delta) > .20;
     return this.active ? (delta > 0 ? 'pinky' : 'index') : null;
   }
@@ -155,6 +159,87 @@ function drawTwistArrow(ctx, W, H, side, lm, mx) {
   ctx.strokeStyle = '#06101F'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
 }
 
+// ── 定位前檢測：手部（2026-11-01，App CameraScreen／MassageScreen 的量手段落）──────────
+// 頁面呼叫 beginHandCalib(手, 量好或略過後要做什麼)；這裡每幀收樣、畫框、寫提示，
+// 量好打勾停 CALIB_DONE_SHOW_MS 才呼叫 onDone。量手期間只認那一隻手、不畫穴道。
+let handCalibRun = null;   // { hand: 'right'|'left', cal, doneAt, onDone }
+function beginHandCalib(hand, onDone) {
+  handCalibRun = { hand, cal: new HandCalibrator(), doneAt: 0, onDone };
+  acuPointSmoother.reset();
+}
+function endHandCalib() { handCalibRun = null; }
+/** 「略過檢測」：這一穴這隻手不量了，直接接下去 */
+function skipHandCalibNow() {
+  const run = handCalibRun;
+  if (!run) return;
+  skipHandCalib(run.hand);
+  handCalibRun = null;
+  if (run.onDone) run.onDone();
+}
+
+/** 量手那一句（App calibNoticeText）：不合格時直接講原因 */
+function handCalibText(issue, hand, palm) {
+  const handName = t(hand === 'left' ? 'hand-left' : 'hand-right');
+  const side = t(palm ? 'calib-side-palm' : 'calib-side-back');
+  const key = { 'wrong-hand': 'calib-wrong', 'out-box': 'calib-out-box', 'wrong-side': 'calib-wrong-side',
+    tilted: 'calib-tilted', fingers: 'calib-fingers', moving: 'calib-moving', done: 'calib-done' }[issue] || 'calib-title';
+  return t(key).replace('{hand}', handName).replace('{side}', side);
+}
+
+function runHandCalibFrame(ctx, canvas, W, H, allHands, allSides) {
+  const run = handCalibRun, now = performance.now();
+  const name = curAcuName() || '';
+  const palm = calibAcuOnPalm(name);
+  const box = calibBox(W, H);
+  const file = calibImgFile(palm, run.hand);
+  const flipImg = facingMode !== 'user';         // 圖畫成前鏡頭的樣子；後鏡頭沒鏡像 → 翻
+  const sc = screenScale(canvas);
+  onTarget = false;
+  resetLiveStats();
+  if (run.doneAt) {
+    drawCalibGuide(ctx, box, 1, true, sc, file, flipImg);
+    setGate('ok', handCalibText('done', run.hand, palm));
+    if (now - run.doneAt >= CALIB_DONE_SHOW_MS) {
+      handCalibRun = null;
+      acuPointSmoother.reset();
+      twistTracker.reset();
+      if (run.onDone) setTimeout(run.onDone, 0);
+    }
+    return;
+  }
+  // 只認這一輪那隻手（App requireHand）；看到的是另一隻 → 「請換那隻手」
+  const want = labelOfHandKey(run.hand);
+  const idx = allHands.findIndex((lm, i) => lm && lm.length >= 21 && allSides[i] && allSides[i].label === want);
+  let sample = null;
+  if (idx >= 0) {
+    const lm = allHands[idx];
+    const px = lm.map(p => ({ x: p.x * W, y: p.y * H }));
+    sample = {
+      axisPx: Math.hypot(px[9].x - px[0].x, px[9].y - px[0].y),
+      cunPx: computeCunPx(lm, W, H),
+      tb: computeTwistTb(lm, W, H),
+      tiltDeg: computeHandTiltDeg(lm),
+      fingersOpen: fingersOpen(px),
+      atMs: now,
+      inBox: pointsInBox(px, box),                 // 框左右置中，畫面鏡像不影響
+      facingOk: calibFacingOk(name, isDorsalView(lm, allSides[idx])),
+    };
+  }
+  const st = run.cal.update(sample, idx < 0 && allHands.length > 0);
+  if (st.result) { recordHandCalib(run.hand, st.result); run.doneAt = now; }
+  drawCalibGuide(ctx, box, st.progress, !!st.result, sc, file, flipImg);
+  if (showSkeleton) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    const mirror = facingMode === 'user';
+    allHands.forEach(lm => (lm || []).forEach(p => {
+      ctx.beginPath(); ctx.arc(mirror ? W - p.x * W : p.x * W, p.y * H, 3, 0, Math.PI * 2); ctx.fill();
+    }));
+    ctx.restore();
+  }
+  setGate(st.result ? 'ok' : st.issue ? 'warn' : 'ok', handCalibText(st.result ? 'done' : st.issue, run.hand, palm));
+}
+
 // 單一共用實例：每次進頁重建會重載 wasm，又慢又漏
 function getHands() {
   if (hands) return hands;
@@ -175,9 +260,14 @@ function getHands() {
 //    降門檻只能救「露出一部分」的情況；整隻被擋住的由下面的遮擋推定（OCCLUDE_*）接手。
 let handsNumConfigured = null;
 function applyHandsOptions(h, mode) {
-  const n = mode === 'massage' ? 2 : 1;
-  if (handsNumConfigured === n) return;         // setOptions 會重配 graph，別每幀呼叫
-  const conf = n === 2 ? 0.4 : 0.6;
+  // 🐛 2026-11-01：定位頁也要 2 隻。09-25 批 C 起定位頁要看「另一隻手」（needPresser），
+  //   但這裡一直留著 1 → 定位頁永遠只偵測到一隻手、永遠卡在「請把另一隻手放進畫面」。
+  //   定位前檢測也要在兩隻手裡挑「這一輪那隻」，只偵測 1 隻時抓到另一隻就卡住。
+  //   （上面「手數砍半」那段效能理由因此作廢；門檻照舊：定位 0.6、按摩 0.4。）
+  const n = 2;
+  const conf = mode === 'massage' ? 0.4 : 0.6;
+  const key = mode === 'massage' ? 'massage' : 'locate';
+  if (handsNumConfigured === key) return;       // setOptions 會重配 graph，別每幀呼叫
   h.setOptions({
     maxNumHands: n,
     modelComplexity: 1,           // ⚠️ 不要為了流暢降成 0：lite 模型的 landmark 誤差
@@ -185,7 +275,7 @@ function applyHandsOptions(h, mode) {
     minDetectionConfidence: conf,
     minTrackingConfidence: conf,
   });
-  handsNumConfigured = n;
+  handsNumConfigured = key;
 }
 
 // ⚡ 預熱（2026-08-13）：MediaPipe 首次使用要抓 ~16MB（wasm 6.1MB + packed assets 4.2MB
@@ -412,6 +502,8 @@ function onHandsResults(results) {
 
   const allHands = results.multiHandLandmarks || [];
   const allSides = results.multiHandedness || [];
+  // 定位前檢測（js/calib.js）：量手期間只畫框、不畫穴道（App hideAcu），沒手也要畫框
+  if (handCalibRun) { runHandCalibFrame(ctx, canvas, W, H, allHands, allSides); return; }
   if (allHands.length === 0) {
     acuPointSmoother.reset();
     resetLiveStats();
@@ -519,7 +611,15 @@ function onHandsResults(results) {
     return;
   }
 
-  const pts = computeAcupoint(name, best.lm, W, H, best.handedness);
+  // 定位前檢測量到的值（App AcuCameraView calibs）：寸改成 k × 當下掌軸長 |lm0−lm9|，
+  //   扭轉箭頭改用量到的正面基準。沒量（略過／關掉又沒存檔）就照舊每幀量中指中節。
+  const cal = activeHandCalib(handKeyOfLabel(best.handedness.label));
+  const axisPx = Math.hypot((best.lm[9].x - best.lm[0].x) * W, (best.lm[9].y - best.lm[0].y) * H);
+  const useCal = !!(cal && axisPx > 1);
+  const cunPx = useCal ? cal.k * axisPx : computeCunPx(best.lm, W, H);
+  twistTracker.fixedBaseline = cal && cal.tb0 != null ? cal.tb0 : null;
+
+  const pts = computeAcupoint(name, best.lm, W, H, best.handedness, useCal ? cunPx : undefined);
   if (!pts || !pts.length) {
     acuPointSmoother.reset();
     setGate('warn', isZh() ? '無法計算此穴位置' : 'Cannot compute this acupoint');
@@ -527,7 +627,6 @@ function onHandsResults(results) {
     return;
   }
 
-  const cunPx = computeCunPx(best.lm, W, H);
   const discR = CONF_DISC_CUN * cunPx;
 
   // 圓盤的形狀是 3D 基底投影出來的多邊形，整組頂點都要跟著翻，

@@ -958,7 +958,7 @@ const _ACU_CALC_RAW = {
   "少府穴": _calcShaofu,   // 2026-10-31 照 App 批 103
 };
 
-function _computeAcupointRaw(name, lm, W, H, handedness, ov = {}) {
+function _computeAcupointRaw(name, lm, W, H, handedness, ov = {}, cunOverride) {
   let dorsal = isDorsalView(lm, handedness);
   // 側緣穴（長在手指「書脊」那一面）從手背或手心看都在那裡，兩面都該定位得到。
   // 各 _calc 函式開頭的 `if (!dorsal) return null` 對它們是多餘的保護，
@@ -966,7 +966,7 @@ function _computeAcupointRaw(name, lm, W, H, handedness, ov = {}) {
   // 是從 landmark 自己算的純幾何量，手翻面時 landmark 一起翻，方向自動跟著對。
   // 實測驗證見 BILATERAL_ACUPOINTS 的註解（2026-07-26，手心 32/32 幀正確）。
   if (!dorsal && BILATERAL_ACUPOINTS.has(name)) dorsal = true;
-  const cp = computeCunPx(lm, W, H);
+  const cp = cunOverride > 0 ? cunOverride : computeCunPx(lm, W, H);
   const fn = _ACU_CALC_RAW[name];
   return fn ? fn(lm, W, H, cp, dorsal, ov) : null;
 }
@@ -1124,7 +1124,9 @@ function _computeAcupointLegacy(name, lm, W, H, handedness, p) {
  * computeAcupoint — returns array of {x, y} clamped to hand convex hull, or null.
  * Side-edge acupoints skip clamping as their anatomical positions lie outside the hull.
  */
-function computeAcupoint(name, lm, W, H, handedness) {
+// cunOverride（2026-11-01，同 App AcuMath.computeAcupoint）：定位前檢測量到的寸（k × 掌軸長）。
+//   ⚠️ 不帶＝舊行為逐位元不變；只有 v35（raw 路徑）吃它，歷史版本照舊自己量。
+function computeAcupoint(name, lm, W, H, handedness, cunOverride) {
   // 舊版本號防呆：v28~v32 等版本曾經上線過但沒有留 preset，若使用者的
   // localStorage 還存著這些值，VERSION_PRESETS[...] 會是 undefined，
   // 一路掉進 _computeAcupointLegacy(..., undefined) 然後每一幀丟
@@ -1138,9 +1140,9 @@ function computeAcupoint(name, lm, W, H, handedness) {
     : null;
   const pts =
     preset === null
-      ? _computeAcupointRaw(name, lm, W, H, handedness)
+      ? _computeAcupointRaw(name, lm, W, H, handedness, {}, cunOverride)
       : preset === "v34_raw"
-        ? _computeAcupointRaw(name, lm, W, H, handedness, V34_PARAMS)
+        ? _computeAcupointRaw(name, lm, W, H, handedness, V34_PARAMS, cunOverride)
         : _computeAcupointLegacy(name, lm, W, H, handedness, preset);
   if (!pts) return null;
   const acu = ACUPOINTS.find((a) => a.name === name);

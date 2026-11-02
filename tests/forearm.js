@@ -64,6 +64,26 @@ ok(api.faAxis(flat, 110, 100, W, H) === null, '手肘太近回 null');
   ok(n.x === m.x && n.y === m.y, '內關走 faLocate 結果不變');
 }
 
+// 2026-11-02 加 6 穴（大陵／陰郄／通里／靈道 書上寸數中線；支溝／三陽絡 斜軸 −0.30）
+{
+  const P = api.FA_POINTS;
+  // flat：lm5 (70,140)、lm17 (70,80) ⇒ 小指側＝−y，u＝(0,−1)
+  ok(near(axis.ux, 0, 1e-9) && near(axis.uy, -1, 1e-9), '軸：u 指向小指側（lm5→lm17）');
+  const d = api.faLocate(axis, P['大陵穴'], 1.676, 30);
+  ok(near(d.x, 100, 1e-9) && near(d.y, 100, 1e-9) && !P['大陵穴'].dorsal, '大陵：就是 lm0（手心）');
+  const ys = ['陰郄穴', '通里穴', '靈道穴'].map(k => api.faLocate(axis, P[k], 1.676, 30));
+  ok(near(ys[0].x, 115, 1e-6) && near(ys[1].x, 130, 1e-6) && near(ys[2].x, 145, 1e-6) && ys.every(p => near(p.y, 100, 1e-9)),
+     '陰郄／通里／靈道：沿軸 0.5／1／1.5 寸、中線、不加 A／B／扭轉');
+  const z = api.faLocate(axis, P['支溝穴'], 1.676, 0), s = api.faLocate(axis, P['三陽絡穴'], 1.676, 0);
+  ok(near(z.x, 190, 1e-6) && near(z.y, 100 + 0.30 * 3 * 30, 1e-6) && near(s.x, 220, 1e-6) && near(s.y, 100 + 0.30 * 4 * 30, 1e-6)
+     && P['支溝穴'].dorsal && P['三陽絡穴'].dorsal,
+     '支溝／三陽絡：手背、沿軸 3／4 寸、每寸往拇指側 0.30 寸');
+  const pa = { x0: 100, y0: 100, ax: 1, ay: 0, nx: 0, ny: 1, cun: 30 };   // 沒有 u（手掌尺軸）
+  const z2 = api.faLocate(pa, P['支溝穴'], 1.676, 0);
+  ok(near(z2.x, 190, 1e-6) && near(z2.y, 100, 1e-6), '軸沒有 u 時斜軸當 0，不會 NaN');
+  ok(Object.keys(P).length === 10, 'FA_POINTS 共 10 穴（少海／小海／曲澤／四瀆／支正 不做）');
+}
+
 // 遮罩 → inside()（同 faReadMask 的取樣：四捨五入到遮罩格、出界回 null）
 function insideOf(mask, mw, mh) {
   return (x, y) => {

@@ -1,6 +1,6 @@
-// 前臂（手肘）15 穴：與 Android App 的 ForearmData.kt 同一份展示資料。
-// 目前只有資料與介紹，定位公式刻意留空。
-const FOREARM_ACUPOINTS = [
+// 前臂（手肘）：與 Android App 的 ForearmData.kt 同一份展示資料。
+// 原表 15 穴；2026-11-02 起畫面只用 10 穴（扣掉 FOREARM_REMOVED），10 穴都有定位公式（js/forearm-vision.js）。
+const FOREARM_ALL_ACUPOINTS = [   // 原表 15 穴（含 FOREARM_REMOVED）；畫面用下面的 FOREARM_ACUPOINTS
   ['少海穴','Shaohai','HT3','位於手肘彎曲時，手肘內側橫紋的尾端。','通經活絡，可緩解肘臂痠麻、手顫。',''],
   ['小海穴','Xiaohai','SI8','彎曲手肘時形成的皺褶上，內側有個凹陷的地方即為穴位。','通經活絡，可緩解肘臂疼痛麻木、頭暈、牙齦痛。','此處為尺神經溝，按壓會有觸電般的麻感，力道宜輕'],
   ['曲澤穴','Quze','PC3','手掌向上、手肘微微彎曲，手肘橫紋與骨頭間的凹陷處。','清熱和胃，可緩解中暑不適、胃部悶脹、噁心嘔吐。',''],
@@ -20,7 +20,7 @@ const FOREARM_ACUPOINTS = [
   name,en,code,locate,note,caution,ref: en.toLowerCase()+'.png'
 }));
 
-const FOREARM_SYMPTOM_MAP = {
+const FOREARM_ALL_SYMPTOM_MAP = {   // 原表（含 FOREARM_REMOVED）
   '肘臂痠痛':['少海穴','小海穴','靈道穴','郄門穴','間使穴','外關穴','支正穴'],
   '緩解頭痛':['通里穴','陰郄穴','小海穴','外關穴','支正穴'],
   '緩解耳鳴':['小海穴','外關穴','支溝穴','三陽絡穴','四瀆穴'],
@@ -32,9 +32,17 @@ const FOREARM_SYMPTOM_MAP = {
   '便祕':['外關穴','支溝穴'], '肩頸痠痛':['支正穴'], '中暑':['曲澤穴'],
   '改善失眠':['大陵穴'], '緩解腕痛':['大陵穴'], '口腔衛生':['大陵穴'],
 };
+// 2026-11-02 用戶：「全部先刪掉」→ 少海／小海／曲澤／四瀆／支正 不再出現在清單、圖冊、症狀推薦（同 App ForearmData.REMOVED）
+//   資料留在 FOREARM_ALL_*，要加回來把名字從這裡拿掉就好
+const FOREARM_REMOVED = new Set(['少海穴', '小海穴', '曲澤穴', '四瀆穴', '支正穴']);
+const FOREARM_ACUPOINTS = FOREARM_ALL_ACUPOINTS.filter(a => !FOREARM_REMOVED.has(a.name));
+// 扣完沒穴的症狀（肩頸痠痛、中暑）整個不列
+const FOREARM_SYMPTOM_MAP = Object.fromEntries(Object.entries(FOREARM_ALL_SYMPTOM_MAP)
+  .map(([k, v]) => [k, v.filter(n => !FOREARM_REMOVED.has(n))]).filter(([, v]) => v.length));
 // 有相機定位公式的前臂穴（2026-10-01 內關，同 App ForearmData.IMPLEMENTED；公式在 js/forearm-vision.js FA_POINTS）
 // 2026-10-27 加間使／郄門／外關 —— ⚠️ App 還只有內關（新功能先網頁）
-const FOREARM_IMPLEMENTED = new Set(['內關穴', '間使穴', '郄門穴', '外關穴']);
+// 2026-11-02 加 大陵／陰郄／通里／靈道／支溝／三陽絡（公式見 forearm-vision.js FA_POINTS）；少海／小海／曲澤／四瀆／支正 用戶說先不做
+const FOREARM_IMPLEMENTED = new Set(['內關穴', '間使穴', '郄門穴', '外關穴', '大陵穴', '陰郄穴', '通里穴', '靈道穴', '支溝穴', '三陽絡穴']);
 const forearmAcu = name => FOREARM_ACUPOINTS.find(a => a.name === name);
 const isForearmItem = id => !!forearmAcu(id);
 const forearmRecommend = names => {

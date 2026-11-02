@@ -225,7 +225,9 @@ button { font-family: inherit; }
 .gear-menu .finger-chip.on {
   background: var(--brass); border-color: var(--brass); color: var(--on-brass); font-weight: 700;
 }
-.gear-menu .danger small {
+/* 「重新檢測手部」只在手部＋檢測開著時出現 —— 上面 display:block 會蓋掉 hidden，要再壓回去 */
+.gear-menu button[hidden] { display: none; }
+.gear-menu button small {
   display: block; font-size: 0.65625rem; color: var(--ink-soft);
   font-weight: 400; margin-top: 2px;
 }

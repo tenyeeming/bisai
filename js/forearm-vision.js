@@ -53,6 +53,18 @@ const FA_POINTS = {
   '間使穴': { n: 3, pc: true,  dorsal: false },
   '郄門穴': { n: 5, pc: true,  dorsal: false },
   '外關穴': { n: 2, pc: false, dorsal: true },
+  // 2026-11-02 用戶：「那先把可以用的加入到app和網頁上面去」→ 加 6 穴（用戶左臂筆點片，1 人、各 1 支）
+  //   手心四穴：書上寸數、中線、不加 A —— 依據 貼紙實驗/前臂七穴_公式誤差_20261102/README.md（P1，沒擬合）
+  //     中位 大陵 5.4、陰郄 4.8、通里 5.4、靈道 3.6mm；加 A 的現行內關式反而 9～13mm
+  //   手背二穴：斜軸 slant −0.30（往拇指側 ~16.5°）—— 依據 19:32～19:39 三支各自錄的片算 k，
+  //     19:46 同片四點（貼紙實驗/20261102_1946_手背四點/）樣本外驗證：支溝 2.5、三陽絡 4.4mm
+  //   ⚠️ 外關同一條斜線（新片斜軸 3.5mm vs 現在純 2 寸 12.2mm），要不要改等用戶點頭，先不動
+  '大陵穴':   { n: 0,   pc: false, dorsal: false },
+  '陰郄穴':   { n: 0.5, pc: false, dorsal: false },
+  '通里穴':   { n: 1,   pc: false, dorsal: false },
+  '靈道穴':   { n: 1.5, pc: false, dorsal: false },
+  '支溝穴':   { n: 3,   pc: false, dorsal: true, slant: -0.30 },
+  '三陽絡穴': { n: 4,   pc: false, dorsal: true, slant: -0.30 },
 };
 
 const faMedian = (v) => {
@@ -71,7 +83,9 @@ function faAxis(hand, ex, ey, W, H) {
   let nx = -ay, ny = ax;
   const tx = hand[9].x * W - x0, ty = hand[9].y * H - y0;
   if (tx * nx + ty * ny < 0) { nx = -nx; ny = -ny; }
-  return { x0, y0, ax, ay, nx, ny, lenPx: len, cun: len / 12 };
+  // u＝垂直前臂軸、指向小指側（lm5→lm17 那邊）；手背斜軸穴（slant）用
+  const s = ((hand[17].x - hand[5].x) * W * nx + (hand[17].y - hand[5].y) * H * ny) >= 0 ? 1 : -1;
+  return { x0, y0, ax, ay, nx, ny, ux: s * nx, uy: s * ny, lenPx: len, cun: len / 12 };
 }
 
 /** 兩隻手時挑被按的那隻：Hand lm0 與 Pose 腕（15／16）最近的那組。回 { hand, elbow } 或 null */
@@ -142,7 +156,12 @@ const faRadiusCun = (cuts) => cuts.length ? faMedian(cuts.map(c => c.widthCun)) 
 
 /** spec 是 FA_POINTS 的一筆；plain 的穴 rCun／thetaDeg 用不到 */
 function faLocate(a, spec, rCun, thetaDeg) {
-  if (!spec.pc) return { x: a.x0 + spec.n * a.cun * a.ax, y: a.y0 + spec.n * a.cun * a.ay };
+  if (!spec.pc) {
+    // 純 n 寸；slant＝每走 1 寸往小指側偏幾寸（負＝往拇指側）。沒有 u（手掌尺軸）就當 0
+    const k = spec.slant && a.ux != null ? spec.slant : 0;
+    const along = spec.n * a.cun, across = k * spec.n * a.cun;
+    return { x: a.x0 + along * a.ax + across * (a.ux || 0), y: a.y0 + along * a.ay + across * (a.uy || 0) };
+  }
   const along = (spec.n + FA_A) * a.cun;
   const across = (FA_B + FA_C * rCun * Math.sin(thetaDeg * Math.PI / 180)) * a.cun;
   return { x: a.x0 + along * a.ax + across * a.nx, y: a.y0 + along * a.ay + across * a.ny };
@@ -694,33 +713,17 @@ function faReadMask(mask, W, H) {
   };
 }
 
-function faBox(W, H) {
-  const s = Math.min(W, H) * FA_BOX_FRAC;
-  return { l: (W - s) / 2, t: (H - s) / 2, s };
-}
-function faInBox(pts, b) {
-  const m = b.s * FA_BOX_SLACK;
-  return pts.every(p => p.x >= b.l - m && p.x <= b.l + b.s + m && p.y >= b.t - m && p.y <= b.t + b.s + m);
-}
+// 2026-11-01（App 批 123）：正方形框換成跟手部、臉部同一個 calibBox（直立 3:4，js/calib.js），
+//   框裡加手肘圖（這一穴手心／手背 × 被按的左手／右手）。判斷進框用同一個框，所以畫的跟判斷的一致。
+//   （上面的 FA_BOX_FRAC 0.86／FA_BOX_SLACK 已沒人用，留著只是對照舊正方形框的大小。）
+function faBox(W, H) { return calibBox(W, H); }
+function faInBox(pts, b) { return pointsInBox(pts, b); }
 
-/** 正方形檢測框：進度沿框走一圈，量好整框變綠（同 App ForearmViewport） */
+/** 檢測框：同 App CalibGuide（圖＋進度沿框走一圈＋量好變綠打勾） */
 function faDrawBox(ctx, b, progress, done, sc) {
-  const r = 18 * sc, lw = 5 * sc;
-  const path = () => {
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(b.l, b.t, b.s, b.s, r); else ctx.rect(b.l, b.t, b.s, b.s);
-  };
-  ctx.save();
-  ctx.lineWidth = lw;
-  path(); ctx.strokeStyle = 'rgba(255,255,255,.33)'; ctx.stroke();
-  const per = 4 * b.s - 8 * r + 2 * Math.PI * r;
-  const len = per * (done ? 1 : progress);
-  if (len > 0) {
-    ctx.setLineDash([len, per + 1]);
-    ctx.lineCap = 'round';
-    path(); ctx.strokeStyle = done ? '#4FBF8B' : '#fff'; ctx.stroke();
-  }
-  ctx.restore();
+  const spec = faSpec();
+  const file = calibForearmImgFile(!spec.dorsal, fa.calibHand || 'right');
+  drawCalibGuide(ctx, b, progress, done, sc, file, faFacing !== 'user');
 }
 
 // ── 每幀 ─────────────────────────────────────────────────────────────
@@ -753,6 +756,8 @@ function faProcessFrame() {
   const wrongSide = dorsal !== spec.dorsal ? (spec.dorsal ? 'palm' : 'dorsal') : null;
   const tb = hp ? computeTwistTb(hp, W, H) : null;
   const wr = hp ? faWidthRatio(hp, W, H) : null;
+  // 檢測框的圖跟著鏡頭裡實際那隻手換；還沒看到手先放右手（App ForearmScreen 批 123）
+  if (hp && sides[pick.hand]) fa.calibHand = handKeyOfLabel(sides[pick.hand].label);
 
   if (showSkeleton) {
     ctx.save();

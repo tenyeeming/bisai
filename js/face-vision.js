@@ -218,6 +218,8 @@ function onFaceResults(results) {
   ctx.restore();
 
   const faces = results.multiFaceLandmarks || [];
+  // 定位前檢測（按摩頁，App FaceScreen 批 122）：量臉期間只畫框、不畫穴位，沒臉也要畫框
+  if (faceCalibRun && faceMode === 'massage') { runFaceCalibFrame(ctx, canvas, W, H, faces); return; }
   if (!faces.length) {
     setFaceGate('warn', isZh() ? '請把臉放進畫面中' : 'Put your face in frame');
     return;
@@ -292,6 +294,60 @@ function onFaceResults(results) {
       ? `定位中　${drawn} 點　信心 ${pct}%　側傾 ${roll}°`
       : `Locating · ${drawn} pts · confidence ${pct}% · roll ${roll}°`);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 定位前檢測：臉部（2026-11-01，App FaceScreen 批 122 ＋ locate/FaceCalib.kt）
+//
+// 合格＝整張臉（478 點）在框裡、左右轉頭 ≤12°、頭不動，連續 2 秒。
+// ⚠️ 網頁沒有上下角（App 用官方矩陣），抬／低頭這條不擋。
+// ⚠️ 臉部沒有像手部「寸」的數字 —— 這一步是「讓穴位在正臉上記住這張臉」＋「人擺好了」，
+//    不會讓公式本身變準。量的期間照樣跑 computeFaceAcupointAnchored（不畫），正臉綁定才會發生。
+// ═══════════════════════════════════════════════════════════════════
+let faceCalibRun = null;   // { cal, doneAt, onDone }
+function beginFaceCalib(onDone) { faceCalibRun = { cal: new FaceCalibrator(), doneAt: 0, onDone }; }
+function endFaceCalib() { faceCalibRun = null; }
+function skipFaceCalibNow() {
+  const run = faceCalibRun;
+  if (!run) return;
+  skipFaceCalib();
+  faceCalibRun = null;
+  if (run.onDone) run.onDone();
+}
+function faceCalibText(issue) {
+  const key = { 'out-box': 'calib-face-out-box', turned: 'calib-face-turned', moving: 'calib-face-moving',
+    done: 'calib-face-done' }[issue] || 'calib-face-title';
+  return t(key);
+}
+function runFaceCalibFrame(ctx, canvas, W, H, faces) {
+  const run = faceCalibRun, now = performance.now();
+  const box = calibBox(W, H), sc = screenScale(canvas);
+  const flipImg = faceFacingMode !== 'user';
+  onTarget = false;
+  if (run.doneAt) {
+    drawCalibGuide(ctx, box, 1, true, sc, CALIB_FACE_IMG, flipImg);
+    setFaceGate('ok', faceCalibText('done'));
+    if (now - run.doneAt >= CALIB_DONE_SHOW_MS) {
+      faceCalibRun = null;
+      if (run.onDone) setTimeout(run.onDone, 0);
+    }
+    return;
+  }
+  let sample = null;
+  const lm = faces[0];
+  const pose = lm ? faceHeadPose(lm, W, H) : null;
+  if (lm && pose) {
+    const yaw = faceYawDeg(lm, W);
+    faceSelected.forEach(code => computeFaceAcupointAnchored(code, lm, W, H, yaw));   // 只為了在正臉綁定，不畫
+    sample = {
+      ipdPx: pose.ipd, yawDeg: yaw, pitchDeg: null, atMs: now,
+      inBox: pointsInBox(lm.map(p => ({ x: p.x * W, y: p.y * H })), box),
+    };
+  }
+  const st = run.cal.update(sample);
+  if (st.done) { recordFaceCalib(); run.doneAt = now; }
+  drawCalibGuide(ctx, box, st.progress, st.done, sc, CALIB_FACE_IMG, flipImg);
+  setFaceGate(st.done ? 'ok' : st.issue ? 'warn' : 'ok', faceCalibText(st.done ? 'done' : st.issue));
 }
 
 // ═══════════════════════════════════════════════════════════════════

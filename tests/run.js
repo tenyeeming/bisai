@@ -14,6 +14,7 @@ const SUITES = [
   ['face-detail','臉部白話資料與參考圖（不需要套件）'],
   ['guide',      '引導箭頭（不需要套件）'],
   ['forearm',    '前臂內關公式（同 App ForearmMathTest，不需要套件）'],
+  ['calib',      '定位前檢測（同 App HandCalibTest／FaceCalibTest，不需要套件）'],
 ];
 
 let bad = 0;

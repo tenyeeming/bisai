@@ -67,6 +67,16 @@ registerPage('settings-flow', {
         <div class="seg" id="seg-advance"></div>
         <p class="d" data-i18n="settings-advance-desc">一個穴道左右手都按完之後，要不要自動接下一個穴道。</p>
       </div>
+
+      <hr class="rule">
+
+      <!-- 2026-11-01 照 App 設定 › 治療流程「定位前檢測」（js/calib.js） -->
+      <div class="fieldrow">
+        <p class="k" data-i18n="settings-hand-calib">定位前檢測</p>
+        <div class="seg" id="seg-calib"></div>
+        <p class="d" data-i18n="settings-hand-calib-desc"></p>
+        <p class="d" id="calib-saved"></p>
+      </div>
     </div>
   </div>`,
 });
@@ -91,6 +101,17 @@ function renderFlowSettings() {
 
   // 2026-10-31 照 App：單手秒數改成 5～90 秒滑桿（以前是 15/30/45/60 四格）
   pressSlider();
+
+  // 定位前檢測（App settings_hand_calib）：關掉時改用最近一次量到的寸比例（下面那行寫有沒有）
+  seg('seg-calib', [true, false], v => t(v ? 'toggle-on' : 'toggle-off'),
+      () => calibEnabled, v => setCalibEnabled(v));
+  const sv = savedCalib();
+  const hands = ['right', 'left'].filter(h => typeof sv[h] === 'number')
+    .map(h => t(h === 'right' ? 'hand-right' : 'hand-left'));
+  const el = document.getElementById('calib-saved');
+  if (el) el.textContent = hands.length
+    ? t('settings-calib-saved').replace('{date}', sv.savedAt || '').replace('{what}', hands.join(isZh() ? '、' : ', '))
+    : t('settings-calib-saved-none');
 }
 
 // 分段選擇器：值一律存進 flow，按下去就生效（沒有「儲存」鈕，那多一步沒有意義）

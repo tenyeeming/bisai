@@ -74,9 +74,14 @@ registerPage('massage', {
     syncMassageControls();
     startMassageCamera();
     // 內關要先做放平檢測（js/forearm-vision.js），量好才開始進頁倒數（同 App ForearmScreen）
-    if (massageDetector() === 'forearm') holdForForearmCalib(); else startEntryCountdown();
+    // 手部／臉部：定位前檢測還沒量的話先量，量好（或略過）才倒數（App MassageScreen／FaceScreen）
+    if (massageDetector() === 'forearm') holdForForearmCalib(); else holdForCalib(startEntryCountdown);
   },
-  onLeave: () => { stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu(); },
+  onLeave: () => {
+    stopMassageTimer(); stopSwitchCountdown(); closeMassageMenu();
+    endHandCalib(); if (typeof endFaceCalib === 'function') endFaceCalib();
+    massageCalibOn = false; syncMassageCalibButtons();
+  },
   onLanguage: () => {
     document.getElementById('massage-title').textContent = itemLabel(curAcuName());
     syncDiscLabels();
@@ -221,6 +226,8 @@ registerPage('massage', {
              oninput="onPressSecChange()" hidden>
       <p class="sr-only" id="timer-state" role="status" aria-live="polite"></p>
       <button class="btn wide" id="btn-massage-start" onclick="toggleMassagePause()">開始按摩</button>
+      <!-- 定位前檢測中主按鈕換成「略過檢測」（App MassageScreen／FaceScreen） -->
+      <button class="btn wide" id="btn-massage-calib-skip" onclick="skipMassageCalib()" data-i18n="calib-skip" hidden>略過檢測</button>
     </div>
   </div>`,
 });
@@ -310,6 +317,37 @@ function restartForearmCalib() {
   armTimer();
   holdForForearmCalib();
   syncMassageControls();
+}
+
+// ── 定位前檢測：手部第二隻手、臉部（js/calib.js）──────────────────────
+// 第一隻手在定位頁量（04-camera.js）；這裡只會在**換第二隻手**、或療程中途才把檢測打開時量手。
+// 臉部沒有定位頁，每一穴進按摩頁時量。量的期間主按鈕是「略過檢測」，倒數不開始。
+let massageCalibOn = false;
+function holdForCalib(then) {
+  const det = massageDetector();
+  const done = () => {
+    if (currentPage !== 'massage') return;        // 打勾那 1.2 秒內離開了
+    massageCalibOn = false;
+    syncMassageCalibButtons();
+    then();
+  };
+  if (det === 'hand' && hasRounds()) {
+    const hand = curHandKey() === 'hand-left' ? 'left' : 'right';
+    if (needsHandCalib(hand)) { massageCalibOn = true; beginHandCalib(hand, done); syncMassageCalibButtons(); return; }
+  } else if (det === 'face' && typeof needsFaceCalib === 'function' && needsFaceCalib()) {
+    massageCalibOn = true; beginFaceCalib(done); syncMassageCalibButtons(); return;
+  }
+  then();
+}
+function skipMassageCalib() {
+  if (massageDetector() === 'face') skipFaceCalibNow(); else skipHandCalibNow();
+}
+function syncMassageCalibButtons() {
+  const skip = document.getElementById('btn-massage-calib-skip');
+  const start = document.getElementById('btn-massage-start');
+  if (skip) skip.hidden = !massageCalibOn;
+  if (start) start.hidden = massageCalibOn;
+  if (massageCalibOn) { const now = document.getElementById('btn-switch-now'); if (now) now.hidden = true; }
 }
 
 // 全螢幕時輪次條被蓋住了，所以那個資訊要在 HUD 左上角再出現一次
@@ -501,6 +539,12 @@ function toggleMassagePause() {
 
 function startMassage() {
   if (massageRunning) return;
+  // 量手／量臉中被直接開始（正常按鈕已藏起來，這是保險）：收掉檢測、不記略過（App：running 後就不算 calibrating）
+  if (massageCalibOn) {
+    massageCalibOn = false;
+    endHandCalib(); if (typeof endFaceCalib === 'function') endFaceCalib();
+    syncMassageCalibButtons();
+  }
   stopSwitchCountdown();   // 從別處直接開始（如測試、全螢幕鈕）時，倒數要收掉、開始鈕要回來
   document.getElementById('round-switch').hidden = true;
   massageRemainMs = parseInt(document.getElementById('timer-input').value, 10) * 1000;
@@ -533,7 +577,8 @@ function finishRound() {
     armTimer();
     renderRound();
     showSwitchHint(done);
-    startSwitchCountdown();
+    // 第二隻手這一穴還沒量 → 先量，量好才開始換手倒數（App：量手中倒數先停住）
+    holdForCalib(() => startSwitchCountdown());
     return;
   }
   // 這一穴按完了，記進本次療程清單給總結頁（網頁不存長期紀錄）

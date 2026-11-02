@@ -414,6 +414,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('round-pips').textContent === '2/2', '輪次進到 2/2');
   ok(!$('round-switch').hidden && /右手完成/.test($('round-switch').textContent)
      && /換成左手/.test($('round-switch').textContent), '顯示換手提示：' + $('round-switch').textContent);
+  // 2026-11-01 定位前檢測：第二隻手這一穴還沒量 → 先量手，倒數還不開始（App MassageScreen）
+  ok(!$('btn-massage-calib-skip').hidden && $('btn-massage-start').hidden && $('btn-switch-now').hidden,
+     '換手：左手還沒量 → 主按鈕換成「略過檢測」，倒數先停住');
+  ok(!/秒後自動開始/.test($('round-switch').textContent), '量手中換手提示不帶倒數');
+  ok(w.eval('handCalibRun && handCalibRun.hand') === 'left', '量的是這一輪那隻（左手）');
+  $('btn-massage-calib-skip').click();
+  ok($('btn-massage-calib-skip').hidden && w.eval('handCalibRun') === null, '按「略過檢測」：收掉檢測框');
   ok(/5 秒後自動開始/.test($('round-switch').textContent), '換手提示帶自動開始倒數');
   ok(!$('btn-switch-now').hidden, '換手倒數時出現「立即開始」');
   ok($('btn-massage-start').textContent === '開始按左手', '按鈕變成「開始按左手」');
@@ -550,8 +557,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-09-22：與 App 同步為手部 26＋臉部 23＋前臂 15，共 64 穴。
   // 2026-10-31：照 App 拿掉手部 7 穴（側緣五穴＋陽溪陽谷）、加少府，臉部拿掉球後、兌端 → 20＋21＋15＝56。
   // 2026-10-31（晚）用戶再拿掉少商、少澤 → 18＋21＋15＝54。
-  const totalTiles = 18 + 21 + 15;
-  ok(/共 54 穴/.test($('gallery-progress').textContent), '圖冊標「共 54 穴」（實得 ' + $('gallery-progress').textContent + '）');
+  // 2026-11-02 用戶「全部先刪掉」：前臂拿掉少海／小海／曲澤／四瀆／支正 → 18＋21＋10＝49。
+  const totalTiles = 18 + 21 + 10;
+  ok(/共 49 穴/.test($('gallery-progress').textContent), '圖冊標「共 49 穴」（實得 ' + $('gallery-progress').textContent + '）');
   const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
   ok(dataTotal === 50, '手部與臉部資料表是 50 穴（拿掉的穴資料與公式留著，只是不列；實得 ' + dataTotal + '）');
   ok(!$('collection-grid').querySelector('[data-acu="二間穴"]') && !$('collection-grid').querySelector('[data-acu="EX-HN7"]'),
@@ -560,7 +568,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // ── 每格是該穴參考圖（2026-09-24），沒有鎖、沒有等級 ──
   const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
   const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
-  ok(cells.length === totalTiles, '圖冊有 54 格（實得 ' + cells.length + '）');
+  ok(cells.length === totalTiles, '圖冊有 49 格（實得 ' + cells.length + '）');
+  ok(!$('collection-grid').querySelector('[data-acu="少海穴"]') && !$('collection-grid').querySelector('[data-acu="支正穴"]'),
+     '圖冊不列拿掉的前臂穴（少海、支正…）');
   ok(groups.length === 3, '手部、臉部與前臂各有一個分組標題');
   const handTiles = cells.slice(0, 18);
   const faceTiles = cells.slice(18, 39);
@@ -681,8 +691,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      '前臂可練、沒有「尚未開放／實驗」字樣（App 批 94）');
 
   // 2026-09-23：只開小海穴一穴的實驗頁，其餘 14 穴維持停用
-  w.eval("infoAcuName='小海穴'"); w.showPage('acu-info');
-  ok($('btn-practice').disabled === false, '小海穴開放實驗定位 → 練習按鈕可按');
+  // 2026-11-02 小海已從清單拿掉；forearm-lab.html（小海實驗頁）本身還在
+  ok(!w.eval("isForearmItem('小海穴')") && w.eval("FOREARM_ALL_ACUPOINTS.some(a=>a.name==='小海穴')"),
+     '小海穴已拿掉（不是前臂項目），資料還在原表');
   ok(w.eval("FOREARM_LAB['小海穴']") === 'forearm-lab.html', '小海穴練習指向 forearm-lab.html');
   ok(w.eval("Object.keys(FOREARM_LAB).length") === 1, '前臂只開放小海一穴');
 
@@ -800,8 +811,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.showPage('settings-flow');
   const segOn = (id) => [...d.querySelectorAll(`#${id} button`)].find(b => b.classList.contains('on'));
   // 2026-10-31 照 App：順序 認穴停留 → 換手倒數 → 單手秒數（5～90 滑桿）｜ 手序 → 換穴
-  ok([...d.querySelectorAll('#page-settings-flow .fieldrow > .k')].map(k => k.textContent).join() === '認穴停留,換手倒數,單手秒數,手序,換穴',
-     '療程節奏順序同 App：認穴停留／換手倒數／單手秒數／手序／換穴');
+  ok([...d.querySelectorAll('#page-settings-flow .fieldrow > .k')].map(k => k.textContent).join() === '認穴停留,換手倒數,單手秒數,手序,換穴,定位前檢測',
+     '療程節奏順序同 App：認穴停留／換手倒數／單手秒數／手序／換穴／定位前檢測');
+  // 定位前檢測開關（2026-11-01）：預設開、按「關」會存檔
+  ok(segOn('seg-calib') && segOn('seg-calib').textContent === '開' && w.eval('calibEnabled') === true, '定位前檢測預設開');
+  [...d.querySelectorAll('#seg-calib button')].find(b => b.textContent === '關').click();
+  ok(w.eval('calibEnabled') === false && w.localStorage.getItem('handCalib') === 'false', '關掉定位前檢測會存檔');
+  [...d.querySelectorAll('#seg-calib button')].find(b => b.textContent === '開').click();
+  ok(w.eval('calibEnabled') === true, '再打開');
   const pressRange = () => d.querySelector('#press-row input[type="range"]');
   ok(pressRange() && pressRange().min === '5' && pressRange().max === '90' && pressRange().value === String(w.eval('flow.pressSec')),
      '單手秒數是 5～90 秒滑桿，停在設定值');
@@ -867,7 +884,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(bSegs()[0].classList.contains('on'), '肘臂痠痛有手部少府 → 預設停在手部');
   bSegs()[1].click();
   ok(bSegs()[1].classList.contains('on'), '肘臂痠痛切到手肘分頁');
-  ok($('recommend-list').querySelectorAll('.acu-item').length === 7, '肘臂痠痛列出 7 個前臂穴道');
+  // 2026-11-02 少海／小海／支正拿掉 → 靈道、郄門、間使、外關
+  ok($('recommend-list').querySelectorAll('.acu-item').length === 4, '肘臂痠痛列出 4 個前臂穴道（實得 ' + $('recommend-list').querySelectorAll('.acu-item').length + '）');
   ok([...$('recommend-list').querySelectorAll('.acu-item')].every(e => e.getAttribute('role') === 'checkbox'),
      '前臂卡片可勾選（App 批 94）');
   {
@@ -879,9 +897,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(active().join() === 'acu-detail' && w.eval('isForearmItem(curAcuName())'), '前臂穴進認穴頁：' + nm);
     ok(!/尚未|未開放|實驗/.test($('page-acu-detail').textContent), '認穴頁沒有「尚未開放」字樣');
     w.startLocate(); await tick();
-    ok(active().join() === 'massage', '前臂「開始定位」直接進按摩頁（取景框黑畫面）');
-    ok(w.eval("itemDetector(curAcuName())") === 'none' && w.eval('massageHeld()') === true,
-       '前臂不開相機、計時不看對準');
+    ok(active().join() === 'massage', '前臂「開始定位」進按摩頁');
+    // 2026-11-02 起前臂 10 穴都有公式 → 不再有黑畫面的前臂穴
+    ok(w.eval("itemDetector(curAcuName())") === 'forearm', '前臂穴開相機定位（' + nm + '）');
     ok($('round-hand').textContent === '手肘' && /1\/1/.test($('round-pips').textContent), '輪次條 1/1 手肘');
     w.goHome(); await tick();
   }
@@ -898,7 +916,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     card.click();
     w.goToAcuDetail(); await tick();
     ok(w.eval('curAcuName()') === '內關穴' && w.eval("itemDetector('內關穴')") === 'forearm'
-       && w.eval("itemDetector('少海穴')") === 'none', 'itemDetector：內關＝forearm、其他前臂仍黑畫面');
+       && w.eval("itemDetector('大陵穴')") === 'forearm' && !w.eval("isForearmItem('少海穴')"),
+       'itemDetector：內關、大陵＝forearm；少海已不是前臂項目');
     w.startLocate(); await tick(); await tick();
     ok(active().join() === 'massage', '內關「開始定位」進按摩頁');
     ok(w.eval('faCamRunning') === true && w.eval('camRunning') === false && w.eval('faceCamRunning') === false,

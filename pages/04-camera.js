@@ -15,9 +15,9 @@ registerPage('camera', {
   keepsFaceCamera: true,
   // 2026-09-25 用戶：「從定位開始，返回那行的最右邊加入一個設定」——
   // 跟按摩頁同一份選單（js/session-menu.js）；切換鏡頭留在取景框下面的按鈕列。
-  actions: sessionGearHtml('locate', { discFn: 'toggleLocateDisc', skipFn: 'skipFromLocate' }),
+  actions: sessionGearHtml('locate', { discFn: 'toggleLocateDisc', skipFn: 'skipFromLocate', recalibFn: 'recalibLocate' }),
   onEnter: () => { closeGearMenu('locate'); syncAdvanceLabels(); enterLocate(); },
-  onLeave: () => { closeGearMenu('locate'); stopCamera(); stopFaceCamera(); },
+  onLeave: () => { closeGearMenu('locate'); locateCalibQueue = []; endHandCalib(); stopCamera(); stopFaceCamera(); },
   onLanguage: () => {
     document.getElementById('camera-title').textContent = itemLabel(curAcuName());
     syncDiscLabels();
@@ -47,7 +47,9 @@ registerPage('camera', {
       </div>
       <!-- 隱藏信心圓盤 09-25 收進右上角齒輪（用戶要求），這裡只剩切換鏡頭 -->
       <button class="btn ghost wide" id="toggle-facing" onclick="flipLocateCamera()" data-i18n="btn-flip">切換鏡頭</button>
-      <button class="btn wide" onclick="goToMassage()" data-i18n="btn-massage">現在開始按摩</button>
+      <button class="btn wide" id="btn-locate-massage" onclick="goToMassage()" data-i18n="btn-massage">現在開始按摩</button>
+      <!-- 定位前檢測中主按鈕換成「略過檢測」（App CameraScreen） -->
+      <button class="btn wide" id="btn-locate-calib-skip" onclick="skipHandCalibNow()" data-i18n="calib-skip" hidden>略過檢測</button>
     </div>
   </div>`,
 });
@@ -81,7 +83,50 @@ function enterLocate() {
   } else {
     stopFaceCamera();
     startCamera('video-canvas', 'locate');
+    // 定位前檢測（App CameraScreen 2026-10-31）：這一穴還沒量（也沒略過）的話，
+    //   **只量第一隻要按的手**，量好才畫穴道；第二隻手到按摩頁換手時再量。
+    locateCalibQueue = [firstHandKey()].filter(needsHandCalib);
+    nextLocateCalib();
   }
+  syncRecalibItem();
+}
+
+// ── 定位前檢測（js/calib.js、js/vision.js beginHandCalib）────────────────
+let locateCalibQueue = [];
+const firstHandKey = () => (flow.handOrder === 'left' ? 'left' : 'right');
+function nextLocateCalib() {
+  const h = locateCalibQueue[0];
+  if (h) {
+    beginHandCalib(h, () => {
+      if (currentPage !== 'camera') return;      // 打勾那 1.2 秒內離開了：別在別頁接著量
+      locateCalibQueue.shift();
+      nextLocateCalib();
+    });
+  } else {
+    endHandCalib();
+  }
+  syncLocateCalibButtons();
+}
+/** 量手期間主按鈕是「略過檢測」 */
+function syncLocateCalibButtons() {
+  const on = !!handCalibRun;
+  const skip = document.getElementById('btn-locate-calib-skip');
+  const go = document.getElementById('btn-locate-massage');
+  if (skip) skip.hidden = !on;
+  if (go) go.hidden = on;
+}
+/** 齒輪「重新檢測手部」（App onRecalib）：清掉兩隻手，當場依手序一隻一隻量 */
+function recalibLocate() {
+  closeGearMenu('locate');
+  if (locateDetector() !== 'hand' || !calibEnabled) return;
+  resetHandCalib();
+  locateCalibQueue = flow.handOrder === 'left' ? ['left', 'right'] : ['right', 'left'];
+  nextLocateCalib();
+}
+/** 「重新檢測手部」只在手部、而且檢測開著時出現（App onRecalib = if (vm.calibEnabled) …） */
+function syncRecalibItem() {
+  const show = locateDetector() === 'hand' && calibEnabled;
+  document.querySelectorAll('[data-recalib-item]').forEach(el => { el.hidden = !show; });
 }
 
 /** 讀數列的初始提示：手部是「舉起手」，臉部是「正對鏡頭」 */
