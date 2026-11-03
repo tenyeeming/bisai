@@ -5,7 +5,7 @@
   max-width: 460px;
   margin: 0 auto;
   min-height: 100vh;
-  background: var(--surface);
+  background: var(--paper);   /* 11-04 同 App 批 146：頁底 #E7E1DF，卡片仍 --surface 白 */
   border-inline: 1px solid var(--line-soft);
   display: flex;
   flex-direction: column;
@@ -23,7 +23,7 @@
 header {
   padding: 14px 18px 12px;
   background: var(--hero);
-  border-bottom: 1px solid #fff;
+  /* 11-04 同 App 批 154：拿掉 AcuNavi 下面那條白線 */
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -38,7 +38,7 @@ header {
   text-transform: uppercase;
   color: var(--hero-ink);
 }
-.wordmark span { color: var(--brass); }
+.wordmark span { color: #518AA6; }   /* 同 App 批 145：寫死，不跟主色（深色模式主色是淡藍） */
 
 /* ── 步驟軌（視覺上隱藏，保留給輔助科技；見 responsive.css） ── */
 .steprail {
@@ -147,7 +147,7 @@ button { font-family: inherit; }
   letter-spacing: .02em;
   transition: background .15s, border-color .15s;
 }
-.btn:hover:not(:disabled) { background: var(--brass-lit); border-color: var(--brass-lit); }
+.btn:hover:not(:disabled) { background: var(--brass-hover); border-color: var(--brass-hover); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn.ghost {
   background: none;

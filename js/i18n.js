@@ -180,7 +180,7 @@ const i18n = {
     // 分組標題（2026-09-20 圖冊納入臉部）。%n 換成這一組有幾穴
     'gallery-group-hand': '手部穴道 · %n',
     'gallery-group-face': '臉部穴道 · %n',
-    'gallery-group-forearm': '前臂穴道 · %n（尚未開放定位）',
+    'gallery-group-forearm': '前臂穴道 · %n',
     'info-locate': '定位',
     'info-symptoms': '主治',
     'info-nosymptom': '尚未對應症狀',
@@ -408,7 +408,7 @@ const i18n = {
     'gallery-title': 'Acupoint Atlas',
     'gallery-group-hand': 'Hand · %n',
     'gallery-group-face': 'Face · %n',
-    'gallery-group-forearm': 'Forearm · %n (no locating yet)',
+    'gallery-group-forearm': 'Forearm · %n',
     'info-locate': 'Location',
     'info-symptoms': 'Used For',
     'info-nosymptom': 'No symptom mapped yet',

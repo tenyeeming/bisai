@@ -20,11 +20,11 @@
        vendor/ 有檔的時候這行是無害的閒置提示。 -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/shell.css?v=20261101calib">
-  <link rel="stylesheet" href="css/responsive.css?v=20261031c">
+  <link rel="stylesheet" href="css/tokens.css?v=20261104ui">
+  <link rel="stylesheet" href="css/shell.css?v=20261104ui">
+  <link rel="stylesheet" href="css/responsive.css?v=20261104ui">
   <!-- 電腦版型（方案 D：左側深藍側欄）。只在寬 ≥ 1024 且有滑鼠的螢幕生效，手機／平板不受影響 -->
-  <link rel="stylesheet" href="css/desktop.css?v=20261101bg">
+  <link rel="stylesheet" href="css/desktop.css?v=20261104ui">
 
   <!-- MediaPipe 從哪裡載：規則與版本號都在 js/mp-loader.js，要先載它 -->
   <script src="js/mp-loader.js?v=20261002c"></script>
@@ -57,17 +57,17 @@
   <script src="js/face-gate.js?v=20261002c"></script>
 
   <!-- 共用 -->
-  <script src="js/i18n.js?v=20261101calib"></script>
+  <script src="js/i18n.js?v=20261102a"></script>
   <script src="js/state.js?v=20261101a"></script>
-  <script src="js/calib.js?v=20261101calib"></script>
+  <script src="js/calib.js?v=20261103flat"></script>
   <script src="js/regions.js?v=20261002c"></script>
   <script src="js/minions.js?v=20261002c"></script>
   <script src="js/acu-ref.js?v=20261002c"></script>
   <script src="js/acu-video.js?v=20261002c"></script>
   <script src="js/splash.js?v=20261002c"></script>
-  <script src="js/nav.js?v=20261031d"></script>
+  <script src="js/nav.js?v=20261104ui"></script>
   <script src="js/session-menu.js?v=20261101calib"></script>
-  <script src="js/vision.js?v=20261101calib"></script>
+  <script src="js/vision.js?v=20261104pre"></script>
   <script src="js/face-vision.js?v=20261101calib"></script>
   <script src="js/forearm-vision.js?v=20261102a"></script>
 
@@ -125,15 +125,16 @@
 
     <!-- 2026-09-24：「個人」分頁拿掉（網頁不存紀錄，那頁全是連續天數／排行／等級），剩三個 -->
     <!-- 2026-09-25（網頁v2 批 A）：照 App（AcuScaffold.TabBar）只留文字、拿掉圖示 -->
+    <!-- 2026-11-04：同 App 批 150 改回圖示（App res/drawable/ic_tab_*.xml 原樣），文字留給讀屏 -->
     <nav class="tabbar" id="tabbar" aria-label="主功能">
       <button type="button" data-tab="home" onclick="goTab('home')">
-        <span data-i18n="nav-home">首頁</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12,3.6 L20.4,11 L18.4,11 L18.4,20 L14.6,20 L14.6,16 A2.6,2.6 0 0,0 9.4,16 L9.4,20 L5.6,20 L5.6,11 L3.6,11 Z"/></svg><span class="tab-label" data-i18n="nav-home">首頁</span>
       </button>
       <button type="button" data-tab="gallery" onclick="goTab('gallery')">
-        <span data-i18n="nav-gallery">圖冊</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3.2,6.6 Q3.2,5 4.8,5 L9.6,5 Q11.2,5 11.2,6.6 L11.2,19.4 Q7.6,17.9 3.2,18.7 Z"/><path d="M20.8,6.6 Q20.8,5 19.2,5 L14.4,5 Q12.8,5 12.8,6.6 L12.8,19.4 Q16.4,17.9 20.8,18.7 Z"/><path d="M11.2,17.8 L12.8,17.8 L12.8,19.4 Q12,20.4 11.2,19.4 Z"/></svg><span class="tab-label" data-i18n="nav-gallery">圖冊</span>
       </button>
       <button type="button" data-tab="settings" onclick="goTab('settings')">
-        <span data-i18n="nav-settings">設定</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path fill-rule="evenodd" d="M9.38,5.51 L9.68,2.69 L14.32,2.69 L14.62,5.51 L16.31,6.48 L18.91,5.33 L21.23,9.35 L18.93,11.03 L18.93,12.97 L21.23,14.65 L18.91,18.67 L16.31,17.52 L14.62,18.49 L14.32,21.31 L9.68,21.31 L9.38,18.49 L7.69,17.52 L5.09,18.67 L2.77,14.65 L5.07,12.97 L5.07,11.03 L2.77,9.35 L5.09,5.33 L7.69,6.48 Z M15.9,12 A3.9,3.9 0 1,0 8.1,12 A3.9,3.9 0 1,0 15.9,12 Z"/></svg><span class="tab-label" data-i18n="nav-settings">設定</span>
       </button>
     </nav>
   </div>

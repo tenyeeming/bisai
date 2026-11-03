@@ -55,7 +55,7 @@
     color: #fff; font: inherit; font-size: .9375rem; text-align: left; cursor: pointer;
   }
   .sn-tabs button:hover { background: rgba(255,255,255,.12); }
-  .sn-tabs button.on { background: var(--tab-on); font-weight: 700; }
+  .sn-tabs button.on { background: var(--tab-on); color: var(--tab-ink-on); font-weight: 700; }
   .sn-sec { display: flex; flex-direction: column; gap: 6px; }
   .sn-k { font-size: .75rem; letter-spacing: .08em; color: var(--hero-ink-soft); padding: 0 8px; }
   .sn-steps { list-style: none; display: flex; flex-direction: column; gap: 2px; }

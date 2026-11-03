@@ -154,12 +154,13 @@ const _calibImgs = {};
 function calibImg(file) {
   if (typeof Image === 'undefined') return null;
   let img = _calibImgs[file];
-  if (!img) { img = new Image(); img.src = 'assets/calib/' + file; _calibImgs[file] = img; }
+  // ?v=：圖換過（2026-11-03 手肘改放平）時改這個，瀏覽器才不會拿快取的舊圖
+  if (!img) { img = new Image(); img.src = 'assets/calib/' + file + '?v=20261103flat'; _calibImgs[file] = img; }
   return img.complete && img.naturalWidth ? img : null;   // 還沒載完這一幀就先只畫框
 }
 
 /**
- * 畫檢測框（App CalibGuide）：半透明圖（框高 88%）、淡白框、進度沿框走一圈、量好變綠＋✓。
+ * 畫檢測框（App CalibGuide）：半透明圖（直圖框高 88%、橫圖框寬 92%）、淡白框、進度沿框走一圈、量好變綠＋✓。
  * ctx 必須是**沒有鏡像變換**的狀態；flipImg＝圖要不要左右翻（後鏡頭 true）。
  * sc：畫布像素 ÷ CSS 像素（screenScale），讓線寬、圓角在各種螢幕上看起來一樣粗。
  */
@@ -167,7 +168,11 @@ function drawCalibGuide(ctx, b, progress, done, sc, file, flipImg) {
   const img = file ? calibImg(file) : null;
   ctx.save();
   if (img) {
-    const dh = b.h * 0.88, dw = dh * img.naturalWidth / img.naturalHeight;
+    // 橫的圖（手肘檢測放平，2026-11-03 用戶：「手肘檢測的時候幫我把手轉成放平的而不是舉手」，同 App 批 153）
+    //   改成佔框寬 92%；直的圖（手、臉）照舊佔框高 88%
+    const iw = img.naturalWidth, ih = img.naturalHeight, landscape = iw > ih;
+    const dw = landscape ? b.w * 0.92 : b.h * 0.88 * iw / ih;
+    const dh = landscape ? dw * ih / iw : b.h * 0.88;
     const cx = b.l + b.w / 2, cy = b.t + b.h / 2;
     ctx.save();
     ctx.globalAlpha = done ? 0.45 : 0.28;

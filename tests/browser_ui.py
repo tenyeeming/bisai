@@ -89,7 +89,7 @@ try:
             page.evaluate("showPage('gallery')")
             no_overflow(page, name + '/gallery')
             # 2026-10-31 照 App 拿掉手部 7 穴、加少府、臉部拿掉球後兌端 → 20＋21＋15＝56；再拿掉少商少澤 → 54
-            check(page.locator('#collection-grid .collection-item').count() == 54, name + ': gallery lists 54 acupoints')
+            check(page.locator('#collection-grid .collection-item').count() == 49, name + ': gallery lists 49 acupoints')   # 11-02 前臂拿掉 5 穴（少海、小海、曲澤、四瀆、支正）：54 → 49
             check(page.locator('#collection-grid .locked').count() == 0, name + ': gallery has no locked cells')
             page.wait_for_timeout(300)
             broken = page.evaluate("[...document.querySelectorAll('#collection-grid img.thumb')].filter(i => i.complete && !i.naturalWidth).length")
@@ -148,7 +148,7 @@ try:
             page.emulate_media(color_scheme='dark')
             page.evaluate('goHome()')
             page.screenshot(path=str(args.output / f'{name}-dark.png'), full_page=True)
-            check(page.evaluate("getComputedStyle(document.querySelector('.tabbar')).backgroundColor") == 'rgb(27, 44, 60)', name + ': dark theme navigation')
+            check(page.evaluate("getComputedStyle(document.querySelector('.tabbar')).backgroundColor") == 'rgb(81, 138, 166)', name + ': dark theme navigation')   # 11-04 同 App 批 142：分頁列亮暗同一組 #518AA6
             context.close()
 
         # Opening animation (2026-09-20). Every context above runs with

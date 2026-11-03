@@ -17,6 +17,19 @@ let camRunning = false, camStarting = false;
 //   一直佔著鏡頭 —— Android 同一時間只准一條，下一次開相機就 NotReadableError。
 //   ⇒ camWanted 記「現在到底要不要相機」，啟動完才看；camStartP 讓重複呼叫等同一次啟動。
 let camWanted = false, camStartP = null;
+// ⚡ 幀率（2026-11-03）：FRAME_CHAIN = 算完有新畫面就直接接著送（見 startCamera 的 onFrame）。
+//   設 false 就回到 camera_utils 原本的做法 —— 量測時在 console 切換做對照用。
+let FRAME_CHAIN = true;
+// 「新畫面計數器」：video 每交出一張新畫面 +1（requestVideoFrameCallback）。只裝一次，跟著 video 元素走。
+let vfcCount = 0, vfcLastMs = -1e9, vfcVideo = null, lastSentVfc = -1;
+function startVfcCounter(v) {
+  if (!v || typeof v.requestVideoFrameCallback !== 'function' || vfcVideo === v) return;
+  vfcVideo = v;
+  const tick = () => { vfcCount++; vfcLastMs = performance.now(); v.requestVideoFrameCallback(tick); };
+  v.requestVideoFrameCallback(tick);
+}
+// 幀率探針：每次手部結果回來記一筆時間（performance.now），量測腳本讀 window.__acuFps。只記最近 2000 筆。
+window.__acuFps = [];
 let facingMode = 'user';
 let showDisc = false;   // 2026-11-01 用戶：「幫我把圓盤移除」→ 預設不畫、選單開關拿掉（判定半徑照用，只是不畫）
 let activeCanvas = null;
@@ -298,8 +311,19 @@ function warmUpHands() {
   const go = () => {
     try {
       const h = getHands();
+      // ⚡ 2026-11-03 相機啟動慢（用戶：「網頁版本的相機啓動好久」）：
+      //   ① 先套定位頁的設定再 initialize。原本用預設值預熱 → 載的是 lite 模型，
+      //      按「開始定位」時 setOptions(modelComplexity:1) 才去抓 full 模型、重建 graph（Pixel 6 實測第一幀多 0.5 秒）。
+      //   ② initialize 完再拿一張空白圖跑一次推論，把 GPU 第一次跑的準備（編譯 shader）提前做掉。
+      //      結果會被 onHandsResults 開頭的 camRunning 檢查擋掉，不會畫東西。
+      applyHandsOptions(h, 'locate');
       if (typeof h.initialize === 'function') {
-        handsInitP = h.initialize();
+        handsInitP = h.initialize().then(() => {
+          if (camRunning || camStarting) return;   // 使用者已經按下開始了，別跟真的幀搶
+          const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+          c.getContext('2d').fillRect(0, 0, 64, 48);
+          return h.send({ image: c });
+        });
         handsInitP.catch(() => {});              // 失敗就算了，等使用者真的進定位頁再載一次
       }
     } catch (e) { /* 預熱失敗不能影響 UI */ }
@@ -338,10 +362,29 @@ async function startCamera(canvasId, mode) {
       video = document.getElementById('hidden-video');
       const h = getHands();
       applyHandsOptions(h, renderMode);
+      lastSentVfc = -1;
+      startVfcCounter(video);
       cam = new Camera(video, {
         onFrame: async () => {
           if (!camRunning) return;
-          try { await h.send({ image: video }); } catch (e) { /* 關閉瞬間的競態 */ }
+          // 預熱那次空白推論還沒跑完就等它（Solutions API 的 send 不能兩個同時跑）
+          if (handsInitP) { try { await handsInitP; } catch (e) {} if (!camRunning) return; }
+          // 沒開、瀏覽器不支援 requestVideoFrameCallback、或它 200ms 沒動靜（被藏起來的 video 可能不觸發）
+          //   → 照 camera_utils 原本的做法送一張
+          if (!FRAME_CHAIN || performance.now() - vfcLastMs > 200) {
+            try { await h.send({ image: video }); } catch (e) { /* 關閉瞬間的競態 */ }
+            return;
+          }
+          // ⚡ 2026-11-03 幀率（對應 App 實驗 B「候補幀」）：
+          //   camera_utils 每送完一張，要等下一個 requestAnimationFrame（最多 16ms）才看有沒有新畫面。
+          //   <video> 本來就只留最新一張（天生是「候補幀」），所以算完只要「送的期間有新畫面進來」就直接接著送。
+          //   vfcCount 只在瀏覽器真的交出一張新畫面時才 +1（requestVideoFrameCallback，在畫面更新步驟裡觸發）
+          //   ⇒ send 沒讓出主執行緒的話 vfcCount 不會變、迴圈就停 —— 不可能塞死主執行緒。
+          //   🐛 第一版用 video.currentTime 判斷「有沒有新畫面」，手機上整頁卡死（連 DevTools 都叫不動）。
+          while (camRunning && vfcCount !== lastSentVfc) {
+            lastSentVfc = vfcCount;
+            try { await h.send({ image: video }); } catch (e) { break; /* 關閉瞬間的競態 */ }
+          }
         },
         width: 640, height: 480, facingMode,
       });
@@ -440,6 +483,7 @@ function resetLiveStats() {
 // 主偵測迴圈：每一幀都會跑
 // ═══════════════════════════════════════════════════════════════════
 function onHandsResults(results) {
+  if (camRunning) { const a = window.__acuFps; a.push(performance.now()); if (a.length > 2000) a.splice(0, a.length - 2000); }
   // ⭐ 臉部按摩模式（2026-09-04）：這一幀的手只是拿來判「有沒有真的貼到臉」，
   //    畫面完全由 js/face-vision.js 負責（那邊才有臉的 landmark）。
   //    所以這裡只交出 landmark 就走人 —— 兩個模型同時跑，但只有一個在畫。
@@ -822,4 +866,36 @@ document.addEventListener('visibilitychange', () => {
     const el = document.getElementById(r.id);
     if (el && el.offsetParent !== null) startCamera(r.id, r.mode);
   }
+});
+
+// ⚡ 2026-11-04 用戶：「感覺我的模型啓動還是有點久」（bisai/acunavi-ideal.html）。
+//   第一次來的人要下載約 16MB（wasm 6MB＋打包資源 4MB＋full 模型 5.5MB），
+//   原本要等走到認穴頁（warmUpHands）才開始抓。
+//   → 首頁載完、閒下來就先把檔案抓進瀏覽器快取（只下載，不 initialize、不佔 GPU），
+//     使用者選症狀、選穴道的那段時間就把下載做完；之後 warmUpHands 直接讀快取。
+//   ⚠️ 省流量模式（saveData）、file:// 開的不抓。只抓 SIMD 或非 SIMD 其中一份 wasm，跟 hands.js 選的一致。
+function prefetchHandsAssets() {
+  try {
+    if (location.protocol === 'file:') return;
+    if (navigator.connection && navigator.connection.saveData) return;
+    // wasm-feature-detect 的 SIMD 測試模組
+    const simd = typeof WebAssembly === 'object' && WebAssembly.validate(new Uint8Array(
+      [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    const bin = simd ? 'hands_solution_simd_wasm_bin' : 'hands_solution_wasm_bin';
+    const files = ['hands.binarypb', bin + '.js', bin + '.wasm',
+      'hands_solution_packed_assets_loader.js', 'hands_solution_packed_assets.data', 'hand_landmark_full.tflite'];
+    // 用 <link rel=prefetch>：瀏覽器自己排在閒置時、最低優先度下載，不跟頁面搶頻寬。
+    //   不用 fetch API：tests/check.js 規定自家程式不用 fetch（file:// 會被擋）。
+    //   ⚠️ iOS Safari 預設不支援 prefetch → 那邊等於沒做，照舊走認穴頁預熱。
+    files.forEach(f => {
+      const l = document.createElement('link');
+      l.rel = 'prefetch'; l.href = mpAsset('hands', f);
+      document.head.appendChild(l);
+    });
+  } catch (e) { /* 預抓失敗不影響任何功能 */ }
+}
+window.addEventListener('load', () => {
+  const go = () => prefetchHandsAssets();
+  if (typeof requestIdleCallback === 'function') setTimeout(() => requestIdleCallback(go, { timeout: 3000 }), 1500);
+  else setTimeout(go, 2500);
 });

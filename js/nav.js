@@ -206,6 +206,12 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active', 'page-enter'));
   el.style.setProperty('--enter-x', previous && PAGES[previous].tab === cfg.tab
     ? (PAGE_ORDER.indexOf(name) >= PAGE_ORDER.indexOf(previous) ? '18px' : '-18px') : '0px');
+  // 11-04 同 App 批 149：換「底部分頁」（首頁／圖冊／設定）時整頁左右推，點右邊的分頁＝新頁從右進
+  const TAB_ORDER = ['home', 'gallery', 'settings'];
+  const fromTab = previous && PAGES[previous].tab, toTab = cfg.tab;
+  const tabMove = fromTab && toTab && fromTab !== toTab ? TAB_ORDER.indexOf(toTab) - TAB_ORDER.indexOf(fromTab) : 0;
+  el.classList.remove('tab-slide');
+  if (tabMove) { el.style.setProperty('--tab-from', tabMove > 0 ? '100%' : '-100%'); el.classList.add('tab-slide'); }
   if (previous !== name) el.classList.add('page-enter');
   el.classList.add('active');
   currentPage = name;
