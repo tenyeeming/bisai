@@ -308,8 +308,11 @@ function holdForForearmCalib() {
 function onForearmCalibrated() {
   if (currentPage !== 'massage' || massageDetector() !== 'forearm' || massageRunning) return;
   document.getElementById('btn-massage-start').disabled = false;
-  startEntryCountdown();
+  // 第二隻手臂（App 批 156）：倒數照「換手倒數」設定（關掉就停在換手提示等按開始）；第一隻照舊進頁 3 秒
+  if (massageRound > 1) startSwitchCountdown(); else startEntryCountdown();
 }
+/** 這一輪的手臂：'right'／'left'（跟手部同一個手序設定） */
+const curArmKey = () => (curHandKey() === 'hand-left' ? 'left' : 'right');
 // 換鏡頭＝重新檢測：計時歸零、回到等檢測（App recalib）
 function restartForearmCalib() {
   stopMassageTimer();
@@ -454,6 +457,8 @@ function startMassageCamera() {
   if (itemDetector(id) !== 'forearm' && typeof stopForearmCamera === 'function') stopForearmCamera();
   if (itemDetector(id) === 'forearm') {
     // 前臂內關（App 批 89／90）：Hands＋Pose，自己開相機（會先關掉手部／臉部那兩套）
+    // 11-05（App 批 156）：這一輪要按哪隻手臂 → 檢測框的圖固定、伸錯手臂不收樣本
+    setForearmRequireHand(curArmKey());
     recalibForearm();
     syncMassageHints();
     startForearmCamera('massage-canvas', 'massage-gate', onForearmCalibrated, id);
@@ -576,6 +581,14 @@ function finishRound() {
     massageRound++;
     armTimer();
     renderRound();
+    if (massageDetector() === 'forearm') {
+      // 第一隻手臂按滿 → 換另一隻重新檢測（扭轉基準、鎖定哪一側手臂都是逐臂記的，不能沿用；App 批 156）
+      setForearmRequireHand(curArmKey());
+      recalibForearm();
+      holdForForearmCalib();       // 會把換手提示收起來 → 下一行再顯示
+      showSwitchHint(done);
+      return;
+    }
     showSwitchHint(done);
     // 第二隻手這一穴還沒量 → 先量，量好才開始換手倒數（App：量手中倒數先停住）
     holdForCalib(() => startSwitchCountdown());

@@ -59,7 +59,10 @@ registerPage('camera', {
 //   臉部在按摩頁本來就畫穴位、判對準、有進頁 3 秒倒數；多一頁定位只是多開一次相機。手部維持兩步。
 function startLocate() {
   // 前臂（App 批 94）也直接進按摩頁：那裡取景框全黑、不開相機
-  showPage(itemDetector(curAcuName()) === 'hand' ? 'camera' : 'massage');
+  // 2026-11-05 照 App 批 176（用戶 11-04「檢測后直接進入按摩」；11-05 網頁：「我的檢測后沒辦法直接開始按摩而是要再按一次開始按摩」）：
+  //   手部第一隻手不用量（檢測關掉、或這一穴已量／已略過）→ 定位頁沒東西要等，直接進按摩頁（那裡有自己的相機與進頁倒數）
+  const hand = itemDetector(curAcuName()) === 'hand';
+  showPage(hand && needsHandCalib(firstHandKey()) ? 'camera' : 'massage');
 }
 
 // ── 這一頁跑哪一套偵測（2026-09-04）──────────────────────────────
@@ -83,6 +86,7 @@ function enterLocate() {
   } else {
     stopFaceCamera();
     startCamera('video-canvas', 'locate');
+    locateAutoGo = true;   // 進頁那一輪量好／略過就自動進按摩（批 176）；齒輪重新檢測會關掉
     // 定位前檢測（App CameraScreen 2026-10-31）：這一穴還沒量（也沒略過）的話，
     //   **只量第一隻要按的手**，量好才畫穴道；第二隻手到按摩頁換手時再量。
     locateCalibQueue = [firstHandKey()].filter(needsHandCalib);
@@ -93,6 +97,11 @@ function enterLocate() {
 
 // ── 定位前檢測（js/calib.js、js/vision.js beginHandCalib）────────────────
 let locateCalibQueue = [];
+// App 批 176：進頁那一輪量好（打勾 1.2 秒後）或按「略過檢測」→ 自動 goToMassage()。
+//   ⚠️ 跟 App 不同：只在「剛量完／剛略過」那一刻跳，不在進頁時佇列本來就空就跳 ——
+//      網頁從按摩頁按返回會回到這頁，一進來就跳會被彈回按摩頁、出不去（App 的返回不回定位頁）。
+//   齒輪「重新檢測手部」是自己要量的 → 量完留在這頁，照舊按「現在開始按摩」。
+let locateAutoGo = true;
 const firstHandKey = () => (flow.handOrder === 'left' ? 'left' : 'right');
 function nextLocateCalib() {
   const h = locateCalibQueue[0];
@@ -100,6 +109,7 @@ function nextLocateCalib() {
     beginHandCalib(h, () => {
       if (currentPage !== 'camera') return;      // 打勾那 1.2 秒內離開了：別在別頁接著量
       locateCalibQueue.shift();
+      if (!locateCalibQueue.length && locateAutoGo) { endHandCalib(); syncLocateCalibButtons(); goToMassage(); return; }
       nextLocateCalib();
     });
   } else {
@@ -120,6 +130,7 @@ function recalibLocate() {
   closeGearMenu('locate');
   if (locateDetector() !== 'hand' || !calibEnabled) return;
   resetHandCalib();
+  locateAutoGo = false;   // 批 176：自己按的重新檢測，量完不自動跳
   locateCalibQueue = flow.handOrder === 'left' ? ['left', 'right'] : ['right', 'left'];
   nextLocateCalib();
 }

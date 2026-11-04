@@ -60,7 +60,8 @@ const itemImplemented = (id) =>
  * ⚠️ 雙側臉部穴（如攢竹）之後要接時，這裡要改成看 faceAcu(id).bilateral。
  *    現在只有印堂（bilateral: false）走這條，先不預先寫沒驗過的分支。
  */
-const itemRounds = (id) => (isFaceItem(id) || isForearmItem(id)) ? 1 : 2;   // 前臂同 App：1/1 手肘
+// 2026-11-05 照 App 批 156（11-04 用戶：「按摩手肘的時候只會按摩一邊，我要可以按摩兩邊」）：前臂改成左右手臂各一輪
+const itemRounds = (id) => isFaceItem(id) ? 1 : 2;
 
 /**
  * 計時要不要靠「指尖對準」把關。

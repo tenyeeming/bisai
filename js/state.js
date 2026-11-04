@@ -84,8 +84,11 @@ let state = {
 // 舊版（2026-09-24 以前）存下的按摩紀錄：已經沒有任何地方讀它，開站時順手清掉。
 ['acuHistory', 'acuStreak', 'minions'].forEach(k => { try { localStorage.removeItem(k); } catch {} });
 
-// 嚴格模式：角度不佳時要不要乾脆不畫穴位（設定頁可關）
-let strictGate = jget(LS.strict, true);
+// 嚴格模式：角度不佳時要不要乾脆不畫穴位。
+// 2026-11-05 照 App（SettingsScreen：選項已刪、AcuStore 讀檔強制 true；用戶「網頁版本記得跟上app版本的預設」）：
+//   網頁設定目錄的入口早就拿掉了，但這裡還在讀舊存檔 —— 以前關過的人會永遠關著、又沒地方改回來。
+//   → 開站一律是開，不讀舊值。頁面 settings-accuracy 還在（沒有入口），切了只影響這一次。
+let strictGate = true;
 
 // ── 字級（2026-09-21 補上，對齊 App 的「設定 › 顯示」）──────────────
 // 倍率與 App 的 `FontScale`（data/Progress.kt）是同一組數字，兩端要一起改。

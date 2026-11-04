@@ -504,6 +504,14 @@ function faCalibTitle(name) {
   return s && s.dorsal ? t('fa-calib-title-dorsal') : t('fa-calib-title');
 }
 
+// 這一輪要按哪隻手臂（'right'／'left'）。2026-11-05 照 App 批 156：
+//   用戶：「手肘框框的圖片會突然變化，本來是右手手肘的框框可能會突然變成…因爲他圖片變了」——
+//   以前檢測框的圖每幀跟著 MediaPipe 的左右手標籤換，標籤一跳圖就跳。
+//   → 按摩頁設了這個就：圖固定畫這一側；檢測時伸錯手臂不收樣本（不然會記下另一隻手臂的扭轉基準）。
+//   null＝不指定（forearm-lab 等實驗頁），照舊跟著鏡頭裡的手換圖。
+let faRequireHand = null;
+function setForearmRequireHand(k) { faRequireHand = k === 'left' || k === 'right' ? k : null; }
+
 // 每次檢測重來就換一份（換鏡頭、重新進頁）
 let fa = null;
 function faResetState() {
@@ -723,7 +731,7 @@ function faInBox(pts, b) { return pointsInBox(pts, b); }
 /** 檢測框：同 App CalibGuide（圖＋進度沿框走一圈＋量好變綠打勾） */
 function faDrawBox(ctx, b, progress, done, sc) {
   const spec = faSpec();
-  const file = calibForearmImgFile(!spec.dorsal, fa.calibHand || 'right');
+  const file = calibForearmImgFile(!spec.dorsal, faRequireHand || fa.calibHand || 'right');
   drawCalibGuide(ctx, b, progress, done, sc, file, faFacing !== 'user');
 }
 
@@ -758,7 +766,10 @@ function faProcessFrame() {
   const tb = hp ? computeTwistTb(hp, W, H) : null;
   const wr = hp ? faWidthRatio(hp, W, H) : null;
   // 檢測框的圖跟著鏡頭裡實際那隻手換；還沒看到手先放右手（App ForearmScreen 批 123）
-  if (hp && sides[pick.hand]) fa.calibHand = handKeyOfLabel(sides[pick.hand].label);
+  // 11-05：按摩頁指定了這一輪的手臂（faRequireHand）→ 圖固定畫那一側，見 faDrawBox
+  const seenHand = hp && sides[pick.hand] ? handKeyOfLabel(sides[pick.hand].label) : null;
+  if (seenHand) fa.calibHand = seenHand;
+  const wrongArm = !!(seenHand && faRequireHand && seenHand !== faRequireHand);
 
   if (showSkeleton) {
     ctx.save();
@@ -774,6 +785,7 @@ function faProcessFrame() {
   // ── ① 檢測 ──
   if (!fa.calib.result) {
     const bad = !hp ? 'no-hand'
+      : wrongArm ? 'wrong-arm'      // 批 156：伸錯手臂不收樣本
       : !elbow ? 'no-elbow'
       : !faInBox([{ x: hp[0].x * W, y: hp[0].y * H }, elbow], box) ? 'out-box'
       : wrongSide;
@@ -807,7 +819,9 @@ function faProcessFrame() {
       const msg = { 'no-elbow': 'fa-no-elbow', 'out-box': 'fa-out-box',
         dorsal: 'fa-dorsal', palm: 'fa-palm', moving: 'fa-moving' }[fa.calib.issue];
       setFaGate(fa.calib.issue ? 'warn' : 'ok',
-        fa.calib.issue === 'no-hand' ? faCalibTitle(faAcu) : msg ? faT(msg) : t('fa-calib-hold'));
+        fa.calib.issue === 'no-hand' ? faCalibTitle(faAcu)
+        : fa.calib.issue === 'wrong-arm' ? t('calib-wrong').replace('{hand}', t(faRequireHand === 'left' ? 'hand-left' : 'hand-right'))
+        : msg ? faT(msg) : t('fa-calib-hold'));
     }
     onTarget = false;
     return;
