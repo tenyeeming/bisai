@@ -27,7 +27,7 @@ vm.runInContext(read('js/acu-math.js'), sandbox, { filename: 'acu-math.js' });
 vm.runInContext(`var state = { selectedAcupoints: ['合谷穴', '勞宮穴'], currentAcupointIndex: 0 };
   var curAcuName = () => state.selectedAcupoints[state.currentAcupointIndex];`, sandbox);
 const api = vm.runInContext(read('js/calib.js') + `
-;({ HandCalibrator, FaceCalibrator, calibBox, pointsInBox, fingersOpen, calibFacingOk, calibAcuOnPalm,
+;({ HandCalibrator, FaceCalibrator, calibBox, calibBoxForearm, pointsInBox, fingersOpen, calibFacingOk, calibAcuOnPalm,
     calibImgFile, calibForearmImgFile, handKeyOfLabel, labelOfHandKey,
     needsHandCalib, recordHandCalib, skipHandCalib, resetHandCalib, activeHandCalib, setCalibEnabled,
     needsFaceCalib, recordFaceCalib, skipFaceCalib, savedCalib })`, sandbox, { filename: 'calib.js' });
@@ -86,6 +86,13 @@ ok(api.calibFacingOk('合谷穴', true) && !api.calibFacingOk('合谷穴', false
   ok(api.pointsInBox([{ x: 200, y: 400 }, { x: 45, y: 200 }], a) && api.pointsInBox([{ x: 35, y: 400 }], a)
      && !api.pointsInBox([{ x: 200, y: 400 }, { x: 10, y: 400 }], a) && !api.pointsInBox([], a),
      '進框只寬容一點點（App pointsInBoxAllowsSmallSlackOnly）');
+  // 11-04 手肘橫框：電腦橫螢幕寬多了、手機直放寬度不變
+  const fd = api.calibBoxForearm(1280, 720), hd = api.calibBox(1280, 720);
+  ok(near(fd.w, 1024, 1e-3) && near(fd.h, 512, 1e-3) && fd.w > hd.w * 2 && fd.t >= 0 && fd.t + fd.h <= 720,
+     '手肘框：電腦 1280×720 是 1024×512（直立框只有 432 寬）');
+  const fp = api.calibBoxForearm(390, 844), hp = api.calibBox(390, 844);
+  ok(near(fp.w, hp.w, 1e-3) && near(fp.h, hp.h, 1e-3) && near(fp.t, hp.t, 1e-3),
+     '手肘框：手機直放維持原本的 3:4（換橫框只會變矮、更難進框）');
 }
 {
   const hand = (tipY) => {
@@ -215,7 +222,7 @@ else {
   ok(/needsHandCalib/.test(cam) && /btn-locate-calib-skip/.test(cam), '定位頁：進頁先量第一隻手、有「略過檢測」');
   ok(/holdForCalib\(\(\) => startSwitchCountdown\(\)\)/.test(mas) && /holdForCalib\(startEntryCountdown\)/.test(mas),
      '按摩頁：換手、臉部進頁都先量再倒數');
-  ok(/calibBox\(W, H\)/.test(read('js/forearm-vision.js')), '手肘：跟手、臉同一個 3:4 框');
+  ok(/calibBoxForearm\(W, H\)/.test(read('js/forearm-vision.js')), '手肘：用橫的 2:1 框（11-04，圖是放平的）');
   ok(/\.gear-menu button\[hidden\]\s*\{\s*display:\s*none/.test(read('css/shell.css')), '齒輪選單項目可以藏（重新檢測手部）');
 }
 

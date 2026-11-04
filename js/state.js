@@ -129,14 +129,16 @@ applyFontScale();
 // 分兩處調整，依「來不來得及改」決定：
 //   首頁設定  readySec / handOrder / switchSec —— 療程開始後才想改就來不及了
 //   按摩頁    autoAdvance / pressSec           —— 按到一半會想改，改了立刻有感
+// 🔴 2026-11-04 照 App 批 181 改預設（用戶：「認穴停留默認關閉，然後換手倒數默認關閉，單手按摩時間默認十秒」
+//    「我的那些按摩流程和app版本的一樣調整預設」）：readyAuto／switchAuto 開 → 關、pressSec 30 → 10。存過的照舊。
 const FLOW_DEFAULT = {
-  readyAuto:   true,     // 認穴頁要不要倒數自動進定位（App 批 93：開關；關＝不倒數、不自動翻頁）
+  readyAuto:   false,     // 認穴頁要不要倒數自動進定位（App 批 93：開關；關＝不倒數、不自動翻頁）
   readySec:    5,        // 認穴頁停留幾秒（1～15，readyAuto 開才有用）
   handOrder:   'right',  // 'right' = 先右後左；'left' = 先左後右
-  switchAuto:  true,     // 換手要不要倒數自動開始（App 批 93：關＝停在換手提示等按開始）
+  switchAuto:  false,    // 換手要不要倒數自動開始（App 批 93：關＝停在換手提示等按開始）
   switchSec:   5,        // 換手倒數幾秒（1～15，switchAuto 開才有用）
   autoAdvance: true,     // 一個穴道按完自動接下一個，不用點
-  pressSec:    30,       // 單手按壓秒數。左右各一輪，所以一個穴道是這個數字的兩倍
+  pressSec:    10,       // 單手按壓秒數。左右各一輪，所以一個穴道是這個數字的兩倍
 };
 // 節奏設定同樣要洗：pressSec 變成字串或 0，按摩頁的倒數就會卡住不動或直接跳過。
 // 上限刻意寬鬆（只擋離譜值），使用者想設長一點是他的自由。
@@ -144,7 +146,11 @@ const FLOW_DEFAULT = {
 // 秒數 1～15（App 批 93 同；0 的語意由「關」取代）。
 function cleanAutoSec(r, autoKey, secKey) {
   const old = Number(r[secKey]);
-  const auto = typeof r[autoKey] === 'boolean' ? r[autoKey] : !(old === 0);
+  // 沒開關欄位：秒數存 0 → 關；存過 ≥1 秒（舊版「有秒數＝會倒數」）→ 開；連秒數都沒有 → 用預設（11-04 起是關）
+  const auto = typeof r[autoKey] === 'boolean' ? r[autoKey]
+    : old === 0 ? false
+    : (Number.isFinite(old) && old >= 1) ? true
+    : FLOW_DEFAULT[autoKey];
   const sec = (Number.isFinite(old) && old >= 1) ? Math.min(15, Math.round(old)) : FLOW_DEFAULT[secKey];
   return [auto, sec];
 }
@@ -204,8 +210,9 @@ const pressTipIdx = () => pressFingers.map(f => FINGER_TIPS[f]);
 // 用戶：「在那個設定裏面加入取消按壓判定的功能」「一旦取消功能就要給他們三秒的準備時間」。
 // 關掉＝按摩計時不看手指有沒有對準，開始後照走（手部臉部共用，同 pressFingers 不放 flow）。
 // 3 秒準備在 pages/05-massage.js（PRESS_OFF_PREP_MS）。
-// 2026-10-31 照 App 批 100 改成預設關（用戶 10-04：「app的按壓判定默認關閉」）。存過「開」的人照舊是開。
-let pressCheck = jget(LS.pressCheck, false) === true;
+// 2026-10-31 照 App 批 100 改成預設關（用戶 10-04：「app的按壓判定默認關閉」）。
+// 🔴 2026-11-04 照 App 批 180 改回預設開（用戶：「按壓判定預設開啓」）。存過的照舊。
+let pressCheck = jget(LS.pressCheck, true) === true;
 function setPressCheck(on) {
   pressCheck = !!on;
   localStorage.setItem(LS.pressCheck, JSON.stringify(pressCheck));

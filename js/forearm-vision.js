@@ -716,7 +716,8 @@ function faReadMask(mask, W, H) {
 // 2026-11-01（App 批 123）：正方形框換成跟手部、臉部同一個 calibBox（直立 3:4，js/calib.js），
 //   框裡加手肘圖（這一穴手心／手背 × 被按的左手／右手）。判斷進框用同一個框，所以畫的跟判斷的一致。
 //   （上面的 FA_BOX_FRAC 0.86／FA_BOX_SLACK 已沒人用，留著只是對照舊正方形框的大小。）
-function faBox(W, H) { return calibBox(W, H); }
+// 2026-11-04：改成橫框 calibBoxForearm（2:1）—— 手肘圖是放平的，直立框在電腦橫螢幕上逼人坐很遠。
+function faBox(W, H) { return calibBoxForearm(W, H); }
 function faInBox(pts, b) { return pointsInBox(pts, b); }
 
 /** 檢測框：同 App CalibGuide（圖＋進度沿框走一圈＋量好變綠打勾） */

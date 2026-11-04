@@ -153,7 +153,9 @@ function computeTwistTb(lm, W, H) {
 }
 
 function drawTwistArrow(ctx, W, H, side, lm, mx) {
-  if (!side || !isMobileWeb()) return;
+  // 2026-11-04 用戶：「我發現網頁版本都沒有回正的箭頭」→ 原本多一個 !isMobileWeb()（從舊 demo 網站帶過來的），
+  //   電腦、平板一律不畫。拿掉，跟 App 一樣只看閘門有沒有擋下（呼叫端已判 gateBlocked）。
+  if (!side) return;
   const indexX = mx(lm[5].x * W), pinkyX = mx(lm[17].x * W);
   // 🔴 2026-09-24 用戶：「箭頭左右是不是用反了」。'pinky' ＝ 小指側被壓扁、要轉回來，
   //    這時掌面朝鏡頭那一面是往**食指側**滑（轉門把），箭頭畫的是掌面滑的方向 → 指向食指。

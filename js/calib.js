@@ -138,6 +138,22 @@ function calibBox(W, H) {
   return { l: (W - w) / 2, t: (H - h) / 2, w, h };
 }
 
+/**
+ * 手肘檢測框：橫的圓角長方形（寬:高 2:1）。
+ * 2026-11-04 用戶：「電腦版本手肘在檢測的時候是一個竪的長方形，導致我需要離鏡頭更遠才可以進入框框中」
+ *   → 手肘圖 11-03 起是放平的（約 310×142），判斷進框只看手腕＋手肘兩點，
+ *     直立 3:4 框等於拿最窄的那一邊去塞整段前臂。電腦 1280×720：432 寬 → 1024 寬（約 2.4 倍）。
+ *   ⚠️ 只有橫的畫面（W ≥ H）才換：直放的手機框寬本來就被畫面寬卡住，換橫框寬度不變、只會變矮
+ *     （390×844：416 高 → 156 高），手臂稍斜手腕或手肘就出框 —— 截圖比過，直放維持原本的 3:4。
+ */
+const CALIB_FOREARM_BOX_ASPECT = 2;
+function calibBoxForearm(W, H) {
+  if (W < H) return calibBox(W, H);
+  const w = Math.min(W * CALIB_BOX_FRAC, H * CALIB_BOX_FRAC * CALIB_FOREARM_BOX_ASPECT);
+  const h = w / CALIB_FOREARM_BOX_ASPECT;
+  return { l: (W - w) / 2, t: (H - h) / 2, w, h };
+}
+
 /** 所有點（畫布座標 {x,y}）都在框裡嗎（含寬容）。框左右置中，前鏡頭鏡像不影響結果 */
 function pointsInBox(pts, b) {
   if (!pts || !pts.length) return false;

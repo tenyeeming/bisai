@@ -305,7 +305,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goToMassage(); await tick();
   ok(w.eval('renderMode') === 'massage', 'renderMode 切成 massage');
   ok(w.eval('camRunning') === true, '相機沒被重啟（維持運作）');
-  ok($('timer-display').textContent === '30', '計時預設 30 秒（每隻手）');
+  ok($('timer-display').textContent === '10', '計時預設 10 秒（每隻手；11-04 照 App 批 181 從 30 改 10）');
   ok($('round-hand').textContent === '右手', '第一輪標「右手」（預設手序：先右後左）');
   ok($('round-pips').textContent === '1/2', '輪次顯示 1/2');
   ok($('backbar-actions').querySelector('#massage-gear'), '齒輪在返回列上（跟返回鈕同一行）');
@@ -315,8 +315,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // 計時只在對準時前進
   // 2026-10-31 照 App 批 100：按壓判定預設關。這一段測的是「開著」的行為，所以先打開（會存檔，後面都維持開）
-  ok(w.eval('pressCheck') === false, '按壓判定預設關（同 App 批 100）');
+  ok(w.eval('pressCheck') === true, '按壓判定預設開（同 App 批 180，11-04）');
   w.setPressCheck(true);
+  // 11-04 照 App 批 181：認穴停留、換手倒數預設關。下面測的是「開著」的倒數行為 → 先打開
+  w.eval('flow.readyAuto=true; flow.switchAuto=true');
   $('timer-input').value = '5'; w.updateTimerDisplay();
   ok($('timer-display').textContent === '5', '拉動滑桿改秒數');
   w.eval('onTarget=false');
@@ -1016,8 +1018,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   setLS('flowSettings', '{"pressSec":"abc","readySec":-5,"switchSec":9999,"handOrder":"上","autoAdvance":"yes"}');
   const cf = w.eval('JSON.stringify(cleanFlow())');
-  ok(/"pressSec":30/.test(cf) && /"readySec":5/.test(cf) && /"switchSec":15/.test(cf)
-     && /"readyAuto":true/.test(cf) && /"switchAuto":true/.test(cf)
+  // 11-04 預設改成 10 秒；readySec 存了 -5（不是 0、也不 ≥1）→ 開關回預設＝關；switchSec 9999 ≥1 → 舊版語意＝開
+  ok(/"pressSec":10/.test(cf) && /"readySec":5/.test(cf) && /"switchSec":15/.test(cf)
+     && /"readyAuto":false/.test(cf) && /"switchAuto":true/.test(cf)
      && /"handOrder":"right"/.test(cf) && /"autoAdvance":true/.test(cf),
      '節奏設定：非數字回預設、超範圍夾住（秒數 1～15）、手序與開關回預設 — ' + cf);
   setLS('flowSettings', '{"readySec":0,"switchSec":0}');
