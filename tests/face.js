@@ -207,7 +207,47 @@ if (!files.length) {
   const an = new Function('isZh', src + '\n' + fs.readFileSync(DIR + 'js/face-anchor.js', 'utf8') + `
     ;return { FACE_FORMULA, computeFaceAcupoint, faceYawDeg, faceFarSide, faceAnchorReset,
               computeFaceAcupointAnchored, FACE_ANCHOR_SKIP, FACE_FAR_HIDE_DEG, FACE_BIND_MAX_DEG,
-              faceTurnUpdate, FACE_FAR_SHOW_DEG };`)(() => true);
+              faceTurnUpdate, FACE_FAR_SHOW_DEG, faceMatrixAngles, faceAwayNext };`)(() => true);
+
+  // 11-04：官方矩陣 → 角度、跟「你的正面」比、絕對 45° 保險、上下回正（同 App FaceAnchorTest）
+  {
+    const d2r = Math.PI / 180;
+    // 直行優先的 4×4：先繞 Y（yaw）再繞 X（pitch），讓第三欄 = (sin y·cos p, -sin p?, ...) —— 只驗「讀回來跟放進去一樣」
+    const colMajor = (yawDeg, pitchDeg) => {
+      const y = yawDeg * d2r, p = pitchDeg * d2r;
+      // R = Ry · Rx；第 3 欄（col 2）= (sin y·cos p, −sin p·… ) → 用 r(0,2)=sin y·cos p、r(1,2)=sin p、r(2,2)=cos y·cos p
+      const r02 = Math.sin(y) * Math.cos(p), r12 = Math.sin(p), r22 = Math.cos(y) * Math.cos(p);
+      const m = new Array(16).fill(0); m[15] = 1;
+      m[2 * 4 + 0] = r02; m[2 * 4 + 1] = r12; m[2 * 4 + 2] = r22;   // col 2
+      m[0] = 1; m[5] = 1;
+      return m;
+    };
+    const a = an.faceMatrixAngles(colMajor(20, -10), 15);
+    ok(a && Math.abs(a.yaw - 20) < 1e-6 && Math.abs(a.pitch + 10) < 1e-6, `矩陣讀回 yaw 20／pitch −10（${a && a.yaw.toFixed(2)}, ${a && a.pitch.toFixed(2)}）`);
+    ok(an.faceMatrixAngles(null, 0) === null && an.faceMatrixAngles([1, 2], 0) === null, '沒有矩陣 → null（退回 yaw3d）');
+    // 跟你的正面比：base 20° 時 yaw 45 只差 25 → 不出；沒 base 時 45 > 30 → 出
+    ok(an.faceAwayNext(false, 45, 20, 30, 25) === false && an.faceAwayNext(false, 45, null, 30, 25) === true,
+       '跟你的正面比：base 20° 轉到 45° 只差 25° 不出箭頭；沒量過照舊 >30° 出');
+    ok(an.faceAwayNext(false, 50, 20, 30, 25) === true, '絕對 50° 超過 45° 保險 → 照樣出（就算只跟正面差 30°）');
+    ok(an.faceAwayNext(true, 42, 20, 30, 25) === true && an.faceAwayNext(true, 39, 20, 30, 25) === false,
+       '已出箭頭：絕對 42° > 40° 不收；回到 39°（跟正面差 19°）才收');
+    const flat = Array.from({ length: 478 }, () => ({ x: .5, y: .5, z: 0 }));
+    an.faceAnchorReset();
+    let s = an.faceTurnUpdate(0, ['EX-HN3'], flat, 35, null);
+    ok(s.pitchedAway && s.backDirY === 1 && !s.turnedAway, '抬／低頭 35°（沒量過正面）→ 上下回正，方向 +1');
+    s = an.faceTurnUpdate(0, ['EX-HN3'], flat, -35, null);
+    ok(s.pitchedAway && s.backDirY === -1, '反方向 −35° → 方向 −1');
+    an.faceAnchorReset();
+    s = an.faceTurnUpdate(40, ['EX-HN3'], flat, 40, null);
+    ok(s.turnedAway && !s.pitchedAway && s.backDirY === 0, '左右上下都超過 → 只講左右（一次一件事）');
+    an.faceAnchorReset();
+    s = an.faceTurnUpdate(0, ['EX-HN3'], flat, 25, { yaw: 0, pitch: 20 });
+    ok(!s.pitchedAway, '正面本來就仰 20°：pitch 25° 只差 5° → 不出');
+    an.faceAnchorReset();
+    s = an.faceTurnUpdate(0, ['EX-HN3'], flat, null, null);
+    ok(!s.pitchedAway && s.backDirY === 0, '沒有上下角（舊 FaceMesh）→ 不判上下');
+    an.faceAnchorReset();
+  }
 
   // 轉太多（批 E-2，同 App FaceAnchor 批 65）：遲滯 30° 進、25° 出；只選側臉 6 穴不叫人回正
   {
@@ -263,6 +303,16 @@ if (!files.length) {
     ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 10).pts === null, '轉 40°＋faceTurnUpdate：四白兩側一起藏（同 App）');
     const g6 = an.computeFaceAcupointAnchored('ST6', L, W, H, yL, 10).pts;
     ok(g6 && g6.every(p => p.side !== far), '側臉穴仍只藏遠側');
+
+    // 11-04：抬／低頭太多（有官方矩陣才會有 pitch）→ 正臉類一樣全藏；側臉穴不受影響（同 App `turned || pitched`）
+    an.faceAnchorReset();
+    an.faceTurnUpdate(y0, ['ST2'], lm, 0, null);
+    const st2Flat = an.computeFaceAcupointAnchored('ST2', lm, W, H, y0, 0).pts;
+    an.faceTurnUpdate(y0, ['ST2', 'ST6'], lm, 35, null);
+    ok(st2Flat && st2Flat.length === 2 && an.computeFaceAcupointAnchored('ST2', lm, W, H, y0, 10).pts === null,
+       '正臉照＋pitch 35°：四白兩側一起藏（pitch 0° 時有 2 點）');
+    const g6p = an.computeFaceAcupointAnchored('ST6', lm, W, H, y0, 10).pts;
+    ok(g6p && g6p.length === 2, '抬／低頭不藏側臉穴（頰車兩側都在）');
 
     an.faceAnchorReset();
     ok(an.computeFaceAcupointAnchored('ST2', L, W, H, yL, 0).unbound === true,

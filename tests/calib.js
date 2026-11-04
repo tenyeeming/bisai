@@ -30,7 +30,7 @@ const api = vm.runInContext(read('js/calib.js') + `
 ;({ HandCalibrator, FaceCalibrator, calibBox, calibBoxForearm, pointsInBox, fingersOpen, calibFacingOk, calibAcuOnPalm,
     calibImgFile, calibForearmImgFile, handKeyOfLabel, labelOfHandKey,
     needsHandCalib, recordHandCalib, skipHandCalib, resetHandCalib, activeHandCalib, setCalibEnabled,
-    needsFaceCalib, recordFaceCalib, skipFaceCalib, savedCalib })`, sandbox, { filename: 'calib.js' });
+    needsFaceCalib, recordFaceCalib, skipFaceCalib, savedCalib, faceBaseAngles })`, sandbox, { filename: 'calib.js' });
 
 // ── 手部（同 App HandCalibTest）──────────────────────────────────
 const s = (t, o = {}) => Object.assign({ axisPx: 200, cunPx: 40, tb: 0.05, tiltDeg: 5, fingersOpen: true, atMs: t,
@@ -127,6 +127,17 @@ const f = (t, o = {}) => Object.assign({ ipdPx: 100, yawDeg: 3, pitchDeg: null, 
   ok(c.update(f(1000, { ipdPx: 120 })).issue === 'moving', '頭在動：從頭收（App movingHeadRestarts）');
   ok(new api.FaceCalibrator().update(f(0, { yawDeg: -12 })).issue === null, '左右 12° 剛好收（App yawAtBindLimitIsAccepted）');
 }
+// 11-04：臉部改跑 Tasks 有官方矩陣 → 上下角也有了：量好記下 pitch0；沒上下角（舊 FaceMesh）時 pitch0 是 null
+{
+  const c = new api.FaceCalibrator();
+  let st;
+  for (let t = 0; t <= 2000; t += 250) st = c.update(f(t, { yawDeg: 5, pitchDeg: -8 }));
+  ok(st.done && near(st.yaw0, 5) && near(st.pitch0, -8), '有上下角：量好記下你的正面 yaw0 5°／pitch0 −8°');
+  ok(new api.FaceCalibrator().update(f(0, { pitchDeg: 35 })).issue === 'pitched', '抬／低頭超過 30° 不收');
+  const c2 = new api.FaceCalibrator();
+  for (let t = 0; t <= 2000; t += 250) st = c2.update(f(t));
+  ok(st.done && st.pitch0 === null, '沒上下角（舊 FaceMesh）：pitch0 是 null');
+}
 
 // ── 療程紀錄（App HandCalibSessionTest）────────────────────────────
 const S = sandbox.state;
@@ -152,8 +163,13 @@ ok(!api.needsHandCalib('right') && near(api.activeHandCalib('right').k, 0.2) && 
 ok(!api.needsFaceCalib(), '關掉檢測：臉也不問');
 api.setCalibEnabled(true);
 ok(api.needsFaceCalib(), '臉：開著就要量');
-api.recordFaceCalib();
+ok(api.faceBaseAngles() === null, '還沒量過臉：回正跟 0° 比');
+api.recordFaceCalib({ yaw0: 3, pitch0: null });
 ok(!api.needsFaceCalib(), '臉量好了這一穴不再問');
+ok(api.faceBaseAngles() === null, '沒有 pitch0（舊 FaceMesh 量的）不存 —— 兩套 yaw 算法不同，不能混');
+api.recordFaceCalib({ yaw0: 6, pitch0: -4 });
+ok(near(api.faceBaseAngles().yaw, 6) && near(api.faceBaseAngles().pitch, -4) && near(api.savedCalib().right, 0.2),
+   '矩陣量到的正面存進瀏覽器（手的寸比例還在）');
 S.selectedAcupoints = ['印堂'];
 api.skipFaceCalib();
 ok(!api.needsFaceCalib(), '臉略過也不再問');

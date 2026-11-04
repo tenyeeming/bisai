@@ -49,19 +49,43 @@ let faceOkUntil = 0;
 const FACE_MODEL_TIMEOUT_MS = 20000;
 
 // 單一共用實例：每次進頁重建會重載 wasm，又慢又漏
+// 2026-11-04：這支回傳的是「臉部引擎」—— Tasks FaceLandmarker 載好了就用它（有官方矩陣，js/face-tasks.js），
+//   還在載就跳過這一幀（onFrame 已經畫了預覽），載不起來就用舊 FaceMesh（＝改前行為）。
+//   send() 介面跟舊 FaceMesh 一樣，startFaceCamera 那段不用動。
 function getFaceMesh() {
   if (faceMesh) return faceMesh;
-  faceMesh = new FaceMesh({
+  const legacy = getLegacyFaceMesh();   // 建構不會下載 wasm（第一次 send 才會），先建好當退路
+  if (typeof loadFaceTasks === 'function') loadFaceTasks();
+  faceMesh = {
+    async send(input) {
+      const st = typeof ftState === 'undefined' ? 'failed' : ftState;
+      if (st === 'ready') {
+        let res = null;
+        try { res = ftDetect(input.image); } catch (e) { console.warn('[face-tasks] 這一幀失敗：', e); }
+        if (res) onFaceResults(res);
+        return;
+      }
+      if (st === 'failed') return legacy.send(input);
+      // 'idle' / 'loading'：這一幀不送
+    },
+  };
+  return faceMesh;
+}
+
+let faceMeshLegacy = null;
+function getLegacyFaceMesh() {
+  if (faceMeshLegacy) return faceMeshLegacy;
+  faceMeshLegacy = new FaceMesh({
     locateFile: (f) => mpAsset('face_mesh', f),  // 本機或 CDN，見 js/mp-loader.js
   });
-  faceMesh.setOptions({
+  faceMeshLegacy.setOptions({
     maxNumFaces: 1,
     refineLandmarks: true,        // ← 開了才有 478 點（含虹膜 468–477），公式靠虹膜當基準
     minDetectionConfidence: 0.6,
     minTrackingConfidence: 0.6,
   });
-  faceMesh.onResults(onFaceResults);
-  return faceMesh;
+  faceMeshLegacy.onResults(onFaceResults);
+  return faceMeshLegacy;
 }
 
 async function startFaceCamera(canvasId, gateId, mode) {
@@ -174,7 +198,7 @@ function stopFaceCamera() {
     faceVideo.srcObject.getTracks().forEach(tr => tr.stop());
     faceVideo.srcObject = null;
   }
-  // 不呼叫 faceMesh.close()：實例留著重用，下次進頁不必重載 wasm
+  // 不呼叫 close()：實例（Tasks 與舊 FaceMesh 都是）留著重用，下次進頁不必重載 wasm
 }
 
 async function switchFaceCamera() {
@@ -219,7 +243,7 @@ function onFaceResults(results) {
 
   const faces = results.multiFaceLandmarks || [];
   // 定位前檢測（按摩頁，App FaceScreen 批 122）：量臉期間只畫框、不畫穴位，沒臉也要畫框
-  if (faceCalibRun && faceMode === 'massage') { runFaceCalibFrame(ctx, canvas, W, H, faces); return; }
+  if (faceCalibRun && faceMode === 'massage') { runFaceCalibFrame(ctx, canvas, W, H, faces, results.faceMatrix); return; }
   if (!faces.length) {
     setFaceGate('warn', isZh() ? '請把臉放進畫面中' : 'Put your face in frame');
     return;
@@ -245,14 +269,22 @@ function onFaceResults(results) {
   let unbound = false;
   const allPts = [];
   // 2026-09-24：轉頭偏移 → 改走 face-anchor.js（A 網格錨定 ＋ D 遠側隱藏）
+  // 2026-11-04：有官方矩陣（Tasks）→ 左右／上下都用它（同 App）；沒有（舊 FaceMesh）→ 左右照舊用 yaw3d、不判上下
   const yaw3d = faceYawDeg(lm, W);
+  const ang = typeof faceMatrixAngles === 'function' ? faceMatrixAngles(results.faceMatrix, yaw3d) : null;
+  const yaw = ang ? ang.yaw : yaw3d;
+  // 「你的正面」是用矩陣量的 → 只有這一幀也是矩陣時才拿來比（兩套 yaw 算法不同，不能混）
+  const base = ang && typeof faceBaseAngles === 'function' ? faceBaseAngles() : null;
   // 批 E-2（同 App）：這一幀轉太多沒有 —— 正臉類全藏、畫回正箭頭、提示優先講這件事
-  const turn = faceTurnUpdate(yaw3d, faceSelected, lm);
+  const turn = faceTurnUpdate(yaw, faceSelected, lm, ang ? ang.pitch : null, base);
   faceTurnedAway = turn.turnedAway;
+  facePitchedAway = !!turn.pitchedAway;
   if (turn.turnedAway && turn.backDirX) drawFaceBackArrow(ctx, W, H, mirror ? -turn.backDirX : turn.backDirX);
+  // 上下回正箭頭（11-04，同 App drawCenterArrowV）：鏡像只翻左右，上下不用翻
+  if (turn.pitchedAway && turn.backDirY) drawFaceBackArrowV(ctx, W, H, turn.backDirY);
 
   faceSelected.forEach(code => {
-    const res = computeFaceAcupointAnchored(code, lm, W, H, yaw3d);
+    const res = computeFaceAcupointAnchored(code, lm, W, H, yaw);
     if (res.unbound) unbound = true;
     const pts = res.pts;
     if (!pts) return;
@@ -278,6 +310,8 @@ function onFaceResults(results) {
   const roll = Math.round(pose.rollDeg);
   if (faceTurnedAway) {
     setFaceGate('warn', t('face-turn-back'));
+  } else if (facePitchedAway) {
+    setFaceGate('warn', t('face-pitch-back'));
   } else if (!drawn) {
     setFaceGate('warn', isZh() ? '請先選要定位的穴道' : 'Select an acupoint first');
   } else if (unbound) {
@@ -315,11 +349,12 @@ function skipFaceCalibNow() {
   if (run.onDone) run.onDone();
 }
 function faceCalibText(issue) {
-  const key = { 'out-box': 'calib-face-out-box', turned: 'calib-face-turned', moving: 'calib-face-moving',
+  // pitched（11-04 有矩陣才會出現）跟 App 一樣用「轉正一點」那句
+  const key = { 'out-box': 'calib-face-out-box', turned: 'calib-face-turned', pitched: 'calib-face-turned', moving: 'calib-face-moving',
     done: 'calib-face-done' }[issue] || 'calib-face-title';
   return t(key);
 }
-function runFaceCalibFrame(ctx, canvas, W, H, faces) {
+function runFaceCalibFrame(ctx, canvas, W, H, faces, matrix) {
   const run = faceCalibRun, now = performance.now();
   const box = calibBox(W, H), sc = screenScale(canvas);
   const flipImg = faceFacingMode !== 'user';
@@ -337,15 +372,18 @@ function runFaceCalibFrame(ctx, canvas, W, H, faces) {
   const lm = faces[0];
   const pose = lm ? faceHeadPose(lm, W, H) : null;
   if (lm && pose) {
-    const yaw = faceYawDeg(lm, W);
+    const yaw3d = faceYawDeg(lm, W);
+    // 11-04：有官方矩陣就用它（同 App；上下角也有了，檢測開始擋抬／低頭、並記下「你的正面」）
+    const ang = typeof faceMatrixAngles === 'function' ? faceMatrixAngles(matrix, yaw3d) : null;
+    const yaw = ang ? ang.yaw : yaw3d;
     faceSelected.forEach(code => computeFaceAcupointAnchored(code, lm, W, H, yaw));   // 只為了在正臉綁定，不畫
     sample = {
-      ipdPx: pose.ipd, yawDeg: yaw, pitchDeg: null, atMs: now,
+      ipdPx: pose.ipd, yawDeg: yaw, pitchDeg: ang ? ang.pitch : null, atMs: now,
       inBox: pointsInBox(lm.map(p => ({ x: p.x * W, y: p.y * H })), box),
     };
   }
   const st = run.cal.update(sample);
-  if (st.done) { recordFaceCalib(); run.doneAt = now; }
+  if (st.done) { recordFaceCalib(st); run.doneAt = now; }
   drawCalibGuide(ctx, box, st.progress, st.done, sc, CALIB_FACE_IMG, flipImg);
   setFaceGate(st.done ? 'ok' : st.issue ? 'warn' : 'ok', faceCalibText(st.done ? 'done' : st.issue));
 }
@@ -402,6 +440,10 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
     setFaceGate('warn', t('face-turn-back'));
     return;
   }
+  if (facePitchedAway) {
+    setFaceGate('warn', t('face-pitch-back'));
+    return;
+  }
   if (!acuPts.length) {
     setFaceGate('warn', isZh() ? '算不出穴位' : 'Cannot compute acupoint');
     return;
@@ -429,6 +471,20 @@ function renderFaceMassage(ctx, acuPts, pose, W, H, mx) {
  * 外觀同手部扭轉箭頭（vision.js drawTwistArrow）。dir：**畫面上**的方向（+1 右／−1 左，鏡像已處理）。
  */
 let faceTurnedAway = false;
+let facePitchedAway = false;   // 11-04：抬／低頭太多（只有 Tasks 有矩陣時才會 true）
+/** 上下版（App drawCenterArrowV，2026-10-27）：同大小、比例、顏色，只是直著放。dirY：+1 往下／−1 往上 */
+function drawFaceBackArrowV(ctx, W, H, dirY) {
+  const len = W * .30, cx = W / 2, y0 = H / 2 - dirY * len / 2;
+  const tip = y0 + dirY * len, neck = tip - dirY * len * .36;
+  const headHalf = len * .26, shaftHalf = len * .137;
+  ctx.save(); ctx.globalAlpha = .35; ctx.beginPath();
+  ctx.moveTo(cx - shaftHalf, y0); ctx.lineTo(cx - shaftHalf, neck);
+  ctx.lineTo(cx - headHalf, neck); ctx.lineTo(cx, tip);
+  ctx.lineTo(cx + headHalf, neck); ctx.lineTo(cx + shaftHalf, neck);
+  ctx.lineTo(cx + shaftHalf, y0); ctx.closePath();
+  ctx.fillStyle = '#4ADE80'; ctx.fill();
+  ctx.strokeStyle = '#06101F'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
+}
 function drawFaceBackArrow(ctx, W, H, dir) {
   const len = W * .30, cy = H / 2, x0 = W / 2 - dir * len / 2;
   const tip = x0 + dir * len, neck = tip - dir * len * .36;

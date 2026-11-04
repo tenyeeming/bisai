@@ -26,6 +26,7 @@ const MP_PKG = {
   face_mesh:    '@mediapipe/face_mesh@0.4.1633559619',
   pose:         '@mediapipe/pose@0.5.1675469404',      // 前臂：小海實驗頁、內關（js/forearm-vision.js）
   camera_utils: '@mediapipe/camera_utils@0.3.1640029074',
+  // tasks_vision（臉部，11-04）不走這張表：是 ES module，載入規則在 js/face-tasks.js（FT_VER）
 };
 
 // file:// 底下 fetch 讀不到鄰居檔案，所以資產得留在 CDN（見上面第 ② 點）

@@ -32,6 +32,8 @@ const dom = new JSDOM(html, {
   beforeParse(w) {
     // 模擬 file:// 環境：fetch 一律失敗。程式碼不該再依賴它。
     w.fetch = () => Promise.reject(new Error('fetch blocked (file://)'));
+    // 11-04 臉部改跑 Tasks（js/face-tasks.js）：jsdom 沒有 ES module 動態載入與 WebGL → 固定走舊 FaceMesh 退路
+    w.__noFaceTasks = true;
   },
 });
 

@@ -88,7 +88,8 @@ class HandCalibrator {
 
 /**
  * 臉部檢測狀態機（App FaceCalibrator）。sample：{ ipdPx, yawDeg, pitchDeg, inBox, atMs }；null＝沒看到臉
- * issue：'no-face'|'out-box'|'turned'|'pitched'|'moving'|null；網頁 pitchDeg 一律 null（不擋）
+ * issue：'no-face'|'out-box'|'turned'|'pitched'|'moving'|null
+ * pitchDeg：11-04 起臉部改跑 Tasks（有官方矩陣）才有值；退回舊 FaceMesh 時是 null（不擋上下）
  */
 class FaceCalibrator {
   constructor(holdMs = CALIB_HOLD_MS, minSamples = CALIB_MIN_SAMPLES) {
@@ -110,7 +111,10 @@ class FaceCalibrator {
     }
     const span = s.atMs - this.samples[0].atMs;
     if (span >= this.holdMs && this.samples.length >= this.minSamples) {
-      this.done = { progress: 1, issue: null, done: true, yaw0: _calibMedian(this.samples.map(x => x.yawDeg)) };
+      // yaw0／pitch0＝「你的正面」（同 App FaceCalibrator；回正箭頭跟它比，11-04）
+      const pitches = this.samples.map(x => x.pitchDeg).filter(v => v != null);
+      this.done = { progress: 1, issue: null, done: true, yaw0: _calibMedian(this.samples.map(x => x.yawDeg)),
+                    pitch0: pitches.length ? _calibMedian(pitches) : null };
       return this.done;
     }
     return { progress: Math.min(1, Math.max(0, span / this.holdMs)), issue: null, done: false };
@@ -277,5 +281,22 @@ function needsFaceCalib() {
   const s = _calibCur(), k = _calibKey();
   return s.face !== k && s.faceSkip !== k;
 }
-function recordFaceCalib() { _calibCur().face = _calibKey(); }
+/**
+ * 量好臉：記在這一穴；「你的正面」角度存進瀏覽器（同 App savedCalib，存的永遠是最近一次，11-04）。
+ * ⚠️ 只存跟官方矩陣同一套的角度：沒有 pitch0（退回舊 FaceMesh 量的）就不覆寫 —— 兩套 yaw 算法不同，不能混。
+ */
+function recordFaceCalib(r) {
+  _calibCur().face = _calibKey();
+  if (r && typeof r.yaw0 === 'number' && typeof r.pitch0 === 'number') {
+    const sv = savedCalib();
+    sv.faceYaw = r.yaw0; sv.facePitch = r.pitch0;
+    sv.savedAt = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('savedCalib', JSON.stringify(sv));
+  }
+}
+/** 回正箭頭的基準 { yaw, pitch }（沒量過＝null，跟 0° 比）。同 App FaceScreen 把 savedCalib 交給 FaceAnchor */
+function faceBaseAngles() {
+  const sv = savedCalib();
+  return typeof sv.faceYaw === 'number' && typeof sv.facePitch === 'number' ? { yaw: sv.faceYaw, pitch: sv.facePitch } : null;
+}
 function skipFaceCalib() { _calibCur().faceSkip = _calibKey(); }

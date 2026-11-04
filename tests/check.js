@@ -31,16 +31,23 @@ ok(missingFiles.length === 0, `外殼引用的 ${srcs.length + links.length} 個
      `外殼的 ${vendorSrcs.length} 支 vendor 腳本都在 下載.js 的清單裡` + (badVendor.length ? ': ' + badVendor : ''));
 
   // 各包的版本號要一致（2026-09-25 加 pose，前臂實驗頁用）：mp-loader / 外殼 / 下載.js 對不上會偶發載入失敗，而且很難查
-  const loader = read('js/mp-loader.js');
-  const vers = [...dl.matchAll(/npm: '(@mediapipe\/[^']+)'/g)].map(x => x[1]);
+  // 11-04 加 tasks-vision（臉部）：它不走 mp-loader，版本對 js/face-tasks.js 的 FT_VER
+  const loader = read('js/mp-loader.js'), ft = read('js/face-tasks.js');
+  const allVers = [...dl.matchAll(/npm: '(@mediapipe\/[^']+)'/g)].map(x => x[1]);
+  const vers = allVers.filter(v => !v.startsWith('@mediapipe/tasks-vision@'));
   const badVer = vers.filter(v => !loader.includes(`'${v}'`));
+  const tv = allVers.find(v => v.startsWith('@mediapipe/tasks-vision@'));
+  const ftVer = (ft.match(/const FT_VER = '([^']+)'/) || [])[1];
+  ok(!!tv && !!ftVer && tv === '@mediapipe/tasks-vision@' + ftVer,
+     `臉部 tasks-vision 版本：下載.js ${tv} ＝ face-tasks.js ${ftVer}`);
   ok(vers.length === 4 && badVer.length === 0,
      '下載.js 與 mp-loader.js 的四個版本號一致（hands／face_mesh／pose／camera_utils）' + (badVer.length ? ': ' + badVer : ''));
 
   // 要嘛整包都在、要嘛整包都不在。只有 .js 沒有 wasm 是最糟的狀態：
   // 本機 .js 讀得到 → 不會觸發 onerror → 資產仍指本機 → 404
-  const want = [...dl.matchAll(/dir: '(\w+)',[\s\S]*?files: \[([\s\S]*?)\]/g)]
-    .flatMap(m => [...m[2].matchAll(/'([^']+)'/g)].map(f => `vendor/mediapipe/${m[1]}/${f[1]}`));
+  // 11-04：改成 require 下載.js 拿清單（檔案可寫成 [來源, 存成]，看的是「存成」那個名字；被 require 時不會下載）
+  const want = require(DIR + 'vendor/下載.js').PKGS
+    .flatMap(p => p.files.map(f => `vendor/mediapipe/${p.dir}/${Array.isArray(f) ? f[1] : f}`));
   const have = want.filter(f => fs.existsSync(DIR + f));
   ok(have.length === 0 || have.length === want.length,
      have.length === 0

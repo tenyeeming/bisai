@@ -58,6 +58,21 @@ const PKGS = [
     npm: '@mediapipe/camera_utils@0.3.1640029074',
     files: ['camera_utils.js'],
   },
+  {
+    // 2026-11-04：臉部改跑 Tasks FaceLandmarker（js/face-tasks.js），版本同 App 0.10.35。
+    // 檔案寫法 [來源, 存成]：
+    //   vision_bundle.mjs 存成 .js —— Windows 的 python http.server 把 .mjs 標成 text/plain，module 會被拒。
+    //   模型不在 npm 包裡，從 Google 官方網址抓（跟 App assets/face_landmarker.task 是同一個檔）。
+    dir: 'tasks_vision',
+    npm: '@mediapipe/tasks-vision@0.10.35',
+    files: [
+      ['vision_bundle.mjs', 'vision_bundle.js'],
+      'wasm/vision_wasm_internal.js', 'wasm/vision_wasm_internal.wasm',
+      'wasm/vision_wasm_nosimd_internal.js', 'wasm/vision_wasm_nosimd_internal.wasm',   // 沒有 SIMD 的瀏覽器退到這組
+      ['https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+       'face_landmarker.task'],
+    ],
+  },
 ];
 
 const ROOT = __dirname;
@@ -88,21 +103,28 @@ function get(url, dest, redirects = 0) {
   });
 }
 
+// tests/check.js 會 require 這支拿清單（11-04 起檔案可以寫成 [來源, 存成]，正規式讀不準）→ 被 require 時不下載
+module.exports = { PKGS };
+if (require.main !== module) return;
+
 (async () => {
   let total = 0, got = 0, skipped = 0;
   for (const pkg of PKGS) {
     const dir = path.join(ROOT, 'mediapipe', pkg.dir);
     fs.mkdirSync(dir, { recursive: true });
     console.log(`\n── ${pkg.npm}`);
-    for (const f of pkg.files) {
+    for (const entry of pkg.files) {
+      const [src, f] = Array.isArray(entry) ? entry : [entry, entry];
       const dest = path.join(dir, f);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
       if (fs.existsSync(dest)) {
         const size = fs.statSync(dest).size;
         total += size; skipped++;
         console.log(`   已有  ${f.padEnd(42)} ${mb(size)}`);
         continue;
       }
-      const size = await get(`https://cdn.jsdelivr.net/npm/${pkg.npm}/${f}`, dest);
+      const url = /^https?:/.test(src) ? src : `https://cdn.jsdelivr.net/npm/${pkg.npm}/${src}`;
+      const size = await get(url, dest);
       total += size; got++;
       console.log(`   下載  ${f.padEnd(42)} ${mb(size)}`);
     }

@@ -27,6 +27,46 @@ const FACE_BIND_ALPHA = 0.2;
 /** 臉消失超過這麼久就清掉綁定（可能換人了） */
 const FACE_ANCHOR_RESET_MS = 1500;
 
+// ── 2026-11-04：上下回正、跟「你的正面」比、絕對角度保險（照 App FaceAnchor.kt 批 125 / 10-27）──
+// 用戶：「還是有辦法讓網頁版本拿到那個功能嗎」→「試試看」：臉部改跑 Tasks FaceLandmarker（js/face-tasks.js），
+//   拿到官方 facial transformation matrix 後，左右／上下角都用它算（同 App）。
+//   拿不到矩陣（退回舊 FaceMesh：file:// 開、Tasks 載不起來）→ 左右照舊用 faceYawDeg、不判上下（＝改前行為）。
+/** 抬頭／低頭超過這個角度：正臉類全藏＋上下箭頭。⭐ 同 App，照左右的 30／25 抄，沒有依據 */
+const FACE_PITCH_HIDE_DEG = 30;
+const FACE_PITCH_SHOW_DEG = 25;
+/** 跟「你的正面」比之外，絕對角度超過 45° 照樣出箭頭（回到 40° 以內才收）。同 App */
+const FACE_ABS_HIDE_DEG = 45;
+const FACE_ABS_SHOW_DEG = 40;
+
+/**
+ * 官方矩陣 → { yaw, pitch }（度）。同 App FaceAnchorMath.matrixAngles：
+ * 先當直行優先讀；跟 yawHint（faceYawDeg）都超過 10° 卻反號 → 改當橫列優先讀。
+ */
+function faceMatrixAngles(m, yawHint) {
+  if (!m || m.length < 16) return null;
+  const read = (colMajor) => {
+    const r = (row, col) => colMajor ? m[col * 4 + row] : m[row * 4 + col];
+    const n = Math.hypot(r(0, 2), r(1, 2), r(2, 2));
+    if (n < 1e-9) return null;
+    const yaw = Math.atan2(r(0, 2), r(2, 2)) * 180 / Math.PI;
+    const pitch = Math.asin(Math.max(-1, Math.min(1, r(1, 2) / n))) * 180 / Math.PI;
+    return { yaw, pitch };
+  };
+  const a = read(true);
+  if (!a) return null;
+  if (yawHint != null && Math.abs(yawHint) > 10 && Math.abs(a.yaw) > 10 && (yawHint > 0) !== (a.yaw > 0)) {
+    return read(false) || a;
+  }
+  return a;
+}
+
+/** 遲滯＋你的正面＋絕對保險（同 App faceAwayNext）。base＝null 時就是跟 0° 比 */
+function faceAwayNext(prev, deg, base, hide, show) {
+  if (deg == null) return false;
+  const rel = Math.abs(deg - (base == null ? 0 : base)), a = Math.abs(deg);
+  return prev ? (rel > show || a > FACE_ABS_SHOW_DEG) : (rel > hide || a > FACE_ABS_HIDE_DEG);
+}
+
 // 側臉 6 穴是拿**側臉照**擬合的，正臉下本來就偏（face-math.js 有寫）→ 不能用正臉綁，照舊走公式
 const FACE_ANCHOR_SKIP = new Set(['EX-HN5', 'GB3', 'SI18', 'ST5', 'ST6', 'ST7']);
 
@@ -123,31 +163,42 @@ let faceAnchorLastSeen = 0;
 // 2026-09-25（網頁v2 批 E-2，同 App FaceAnchor.kt 批 65）：轉太多 → 正臉類穴位兩側一起藏＋回正箭頭。
 //   用戶 09-25 對網頁確認「這個功能是要的」。每幀先呼叫一次 faceTurnUpdate，再逐穴 computeFaceAcupointAnchored。
 let faceTurned = false;
+let facePitched = false;   // 11-04：抬頭／低頭（只有拿到官方矩陣才判）
 // null＝這一輪還沒呼叫過 faceTurnUpdate → computeFaceAcupointAnchored 退回舊行為（只藏遠側、無遲滯）
 let faceTurnState = null;
 
 function faceAnchorReset() {
   faceAnchorBinds = {}; faceAnchorLastSeen = 0;
-  faceTurned = false; faceTurnState = null;
+  faceTurned = false; facePitched = false; faceTurnState = null;
 }
 
 /**
- * 這一幀轉頭狀態（有遲滯：超過 30° 進入、回到 25° 以內才退出）。
+ * 這一幀轉頭狀態（有遲滯：跟「你的正面」差超過 30° 進入、回到 25° 以內才退出；絕對 45°／40° 保險）。
  *   turnedAway：轉太多且選的穴裡有正臉類 → 正臉類全藏、要出回正箭頭（只選側臉 6 穴不叫人回正）
  *   backDirX：回正方向，**影像原始座標** +1 往右／−1 往左（取鼻尖 → 兩外眥中點），畫的時候再依鏡像翻
  *   far：遠側（'R'/'L'），側臉 6 穴只藏這一側
+ *   pitchedAway／backDirY（11-04）：抬頭／低頭太多（左右也超過時先講左右，一次只講一件事）；
+ *     backDirY 是畫面方向 +1 往下／−1 往上（鏡像只翻左右，上下不用翻）
+ * @param pitchDeg 上下角（只有官方矩陣有；null＝不判上下）
+ * @param base { yaw, pitch }：臉部檢測量到的「你的正面」（存在 savedCalib）；null＝跟 0° 比
  */
-function faceTurnUpdate(yawDeg, codes, lm) {
-  const ay = yawDeg == null ? null : Math.abs(yawDeg);
-  faceTurned = ay == null ? false : faceTurned ? ay > FACE_FAR_SHOW_DEG : ay > FACE_FAR_HIDE_DEG;
+function faceTurnUpdate(yawDeg, codes, lm, pitchDeg = null, base = null) {
+  const by = base && typeof base.yaw === 'number' ? base.yaw : null;
+  const bp = base && typeof base.pitch === 'number' ? base.pitch : null;
+  faceTurned = faceAwayNext(faceTurned, yawDeg, by, FACE_FAR_HIDE_DEG, FACE_FAR_SHOW_DEG);
+  facePitched = faceAwayNext(facePitched, pitchDeg, bp, FACE_PITCH_HIDE_DEG, FACE_PITCH_SHOW_DEG);
   const far = faceTurned ? (yawDeg > 0 ? 'L' : 'R') : null;
-  const turnedAway = faceTurned && codes.some(c => !FACE_ANCHOR_SKIP.has(c));
+  const anyFront = codes.some(c => !FACE_ANCHOR_SKIP.has(c));
+  const turnedAway = faceTurned && anyFront;
+  const pitchedAway = facePitched && anyFront && !turnedAway;
   let backDirX = 0;
   if (turnedAway && lm[FLM.outerR] && lm[FLM.outerL] && lm[4]) {
     const midX = (lm[FLM.outerR].x + lm[FLM.outerL].x) / 2;
     backDirX = midX - lm[4].x >= 0 ? 1 : -1;
   }
-  faceTurnState = { turned: faceTurned, turnedAway, backDirX, far };
+  // 往「你的正面」那邊回（同 App；沒量過＝跟 0° 比）
+  const backDirY = pitchedAway && pitchDeg != null ? (pitchDeg > (bp == null ? 0 : bp) ? 1 : -1) : 0;
+  faceTurnState = { turned: faceTurned, pitched: facePitched, turnedAway, backDirX, pitchedAway, backDirY, far };
   return faceTurnState;
 }
 
@@ -164,7 +215,8 @@ function computeFaceAcupointAnchored(code, lm, W, H, yawDeg, now = Date.now()) {
   if (!raw) return { pts: null, unbound: false };
   // 遠側改讀這一幀的轉頭狀態（有遲滯，同 App）；沒先呼叫 faceTurnUpdate 時退回舊的無遲滯判法
   const far = faceTurnState ? faceTurnState.far : faceFarSide(yawDeg);
-  const hideFront = !!(faceTurnState && faceTurnState.turned);
+  // 正臉類：左右轉太多或抬／低頭太多都藏（11-04 加上下，同 App `if (turned || pitched) continue`）
+  const hideFront = !!(faceTurnState && (faceTurnState.turned || faceTurnState.pitched));
   const frontal = yawDeg != null && Math.abs(yawDeg) <= FACE_BIND_MAX_DEG;
   let unbound = false;
 
