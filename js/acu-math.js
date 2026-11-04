@@ -1272,10 +1272,10 @@ function screenScale(canvas) {
 /** App 的 ACU_DOT_R = 4dp：換成這張 canvas 上的像素 */
 // 2026-10-01 用戶：「電腦網頁版本的穴道位置的點太小了」—— 畫面寬時跟著放大
 // （取景框 CSS 寬 × 2%：手機 ~360px 約 7，桌面 ~900px 約 18；同日用戶：「還是太小再大點」，1.1% → 2%；再同日「穴道做成現在大小的四分之一」→ 整條 ÷4：0.5%、下限 1）。
-const appDotR = (canvas) => {
-  const cssW = (canvas && canvas.clientWidth) || 0;
-  return Math.max(1, cssW * 0.005) * screenScale(canvas);
-};
+// 🔴 2026-11-05 用戶：「網頁版本的穴道點位要和app的一樣大」→ 跟 App 一樣固定半徑 4（App ACU_DOT_R = 4.dp；
+//    CSS 像素跟 dp 一樣是邏輯像素）。以前「取景框寬 × 0.5%」在手機上只有約 1.8，不到 App 的一半。
+const APP_DOT_CSS_R = 4;
+const appDotR = (canvas) => APP_DOT_CSS_R * screenScale(canvas);
 function drawAcuCenterDot(ctx, x, y) {
   ctx.beginPath();
   ctx.arc(x, y, ACU_DOT_R, 0, Math.PI * 2);
