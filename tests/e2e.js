@@ -92,7 +92,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('recommend-list').children.length > 0, `推薦了 ${$('recommend-list').children.length} 個穴道`);
   ok(!$('emergency-warn'), '急症紅框已整塊移除（2026-09-20）');
   ok(activeTab().join() === 'home', '選穴頁仍歸首頁分頁');
-  ok($('backbar').style.display === '' && $('back-btn').textContent === '← 返回', '選穴頁顯示返回列');
+  ok($('backbar').style.display === '' && $('back-btn').textContent === '返回', '選穴頁顯示返回列');
   ok([...d.querySelector('.device').children].map(e => e.id || e.className).join(' ').indexOf('backbar')
      < [...d.querySelector('.device').children].map(e => e.id || e.className).join(' ').indexOf('steprail'),
      '返回列排在步驟軌上面');
@@ -259,7 +259,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('camera-title').textContent === $('acu-name').textContent, '定位頁標題同步穴名');
   ok(w.eval('camRunning') === true, '相機已啟動');
   ok(w.eval('renderMode') === 'locate', 'renderMode = locate');
-  ok($('back-btn').textContent === '← 停止', '定位頁的返回列標「停止」');
+  ok($('back-btn').textContent === '停止', '定位頁的返回列標「停止」');
 
   // ── 定位頁的齒輪（2026-09-25：圓盤開關收進來、加按摩手指與跳過這一穴）──
   ok($('backbar-actions').querySelector('#locate-gear'), '定位頁返回列右邊有齒輪');
@@ -298,7 +298,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
   w.goToMassage(); await tick();
   ok(active().join() === 'massage', '進到按摩頁');
-  ok($('back-btn').textContent === '← 返回', '按摩頁的返回列標「返回」');
+  ok($('back-btn').textContent === '返回', '按摩頁的返回列標「返回」');
   $('back-btn').click();
   ok(active().join() === 'camera', '按返回列 → 退回定位頁');
   ok(w.eval('camRunning') === true, '退回定位頁時相機續跑');
@@ -526,7 +526,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 這一層是動態建的，boot() 最後才叫。測試環境裡 boot 已經跑過，
   // 所以這裡自己叫一次來驗 —— 重點是「它一定收得掉」。
   w.endSplash();              // boot() 那一次先收掉，下面重新開一層來驗
-  await wait(520);
+  await wait(760);
   w.showSplash();
   const splash = d.getElementById('splash');
   ok(!!splash, '開場層建得出來');
@@ -536,7 +536,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 點一下要馬上開始收 —— 開場動畫永遠不可以擋住人進 App
   splash.click();
   ok(splash.classList.contains('out'), '點一下就淡出');
-  await wait(520);
+  await wait(760);
   ok(d.getElementById('splash') === null, '淡出完成後真的移除（不是只透明擋著）');
   // 重複呼叫不能爆
   w.endSplash();
@@ -548,7 +548,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(img2.getAttribute('src') === 'assets/splash/opening-still.webp', '載不出來就退靜態圖');
   img2.onerror();
   ok(d.getElementById('splash').classList.contains('out'), '靜態圖也失敗 → 直接收掉，不讓人對著破圖等');
-  await wait(520);
+  await wait(760);
   w.endSplash();              // 退場：後面的測試不該被這一層擋到
 
   // ── 圖冊 ──
@@ -778,21 +778,24 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-09-21 對齊 App 的 SettingsScreen.kt：
   //   +「顯示」（字體大小）、「每日提醒」從一般組搬到療程組、「定位精度」入口移除
   //   （App 2026-09-09 就刪了，行為固定嚴格）
-  // 2026-09-24：「資料與紀錄」拿掉（網頁不存紀錄）；2026-10-31：「我的流程」拿掉 → 四列
-  ok(menuRows().length === 4, `設定目錄列出 4 個功能（實得 ${menuRows().length}）`);
-  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '語言,顯示,療程節奏,每日提醒',
-     '目錄四列：語言／顯示／療程節奏／每日提醒（我的流程 2026-10-31 拿掉）');
+  // 2026-09-24：「資料與紀錄」拿掉（網頁不存紀錄）；2026-10-31：「我的流程」拿掉
+  // 2026-11-04 同 App 批 173／174：語言、顯示移到標題右邊的圖示 → 目錄剩兩列
+  const headIcons = () => [...d.querySelectorAll('#settings-head-icons button')];
+  ok(menuRows().length === 2, `設定目錄列出 2 個功能（實得 ${menuRows().length}）`);
+  ok(menuRows().map(b => b.querySelector('.label').textContent).join() === '療程節奏,每日提醒',
+     '目錄兩列：療程節奏／每日提醒');
+  ok(headIcons().map(b => b.getAttribute('aria-label')).join() === '語言,顯示' && headIcons().every(b => b.querySelector('svg')),
+     '標題右邊兩個圖示：語言（地球）、顯示（螢幕），讀屏文字有');
+  ok(!$('page-settings').querySelector('.settings-head-icons .value'), '圖示不顯示目前值');
   ok(!menuRows().some(b => b.querySelector('.label').textContent === '定位精度'),
      '目錄裡沒有「定位精度」（同 App）');
   ok(!$('page-settings').querySelector('input'), '設定首頁本身沒有任何開關（全都搬進子頁）');
-  ok(menuRows()[0].querySelector('.value').textContent === '中文', '目錄右邊直接顯示現在設成什麼');
-  menuRows()[0].click();
+  headIcons()[0].click();
   ok(active().join() === 'settings-lang' && activeTab().join() === 'settings', '點「語言」進子頁，分頁仍停在設定');
   w.goBack();
   ok(active().join() === 'settings', '返回列退回設定目錄');
 
   // ── 設定 › 顯示（字體大小，2026-09-21 對齊 App）──
-  ok(menuRows()[1].querySelector('.value').textContent === '中', '目錄「顯示」那列預設顯示「中」');
   w.showPage('settings-display');
   ok([...d.querySelectorAll('#font-seg button')].length === 3, '字級三個選項');
   ok(d.querySelector('#font-seg button[data-font="medium"]').classList.contains('on'), '預設勾在「中」');
@@ -853,12 +856,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok(!$('notify-mode-seg') && !$('notify-plan-body'), '「提醒內容」那一區拿掉了');
   w.onNotifyChange(true);
   w.showPage('settings');
-  ok(menuRows()[3].querySelector('.value').textContent === '20:00', '目錄那列只顯示時間（同 App）');
+  ok(menuRows()[1].querySelector('.value').textContent === '20:00', '目錄那列只顯示時間（同 App）');
   w.showPage('settings-notify');
   w.onNotifyChange(false);
   ok(w.eval('reminderTimer') === null, '關掉提醒會把排程取消掉');
   w.showPage('settings');
-  ok(menuRows()[3].querySelector('.value').textContent === '關閉', '關掉時目錄寫「關閉」');
+  ok(menuRows()[1].querySelector('.value').textContent === '關閉', '關掉時目錄寫「關閉」');
 
   // ── 設定 › 資料與紀錄：2026-09-24 拿掉（沒有紀錄可清）──
   w.showPage('settings');

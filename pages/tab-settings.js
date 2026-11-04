@@ -42,6 +42,16 @@ registerPage('settings', {
       #settings-menu .label { flex: 1; }
       #settings-menu .value { color: var(--ink-soft); font-size: 0.78125rem; }
       #settings-menu .chev { color: var(--ink-soft); font-size: 0.9375rem; line-height: 1; }
+      /* 標題列右邊的圖示鈕（App SettingsScreen HeaderIcon：44 圓形按壓範圍、26 主色圖示、沒有框） */
+      .settings-head { display: flex; align-items: flex-end; gap: 4px; }
+      .settings-head-text { flex: 1; min-width: 0; }
+      .settings-head-icons { display: flex; flex: none; }
+      .settings-head-icons button {
+        width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+        background: none; border: 0; border-radius: 50%; color: var(--brass); cursor: pointer; padding: 0;
+      }
+      .settings-head-icons button:hover { background: var(--surface-2); }
+      .settings-head-icons svg { width: 26px; height: 26px; }
       /* 右下角手掌浮水印（App SettingsMenuScreen HandMark）。
          ⚠️ 會往右溢出，#page-settings 的 overflow:hidden 防止橫向捲軸。 */
       #page-settings { position: relative; overflow: hidden; }
@@ -55,9 +65,14 @@ registerPage('settings', {
     <img class="hand-mark" src="assets/hand.png" alt="" aria-hidden="true" loading="lazy">
 
     <div class="stack">
-      <div>
-        <p class="eyebrow" data-i18n="eyebrow-settings">校正</p>
-        <h2 data-i18n="settings-title">設定</h2>
+      <!-- 2026-11-04 同 App 批 173／174：語言、顯示改成標題右邊兩個圖示（地球、螢幕），
+           沒有框、不顯示目前值；圖示由 renderSettingsMenu 畫（讀屏文字要跟語言走） -->
+      <div class="settings-head">
+        <div class="settings-head-text">
+          <p class="eyebrow" data-i18n="eyebrow-settings">校正</p>
+          <h2 data-i18n="settings-title">設定</h2>
+        </div>
+        <div class="settings-head-icons" id="settings-head-icons"></div>
       </div>
       <div id="settings-menu"></div>
     </div>
@@ -73,11 +88,9 @@ function renderSettingsMenu() {
   //   ③ 「定位精度」網頁還留著入口，**App 2026-09-09 就刪了**（行為固定嚴格，
   //      用戶指定）—— 入口拿掉。頁面檔 pages/settings-accuracy.js 與
   //      strictGate 的程式碼都留著沒動，只是目錄不再進得去（同 App 的處理）。
+  //   ④ 2026-11-04 同 App 批 173／174：「一般」組（語言、顯示）拿掉 → 改成標題右邊的地球、螢幕圖示
+  renderSettingsHeadIcons();
   const groups = [
-    { title: t('settings-group-general'), rows: [
-      { page: 'settings-lang',    label: t('settings-lang'),    value: isZh() ? '中文' : 'English' },
-      { page: 'settings-display', label: t('settings-display'), value: t('font-' + fontScale) },
-    ]},
     { title: t('settings-group-flow'), rows: [
       { page: 'settings-flow',    label: t('settings-flow'),    value: flowSummary() },
       { page: 'settings-notify',  label: t('settings-notify'),  value: notifySummary() },
@@ -98,6 +111,22 @@ function renderSettingsMenu() {
     </div>`).join('');
 }
 
+
+// 地球、螢幕兩個圖示（SVG 從 App res/drawable/ic_globe.xml、ic_display.xml 原樣搬）
+const SETTINGS_HEAD_ICONS = [
+  { page: 'settings-lang', key: 'settings-lang',
+    d: 'M21,12 A9,9 0 1,1 3,12 A9,9 0 1,1 21,12 Z M12,3 C9.2,5.6 8.2,8.8 8.2,12 C8.2,15.2 9.2,18.4 12,21 C14.8,18.4 15.8,15.2 15.8,12 C15.8,8.8 14.8,5.6 12,3 Z M3.4,9 L20.6,9 M3.4,15 L20.6,15' },
+  { page: 'settings-display', key: 'settings-display',
+    d: 'M5,4.5 L19,4.5 Q21,4.5 21,6.5 L21,14.5 Q21,16.5 19,16.5 L5,16.5 Q3,16.5 3,14.5 L3,6.5 Q3,4.5 5,4.5 Z M12,16.5 L12,20 M8,20 L16,20' },
+];
+function renderSettingsHeadIcons() {
+  const box = document.getElementById('settings-head-icons');
+  if (!box) return;
+  box.innerHTML = SETTINGS_HEAD_ICONS.map(ic => `
+    <button type="button" data-page="${ic.page}" onclick="showPage('${ic.page}')" aria-label="${t(ic.key)}" title="${t(ic.key)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${ic.d}"/></svg>
+    </button>`).join('');
+}
 
 // ── 「!」說明鈕（2026-10-31 照 App 批 112 InfoMark）─────────────────────
 // 說明平常收著，點「!」才展開、再點收起；離開頁面就收回（不存）。

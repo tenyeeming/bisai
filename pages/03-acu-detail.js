@@ -232,6 +232,7 @@ function renderDetailSec() {
   const input = document.getElementById('detail-sec-input');
   input.min = PRESS_MIN; input.max = PRESS_MAX; input.step = PRESS_STEP;
   input.value = acuSecOf(name);
+  minionRange(input, '中魁穴');   // 2026-11-04 同 App 批 163：白底軌道＋中魁穴小人
   document.getElementById('detail-sec-val').textContent = acuSecOf(name) + 's';
 }
 

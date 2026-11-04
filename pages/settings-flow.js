@@ -26,6 +26,7 @@ registerPage('settings-flow', {
       .auto-sec { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
       .auto-sec .ak { font-size: 0.75rem; color: var(--ink-soft); flex: none; }
       .auto-sec input[type="range"] { flex: 1; min-width: 0; accent-color: var(--brass); }
+      .auto-sec .minion-range { width: auto; }
       .auto-sec b { font-family: var(--font-mono); font-size: 0.8125rem; min-width: 3ch; text-align: right; }
     </style>
 
@@ -152,6 +153,7 @@ function autoSecRow(boxId, getOn, setOn, getSec, setSec, rerender) {
   const v = document.createElement('b');
   v.textContent = `${getSec()}s`;
   r.oninput = () => { setSec(parseInt(r.value, 10)); v.textContent = `${r.value}s`; };
+  minionRange(r, '勞宮穴');   // 2026-11-04 同 App 批 159／160
   row.append(k, r, v);
   box.after(row);
 }
@@ -167,6 +169,7 @@ function pressSlider() {
   const v = document.createElement('b');
   v.textContent = `${flow.pressSec}s`;
   r.oninput = () => { setFlow('pressSec', parseInt(r.value, 10)); v.textContent = `${r.value}s`; };
+  minionRange(r, '勞宮穴');   // 2026-11-04 同 App 批 159／160
   row.append(r, v);
 }
 

@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
   <link rel="stylesheet" href="css/tokens.css?v=20261104ui">
-  <link rel="stylesheet" href="css/shell.css?v=20261104ui">
-  <link rel="stylesheet" href="css/responsive.css?v=20261104ui">
+  <link rel="stylesheet" href="css/shell.css?v=20261104app">
+  <link rel="stylesheet" href="css/responsive.css?v=20261104app">
   <!-- 電腦版型（方案 D：左側深藍側欄）。只在寬 ≥ 1024 且有滑鼠的螢幕生效，手機／平板不受影響 -->
   <link rel="stylesheet" href="css/desktop.css?v=20261104ui">
 
@@ -57,24 +57,24 @@
   <script src="js/face-gate.js?v=20261002c"></script>
 
   <!-- 共用 -->
-  <script src="js/i18n.js?v=20261102a"></script>
+  <script src="js/i18n.js?v=20261104app"></script>
   <script src="js/state.js?v=20261101a"></script>
   <script src="js/calib.js?v=20261103flat"></script>
   <script src="js/regions.js?v=20261002c"></script>
-  <script src="js/minions.js?v=20261002c"></script>
+  <script src="js/minions.js?v=20261104app"></script>
   <script src="js/acu-ref.js?v=20261002c"></script>
   <script src="js/acu-video.js?v=20261002c"></script>
-  <script src="js/splash.js?v=20261002c"></script>
-  <script src="js/nav.js?v=20261104ui"></script>
+  <script src="js/splash.js?v=20261104app"></script>
+  <script src="js/nav.js?v=20261104app"></script>
   <script src="js/session-menu.js?v=20261101calib"></script>
   <script src="js/vision.js?v=20261104pre"></script>
   <script src="js/face-vision.js?v=20261101calib"></script>
   <script src="js/forearm-vision.js?v=20261102a"></script>
 
   <!-- 一頁一檔：順序＝療程順序 -->
-  <script src="pages/01-home.js"></script>
+  <script src="pages/01-home.js?v=20261104app"></script>
   <script src="pages/02-recommend.js"></script>
-  <script src="pages/03-acu-detail.js?v=20261031c"></script>
+  <script src="pages/03-acu-detail.js?v=20261104app"></script>
   <script src="pages/04-camera.js?v=20261101calib"></script>
   <script src="pages/05-massage.js?v=20261101calib"></script>
   <script src="pages/06-complete.js"></script>
@@ -82,13 +82,13 @@
   <script src="pages/08-summary.js?v=20261031c"></script>
   <script src="pages/tab-gallery.js?v=20261031g"></script>
   <script src="pages/tab-gallery-info.js"></script>
-  <script src="pages/tab-settings.js?v=20261031c"></script>
+  <script src="pages/tab-settings.js?v=20261104app"></script>
   <!-- 設定的子頁：一個功能一頁，目錄在 tab-settings.js -->
   <script src="pages/settings-lang.js?v=20261031c"></script>
   <script src="pages/settings-display.js?v=20261101a"></script>
   <script src="pages/settings-notify.js?v=20261031c"></script>
   <script src="pages/settings-accuracy.js"></script>
-  <script src="pages/settings-flow.js?v=20261101calib"></script>
+  <script src="pages/settings-flow.js?v=20261104app"></script>
 </head>
 
 <body>
@@ -106,7 +106,9 @@
     <!-- 返回列：在步驟軌上面。哪一頁要顯示、退到哪裡，看各頁註冊的 backTo。
          右邊是動作區，各頁用 registerPage 的 actions 掛自己的按鈕（如按摩頁的齒輪） -->
     <div class="backbar" id="backbar">
-      <button class="back" id="back-btn" onclick="goBack()" data-i18n="btn-back">← 返回</button>
+      <!-- 2026-11-04 同 App 批 158：膠囊（分頁列同色）＋箭頭圖示（App ic_back.xml 原樣）＋白字。
+           字由 js/nav.js updateBackbar 填進 .back-label（去掉 i18n 字串前面的「← 」），所以這裡不掛 data-i18n -->
+      <button class="back" id="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5,5.5 L8,12 L14.5,18.5"/></svg><span class="back-label">返回</span></button>
       <div class="backbar-actions" id="backbar-actions"></div>
     </div>
 

@@ -177,3 +177,20 @@ function playConfetti(colors, seed) {
   document.body.appendChild(layer);
   setTimeout(() => layer.remove(), CONFETTI_MS + 100);
 }
+
+// ── 小人拉桿的滑動條（2026-11-04 同 App ui/MinionSlider.kt，批 159／160／163）──────
+// 沒填滿那段白色、已填滿那段主色，拉桿換成穴道小人（40px）。外觀在 css/shell.css .minion-range。
+// 已填滿那段靠 --ratio（0～1）畫漸層，所以程式改 value 之後要叫 syncMinionRange 一次。
+function minionRange(input, name) {
+  input.classList.add('minion-range');
+  // 用絕對網址：相對網址放在自訂屬性裡，各瀏覽器解析的基準不一定是頁面
+  input.style.setProperty('--minion', `url("${new URL(minionSrc(name), location.href).href}")`);
+  if (!input.dataset.minion) input.addEventListener('input', () => syncMinionRange(input));
+  input.dataset.minion = name;
+  syncMinionRange(input);
+}
+function syncMinionRange(input) {
+  const min = +input.min || 0, max = +input.max || 100;
+  const r = max > min ? (+input.value - min) / (max - min) : 0;
+  input.style.setProperty('--ratio', Math.max(0, Math.min(1, r)).toFixed(4));
+}

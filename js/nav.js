@@ -95,9 +95,10 @@ function updateBackbar(page) {
   btn.style.visibility = (cfg && cfg.backTo) ? '' : 'hidden';
 
   if (cfg && cfg.backTo) {
-    // 換 data-i18n 讓 updateLanguage() 之後也能自己翻（定位頁是「← 停止」）
-    btn.setAttribute('data-i18n', cfg.backLabel);
-    btn.textContent = t(cfg.backLabel);
+    // 定位頁是「停止」。切語言時 notifyLanguageChange 會再叫一次這裡，所以不掛 data-i18n
+    // （掛了 applyI18n 會把整顆按鈕的 textContent 換掉、箭頭圖示就不見）。
+    // 2026-11-04 同 App 批 158：箭頭改成圖示，字串前面的「← 」在畫面上去掉（i18n 字串沒動）。
+    btn.querySelector('.back-label').textContent = t(cfg.backLabel).replace(/^←\s*/, '');
   }
 
   // 每次切頁重新插一次，順便把上一頁的按鈕（與展開的選單）清掉

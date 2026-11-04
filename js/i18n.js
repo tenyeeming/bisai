@@ -199,7 +199,6 @@ const i18n = {
     // ── 設定（目錄 + 四個子頁）──
     'eyebrow-settings': '校正',
     'settings-title': '設定',
-    'settings-group-general': '一般',
     // 2026-09-21：組名對齊 App 的 settings_group_flow（「療程」）。
     // 舊 key 'settings-group-locate'（「定位」）已停用 —— App 的設定目錄沒有這一組。
     'settings-group-flow': '療程',
@@ -426,7 +425,6 @@ const i18n = {
 
     'eyebrow-settings': 'Calibration',
     'settings-title': 'Settings',
-    'settings-group-general': 'General',
     'settings-group-flow': 'Treatment',
     'settings-display': 'Display',
     'settings-fontsize': 'Text Size',

@@ -20,8 +20,12 @@
 /** 動畫本身的長度（ms）。轉檔時逐幀加總出來的，改素材要一起改 */
 const SPLASH_MS = 3000;   // 2026-11-01 換高解析版（1080×1920、50 幀、3.0 秒、3.5 MB；舊版 3170）
 
-/** 淡出時間。跟 CSS 的 transition 是同一個值 */
-const SPLASH_FADE_MS = 420;
+/** 淡出時間。跟 CSS 的 transition 是同一個值。
+ *  2026-11-04 同 App 批 164（zoom in 過場）：420 → 650ms，開場層一邊放大到 1.35 倍一邊淡出，
+ *  底下的 App 本體（.device）同時從 0.86 倍放大到 1 —— 像鏡頭往前穿過開場畫面。 */
+const SPLASH_FADE_MS = 650;
+/** App 本體在開場時先縮多少（App AcuApp.kt enterZoom 0.86 → 1） */
+const SPLASH_DEVICE_FROM = 0.86;
 
 /**
  * 保險絲：素材再慢也不能讓人卡在開場。
@@ -85,6 +89,10 @@ function showSplash() {
   document.body.appendChild(layer);
   splashLayer = layer;
 
+  // App 本體先縮著等開場收掉（被開場層蓋住看不到，收掉時才放大進來）
+  const device = document.querySelector('.device');
+  if (device) { device.style.transition = 'none'; device.style.transform = `scale(${SPLASH_DEVICE_FROM})`; }
+
   splashTimer = setTimeout(endSplash, Math.min(SPLASH_MS + 260, SPLASH_MAX_MS));
 }
 
@@ -96,7 +104,18 @@ function endSplash() {
   if (!layer) return;
   splashLayer = null;
   layer.classList.add('out');
+  // App 本體同一段時間、同一條減速曲線放大回 1（同 App 批 164）
+  const device = document.querySelector('.device');
+  if (device && device.style.transform) {
+    void device.offsetWidth;   // 先讓 scale(.86) 生效，下一行的轉場才有起點
+    device.style.transition = `transform ${SPLASH_FADE_MS}ms cubic-bezier(.16, 1, .3, 1)`;
+    device.style.transform = 'scale(1)';
+  }
   // 淡出結束才真的移除。用 setTimeout 而不是 transitionend ——
   // 分頁在背景時 transition 不一定會觸發，那樣這一層會永遠留著擋住畫面。
-  setTimeout(() => layer.remove(), SPLASH_FADE_MS);
+  setTimeout(() => {
+    layer.remove();
+    // 放大完把 transform 整個拿掉：.device 上留著 transform 會讓裡面 position:fixed 的東西改以 .device 為準
+    if (device) { device.style.transition = ''; device.style.transform = ''; }
+  }, SPLASH_FADE_MS);
 }

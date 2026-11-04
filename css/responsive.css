@@ -130,7 +130,8 @@ body .device {
 }
 /* 玻璃格：半透明白＋亮白邊框、不加陰影。
    背景 .55／未選 .44／已選 .66 是一組，與 App 的 HOME_BG_ALPHA／GLASS_IDLE／GLASS_ON 相同。 */
-#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; font-weight: 700; min-width: 0; overflow-wrap: anywhere; border: 1px solid rgba(255,255,255,.8); border-radius: var(--r); background: rgba(255,255,255,.44); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
+/* 2026-11-04 同 App 批 157：沒選的框也改主色（原白 80%）；選中靠底色＋左邊那條線分 */
+#page-home .symptom-btn { padding: 10px 12px; font-size: .9375rem; font-weight: 700; min-width: 0; overflow-wrap: anywhere; border: 1px solid var(--brass); border-radius: var(--r); background: rgba(255,255,255,.44); color: var(--ink); text-align: left; cursor: pointer; line-height: 1.4; }
 #page-home .symptom-btn.selected { border-color: var(--brass); background: rgba(255,255,255,.66); box-shadow: inset 3px 0 var(--brass); }
 #page-home .symptom-btn[aria-disabled="true"] { opacity: .45; }
 #page-home .home-foot { position: relative; display: flex; flex-direction: column; margin: 0; padding: 12px 0 0; gap: 12px; overflow: hidden; }
@@ -221,6 +222,26 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
 @media (prefers-reduced-motion: reduce) { .device .page-enter.tab-slide { animation: none; } }
 /* 11-04 同 App 批 147／151：設定分頁底下的框線一律主色（App 用 LocalFrameColor 只在設定分頁生效） */
 [id^="page-settings"] { --line: var(--brass); }
+/* 11-04 同 App 批 157：首頁、推薦穴道也一律主色（App LocalFrameColor 多給 HOME／RECOMMEND）——
+   穴道格、ⓘ 圈、症狀篩選膠囊、部位切換列、Ghost 按鈕的框都吃 --line */
+#page-home, #page-recommend { --line: var(--brass); }
+/* 11-04 同 App 批 161／162：選穴頁「步驟一」→「推薦穴道」8、「推薦穴道」→ 說明 9 */
+#page-recommend > .stack > div:first-child .eyebrow { margin-bottom: 8px; }
+#page-recommend > .stack > div:first-child .lede { margin-top: 9px; }
+
+/* ── 首頁症狀格右邊的垂直捲動軌道（11-04 同 App 批 166 SymptomScrollTrack）──
+   白色 6px 膠囊；指標主色，長度＝看得到的比例、位置＝捲到哪；指標上方已捲過那段
+   畫「透明 → 主色 55%」漸層，越往下捲越長。只顯示、不能拖；不能捲時整條不畫（pages/01-home.js）。 */
+#page-home .symptom-row {
+  display: flex; gap: 8px; flex: 1 1 0; min-width: 0;
+  min-height: calc(var(--sym-row-min, 48px) * 4 + 8px * 3);
+}
+#page-home .symptom-row > .symptom-grid { min-width: 0; }
+#page-home .sym-track { position: relative; flex: none; width: 6px; border-radius: 3px; background: #fff; overflow: hidden; }
+#page-home .sym-track[hidden] { display: none; }
+#page-home .sym-track i { position: absolute; left: 0; right: 0; border-radius: 3px; display: block; }
+#page-home .sym-track .sym-trail { top: 0; background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brass) 55%, transparent)); }
+#page-home .sym-track .sym-thumb { background: var(--brass); }
 @keyframes page-arrive { from { opacity: .35; translate: var(--enter-x, 0px) 8px; } to { opacity: 1; translate: 0 0; } }
 /* 含固定定位面板的頁面不套移動動畫，避免改變覆蓋層的定位基準。 */
 .device .page:has(.sheet-mask:not([hidden])), .device .page:has(#massage-viewport) { animation: none; }
@@ -275,10 +296,10 @@ body.massage-fs #massage-canvas { aspect-ratio: auto; }
 /* 深色模式的玻璃格改半透明黑（淺字配半透明白對比不足）。
    @media 對應跟隨系統，:root[data-theme] 對應手動指定，兩份都要留。 */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: rgba(255,255,255,.3); }
+  :root:not([data-theme="light"]) #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: var(--brass); }
   :root:not([data-theme="light"]) #page-home .symptom-btn.selected { background: rgba(0,0,0,.5); border-color: var(--brass); }
 }
-:root[data-theme="dark"] #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: rgba(255,255,255,.3); }
+:root[data-theme="dark"] #page-home .symptom-btn { background: rgba(0,0,0,.34); border-color: var(--brass); }
 :root[data-theme="dark"] #page-home .symptom-btn.selected { background: rgba(0,0,0,.5); border-color: var(--brass); }
 
 /* ── 平板直式：病症字級放大 */

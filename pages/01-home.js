@@ -29,7 +29,11 @@ registerPage('home', {
           </div>
           <p id="home-limit" class="home-limit" role="status" aria-live="polite" hidden></p>
         </div>
-        <div class="symptom-grid" id="symptom-grid"></div>
+        <!-- 11-04 同 App 批 166：症狀格右邊一條垂直捲動軌道（只在能捲時出現） -->
+        <div class="symptom-row">
+          <div class="symptom-grid" id="symptom-grid"></div>
+          <div class="sym-track" id="sym-track" aria-hidden="true" hidden><i class="sym-trail"></i><i class="sym-thumb"></i></div>
+        </div>
       </div>
       <div class="home-foot">
         <p class="notice" data-i18n="disclaimer">本系統為穴位定位輔助工具，內容依據傳統中醫文獻整理，不構成醫療診斷或治療建議。身體不適請就醫。</p>
@@ -51,6 +55,34 @@ function initSymptomGrid() {
     grid.appendChild(btn);
   });
   renderHomeSelection();
+  bindSymTrack(grid);
+}
+
+/** 症狀格的捲動軌道（App 批 166）：捲動、視窗變大小都重畫；綁一次就好 */
+function bindSymTrack(grid) {
+  if (!grid.dataset.track) {
+    grid.dataset.track = '1';
+    grid.addEventListener('scroll', updateSymTrack, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(updateSymTrack).observe(grid);
+    else window.addEventListener('resize', updateSymTrack);
+  }
+  requestAnimationFrame(updateSymTrack);
+}
+function updateSymTrack() {
+  const grid = document.getElementById('symptom-grid');
+  const track = document.getElementById('sym-track');
+  if (!grid || !track) return;
+  const max = grid.scrollHeight - grid.clientHeight;
+  // 不能捲（電腦版四欄、平板）就整條不畫
+  if (max <= 1 || getComputedStyle(grid).overflowY === 'visible') { track.hidden = true; return; }
+  track.hidden = false;
+  const h = track.clientHeight, w = track.clientWidth || 6;
+  const thumbH = Math.min(h, Math.max(w * 3, h * grid.clientHeight / grid.scrollHeight));
+  const top = (h - thumbH) * Math.min(1, grid.scrollTop / max);
+  const thumb = track.querySelector('.sym-thumb'), trail = track.querySelector('.sym-trail');
+  thumb.style.top = top + 'px'; thumb.style.height = thumbH + 'px';
+  // 已捲過那段：從頂端畫到指標中間，指標蓋在上面
+  trail.style.height = top > 0.5 ? (top + thumbH / 2) + 'px' : '0';
 }
 
 function renderHomeSelection() {
