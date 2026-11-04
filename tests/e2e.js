@@ -1051,6 +1051,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      && /"readyAuto":false/.test(cf) && /"switchAuto":true/.test(cf)
      && /"handOrder":"right"/.test(cf) && /"autoAdvance":true/.test(cf),
      '節奏設定：非數字回預設、超範圍夾住（秒數 1～15）、手序與開關回預設 — ' + cf);
+  setLS('flowSettings', '{"pressSec":30}');
+  ok(JSON.parse(w.eval('JSON.stringify(cleanFlow())')).pressSec === 10, '⭐ 存過 30 秒，每次開還是 10 秒（11-05 用戶「每次預設10秒」）');
   setLS('flowSettings', '{"readySec":0,"switchSec":0}');
   const cf0 = w.eval('JSON.stringify(cleanFlow())');
   ok(/"readyAuto":false/.test(cf0) && /"switchAuto":false/.test(cf0) && /"readySec":5/.test(cf0),

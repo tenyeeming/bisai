@@ -163,7 +163,9 @@ function cleanFlow() {
   const [switchAuto, switchSec] = cleanAutoSec(raw, 'switchAuto', 'switchSec');
   return {
     readyAuto, readySec, switchAuto, switchSec,
-    pressSec:    intIn(raw.pressSec,    PRESS_MIN, PRESS_MAX, FLOW_DEFAULT.pressSec),
+    // 🔴 11-05 照 App（用戶：「記得每次預設10秒」→「每次開都回到 10 秒」）：不讀存檔，每次開網頁都是 10；
+    //    設定裡改的只算這一次（照樣存，只是下次開不讀）。
+    pressSec:    FLOW_DEFAULT.pressSec,
     handOrder:   raw.handOrder === 'left' ? 'left' : 'right',
     autoAdvance: typeof raw.autoAdvance === 'boolean' ? raw.autoAdvance : FLOW_DEFAULT.autoAdvance,
   };
