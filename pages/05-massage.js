@@ -619,9 +619,10 @@ function startEntryCountdown() {
 
 function startSwitchCountdown(secOverride) {
   stopSwitchCountdown();
-  // 換手倒數關掉（App 批 93）：不倒數、停在「換手」提示，等使用者按開始
-  if (secOverride == null && !flow.switchAuto) return;
-  const sec = secOverride != null ? secOverride : (Number(flow.switchSec) || 0);
+  // 2026-11-06 用戶：「開關兩個都要倒數三秒好了」（同 App）：換手倒數關著也固定倒數 3 秒自動開始，
+  //   開著照設定秒數。原本（App 批 93）關＝停在「換手」提示等使用者按開始。
+  const sec = secOverride != null ? secOverride
+    : (flow.switchAuto ? (Number(flow.switchSec) || 0) : ENTRY_PREP_SEC);
   const btn = document.getElementById('btn-switch-now');
 
   if (sec <= 0) { skipSwitchCountdown(); return; }

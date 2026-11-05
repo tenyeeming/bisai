@@ -237,7 +237,7 @@ const i18n = {
     'settings-handorder': '手序',
     'settings-handorder-desc': '同一個穴道左右手各按一輪，這裡決定先按哪一隻。',
     'settings-switch': '換手倒數',
-    'settings-switch-desc': '開著：一隻手按滿後倒數幾秒自動開始下一隻手（手舉在鏡頭前很難再點按鈕，所以預設開）。關掉：停下來等你自己按開始。',
+    'settings-switch-desc': '一隻手按滿後，下一隻手檢測好就倒數自動開始。開著：倒數照下面的秒數；關掉：固定倒數 3 秒。',
     // 這兩項按摩頁也調得到（齒輪／滑桿），這裡是同一份設定的另一個入口（2026-09-02 用戶要）
     'settings-advance': '換穴',
     'settings-advance-desc': '一個穴道左右手都按完之後，要不要自動接下一個穴道。「自動」會在完成頁倒數 4 秒再接下一穴；「手動」就停在完成頁等你點。定位頁與按摩頁的齒輪也調得到，改的是同一項。',
@@ -463,7 +463,7 @@ const i18n = {
     'settings-handorder': 'Hand Order',
     'settings-handorder-desc': 'Each acupoint is pressed on both hands. This decides which one goes first.',
     'settings-switch': 'Hand-Switch Countdown',
-    'settings-switch-desc': 'On: the next hand starts automatically after a countdown (tapping is awkward with your hand up at the camera, so it’s on by default). Off: waits for you to tap Start.',
+    'settings-switch-desc': 'After one hand is done, the next hand starts automatically once it is checked. On: counts down the seconds below. Off: a fixed 3-second countdown.',
     'settings-advance': 'Next point',
     'settings-advance-desc': 'Whether to continue to the next acupoint automatically once both hands are done. Auto counts down 4 seconds on the completion page first; Manual stops there. The gear menu on the locating and massage pages changes the same setting.',
     'settings-hand-calib': 'Measure before locating',

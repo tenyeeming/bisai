@@ -46,7 +46,7 @@ registerPage('settings-flow', {
       <div class="fieldrow">
         <p class="k" data-i18n="settings-switch">換手倒數</p>
         <div class="seg" id="seg-switch"></div>
-        <p class="d" data-i18n="settings-switch-desc">一隻手按滿之後，倒數幾秒自動開始下一隻手。</p>
+        <p class="d" data-i18n="settings-switch-desc">一隻手按滿後，下一隻手檢測好就倒數自動開始。開著：倒數照下面的秒數；關掉：固定倒數 3 秒。</p>
       </div>
 
       <div class="fieldrow">

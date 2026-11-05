@@ -961,7 +961,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(w.eval('sessionLog.length') === 0, '只按完一隻手臂不算完成');
     w.eval('flow.switchAuto = false');
     w.eval('onForearmCalibrated()');
-    ok($('btn-massage-start').disabled === false && !w.eval('switchTickId'), '左手臂檢測完、換手倒數關著 → 不倒數，等按開始');
+    // 2026-11-06 用戶：「開關兩個都要倒數三秒好了」→ 關著也固定倒數 3 秒（ENTRY_PREP_SEC），不再停住等按開始
+    ok(!!w.eval('switchTickId') && w.eval('switchRemain') === w.eval('ENTRY_PREP_SEC'),
+       '左手臂檢測完、換手倒數關著 → 固定倒數 3 秒自動開始（實得 ' + w.eval('switchRemain') + '）');
+    w.eval('stopSwitchCountdown()');
     w.eval('flow.switchAuto = true');
     w.goHome(); await tick(); await tick();
     ok(w.eval('faCamRunning') === false, '離開按摩頁 → 前臂相機關掉');
