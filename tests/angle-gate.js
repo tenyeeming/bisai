@@ -21,7 +21,7 @@ const ctx = vm.createContext({
 //   （C# 類比：兩個獨立的 static 建構區塊，區域變數彼此不可見）。
 //   最後那行把要驗的東西塞進 global，外面才拿得到。
 const EXPORTS = ['ACUPOINTS', 'ACU_ANGLE_LIMIT', 'ACU_ANGLE_HARD_CAP', 'ACU_ANGLE_MARGIN_DEG',
-  'ACU_GATE_BLOCK', 'DISC_MIN_MINOR_PX', 'CONF_DISC_CUN', 'computeCunPx',
+  'ACU_GATE_BLOCK', 'DISC_MIN_MINOR_PX', 'HAND_TILT_BLOCK_DEG', 'CONF_DISC_CUN', 'computeCunPx',
   'ACU_NORMAL_SPEC', 'CUN_MM', 'HIT_MM', 'acuAngleLimit', 'computeAcuGate',
   'computeAcuConfidence', 'confidenceDiscPoints', 'TIP_DISC_OFFSET_CUN', 'computeAcupoint'];
 vm.runInContext(
@@ -30,7 +30,7 @@ vm.runInContext(
   ctx, { filename: 'acu-bundle.js' });
 const {
   ACUPOINTS, ACU_ANGLE_LIMIT, ACU_ANGLE_HARD_CAP, ACU_ANGLE_MARGIN_DEG,
-  ACU_GATE_BLOCK, DISC_MIN_MINOR_PX, CONF_DISC_CUN, computeCunPx,
+  ACU_GATE_BLOCK, DISC_MIN_MINOR_PX, HAND_TILT_BLOCK_DEG, CONF_DISC_CUN, computeCunPx,
   ACU_NORMAL_SPEC, CUN_MM, HIT_MM, acuAngleLimit, computeAcuGate,
   computeAcuConfidence, confidenceDiscPoints, TIP_DISC_OFFSET_CUN, computeAcupoint,
 } = ctx.__t;
@@ -132,12 +132,18 @@ if (!rec) {
   ok(typeof gPalm.blocked === 'boolean' && typeof gSide.blocked === 'boolean',
     'gate 有 blocked 欄位，UI 只要看這一個布林');
 
-  // ⭐ 核心：blocked 看的是「圓盤短軸夠不夠粗」，不是「有沒有超過 limitDeg」。
-  const expectBlocked = g => ACU_GATE_BLOCK && g.discMinorPx < DISC_MIN_MINOR_PX;
+  // ⭐ 核心（2026-11-05 改照 App）：blocked ＝ 超過這一穴上限（level 不是 ok）或整手 > HAND_TILT_BLOCK_DEG。
+  //    以前是「圓盤短軸 < DISC_MIN_MINOR_PX 才擋」（幾乎不擋 → 回正箭頭出不來）。
+  const expectBlocked = g => ACU_GATE_BLOCK && (g.level !== 'ok' || g.handTooTilted);
   ok(gPalm.blocked === expectBlocked(gPalm) && gSide.blocked === expectBlocked(gSide),
-    `blocked 由圓盤短軸決定（門檻 ${DISC_MIN_MINOR_PX}px），不是由 limitDeg 決定`);
+    'blocked 由 limitDeg（level）與整手傾角決定（同 App），不是圓盤短軸');
   ok(gPalm.discVisible === (gPalm.discMinorPx >= DISC_MIN_MINOR_PX),
-    'discVisible 與 discMinorPx 自洽');
+    'discVisible 與 discMinorPx 自洽（欄位保留，只是不再管擋不擋）');
+  ok(gSide.handTooTilted === false,
+    'side 類不吃整手傾角（手刀才是它的最佳視角）');
+  ok(typeof gPalm.handTiltDeg === 'number' &&
+     gPalm.handTooTilted === (gPalm.handTiltDeg > HAND_TILT_BLOCK_DEG),
+    `palm 類整手傾角 ${gPalm.handTiltDeg.toFixed(1)}° 與 handTooTilted 自洽（門檻 ${HAND_TILT_BLOCK_DEG}°）`);
 
   // 短軸 = 2 × 半徑 × cosθ，而 conf 就是 cosθ —— 驗證這條恆等式
   const cunPxHere = computeCunPx(lm, W, H);
@@ -145,11 +151,10 @@ if (!rec) {
   ok(Math.abs(gSide.discMinorPx - wantMinor) < 1e-9,
     '圓盤短軸 = 2 × CONF_DISC_CUN × cunPx × cosθ');
 
-  // ⭐ 這是整個設計要守住的那件事：超過上限、但圓盤還看得見時，**不可以擋**。
-  //    （合谷上限 30°，圓盤在那個角度還是個很清楚的橢圓）
-  const stillVisibleButOver = [gPalm, gSide].filter(g => g.level !== 'ok' && g.discVisible);
-  ok(stillVisibleButOver.every(g => !g.blocked),
-    '超過上限但圓盤還看得見時不擋 —— 讓使用者靠圓盤自己轉回來');
+  // 超過上限就擋（同 App）—— 舊版「超過上限但圓盤看得見就不擋」已作廢
+  const over_ = [gPalm, gSide].filter(g => g.level !== 'ok');
+  ok(over_.every(g => g.blocked),
+    `超過上限一律擋下（本例 ${over_.length} 個）—— 擋下才會出回正箭頭`);
 
   if (gSide.blocked) {
     ok(gSide.hint.includes('暫不顯示'),

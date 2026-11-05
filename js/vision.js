@@ -174,6 +174,19 @@ function drawTwistArrow(ctx, W, H, side, lm, mx) {
   ctx.strokeStyle = '#06101F'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
 }
 
+/**
+ * 角度閘門擋下時的那一句（2026-11-05 照 App CameraScreen.angleHint）：
+ *   整手太偏 → 轉正；side 類 → 手刀；其餘 → 攤平。三角形判定歪了再接一句往哪轉（跟箭頭同方向）。
+ */
+function gateBlockedText(g, twistSide) {
+  const a = Math.round(g.handTooTilted ? g.handTiltDeg : g.angleDeg), l = Math.round(g.limitDeg);
+  const base = t(g.handTooTilted ? 'gate-angle-tilt' : g.kind === 'side' ? 'gate-angle-side' : 'gate-angle-palm')
+    .replace('{a}', a).replace('{l}', l);
+  // 'pinky'＝小指側被壓扁 → 箭頭指食指側（見 drawTwistArrow），文字跟箭頭講同一個方向（同 App 09-24）
+  const turn = twistSide === 'pinky' ? t('twist-turn-index') : twistSide === 'index' ? t('twist-turn-pinky') : '';
+  return turn ? base + (isZh() ? '' : ' ') + turn : base;
+}
+
 // ── 定位前檢測：手部（2026-11-01，App CameraScreen／MassageScreen 的量手段落）──────────
 // 頁面呼叫 beginHandCalib(手, 量好或略過後要做什麼)；這裡每幀收樣、畫框、寫提示，
 // 量好打勾停 CALIB_DONE_SHOW_MS 才呼叫 onDone。量手期間只認那一隻手、不畫穴道。
@@ -648,14 +661,10 @@ function onHandsResults(results) {
   liveStats.conf = best.info ? best.info.conf : null;
   const tiltDeg = computeHandTiltDeg(best.lm);
   liveStats.tilt = tiltDeg;
-  const tiltBad = tiltDeg > TILT_MAX_DEG && !skipPalmTilt;
-  if (tiltBad && strictGate) {
-    setGate('bad', isZh()
-      ? `傾斜 ${Math.round(tiltDeg)}° > ${TILT_MAX_DEG}°　定位不可靠，請轉正`
-      : `Tilt ${Math.round(tiltDeg)}° > ${TILT_MAX_DEG}° — unreliable. Straighten your hand.`);
-    onTarget = false;
-    return;
-  }
+  // 🔴 2026-11-05 拿掉「傾斜 > TILT_MAX_DEG(25°) 就提早 return」（App 沒有這一關）。
+  //    用戶：「我的箭頭在手上沒有顯示」→ 這裡一 return，下面的三角形 TwistTracker 輪不到跑、回正箭頭永遠出不來。
+  //    整手太偏改由 computeAcuGate 的 HAND_TILT_BLOCK_DEG(40°) 擋（同 App），擋下時下面統一出提示＋箭頭。
+  void skipPalmTilt;   // 留著變數：side／tip 的說明仍適用（逐穴上限由 computeAcuGate 管）
 
   // 定位前檢測量到的值（App AcuCameraView calibs）：寸改成 k × 當下掌軸長 |lm0−lm9|，
   //   扭轉箭頭改用量到的正面基準。沒量（略過／關掉又沒存檔）就照舊每幀量中指中節。
@@ -746,11 +755,8 @@ function onHandsResults(results) {
       return;
     }
     if (g && g.blocked) {
-      const poseZh = g.kind === 'side' ? '請把手轉成手刀（側緣朝鏡頭）' : '請把手掌攤平正對鏡頭';
-      const poseEn = g.kind === 'side' ? 'Turn your hand edge-on to the camera.' : 'Lay your palm flat toward the camera.';
-      setGate('bad', isZh()
-        ? `${acuLabel(name)}這塊皮膚幾乎是側著看的（偏離 ${Math.round(g.angleDeg)}°）　暫不顯示　${poseZh}`
-        : `${acuLabel(name)} is almost edge-on (${Math.round(g.angleDeg)}° off) · hidden for now · ${poseEn}`);
+      // 2026-11-05 文字照 App angleHint（整手／side／palm ＋ 往哪轉），箭頭上面已畫
+      setGate('warn', gateBlockedText(g, twistSide));
       onTarget = false; locatePrevOn = false;
       return;
     }
@@ -773,6 +779,16 @@ function onHandsResults(results) {
     setGate(lOn ? 'ok' : 'warn', lOn ? t('gate-on-target')
       : liveStats.distMm != null ? t('gate-off-target-mm').replace('{n}', Math.round(liveStats.distMm))
       : t('gate-off-target'));
+    return;
+  }
+
+  // ── 按摩模式：角度閘門擋下 → 這一幀沒有座標，先講怎麼轉手（同 App MassageScreen：排在舉錯手之後、「放另一隻手」之前）。
+  //    2026-11-05 以前網頁按摩頁擋下時點不畫、按壓卻照樣拿那個點判定 —— App 擋下時 acuPts 是空的、不會對準。
+  if (gateBlocked) {
+    setGate('warn', gateBlockedText(best.gate, twistSide));
+    pressWasOn = false;
+    onTarget = false;
+    liveStats.distMm = null; liveStats.on = false;
     return;
   }
 

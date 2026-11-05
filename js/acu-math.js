@@ -337,14 +337,21 @@ function acuAngleLimit(acuName) {
  *
  * 所以 `blocked` **不是**「有沒有超過 limitDeg」，而是「圓盤短軸有沒有小於
  * `DISC_MIN_MINOR_PX`」。`limitDeg` 仍然管顏色與提示文字，但不再管擋不擋。
- * 沿革：2026-08-12 軟降級 → 08-18 早上以 limitDeg 硬擋（擋太早）→ 08-18 改成現在這樣。
+ * 沿革：2026-08-12 軟降級 → 08-18 早上以 limitDeg 硬擋（擋太早）→ 08-18 改成圓盤短軸。
+ *
+ * 🔴 **2026-11-05 起上面那張表作廢，改照 App**：`blocked = level !== "ok" || 整手 > HAND_TILT_BLOCK_DEG(40°)`。
+ *   10-01 起網頁不畫 3D 圓盤了（改綠點同 App），「靠圓盤自己轉回來」的前提已經不存在；
+ *   而回正箭頭只在 blocked 時畫 → 舊判準幾乎不擋，箭頭幾乎出不來（用戶 11-05 實測回報）。
+ *   方向（往哪轉）不在這裡：交給 vision.js 的三角形 TwistTracker（只吃 x/y）。
+ *   tip 類豁免照舊（App 沒有 tip 類，這一點網頁與 App 不同）。
  *
  * 回傳 { level, blocked, discMinorPx, discVisible, angleDeg, limitDeg, overBy, kind, color, hint }：
  *   level        "ok" / "edge" / "bad"（管顏色與提示，不管擋不擋）
  *                ok   = 在上限內
  *                edge = 超過上限但還在 ACU_ANGLE_MARGIN_DEG 以內
  *                bad  = 超過上限 + margin（提示「位置僅供參考」）
- *   blocked      ⭐ UI 唯一要判斷的：true = 這一幀不要畫點（圓盤仍要畫，降級樣式）
+ *   blocked      ⭐ UI 唯一要判斷的：true = 這一幀不要畫點、要出提示＋回正箭頭
+ *   handTiltDeg／handTooTilted  整手傾角、是否 > HAND_TILT_BLOCK_DEG（提示要講整隻手）
  *   discMinorPx  圓盤短軸幾像素，除錯用
  *   discVisible  短軸有沒有達到 DISC_MIN_MINOR_PX
  *   angleDeg  這塊皮膚偏離鏡頭幾度（0=正對）
@@ -407,11 +414,21 @@ function computeAcuGate(acuName, lm, W, H) {
   const cunPx = computeCunPx(lm, W, H);
   const discMinorPx = 2 * CONF_DISC_CUN * cunPx * info.conf;
   const discVisible = discMinorPx >= DISC_MIN_MINOR_PX;
-  const blocked = ACU_GATE_BLOCK && !discVisible;
+  // 🔴 2026-11-05 改照 App computeAcuGate：超過這一穴的上限（edge／bad）**或**整隻手 > HAND_TILT_BLOCK_DEG 就擋。
+  //    以前是「圓盤短軸 < DISC_MIN_MINOR_PX 才擋」（≈ 78–80°，幾乎不擋）→ 回正箭頭只在擋下時畫，所以網頁幾乎看不到。
+  //    discMinorPx／discVisible 欄位留著（只是不再決定 blocked）。
+  const handTilt = computeHandTiltDeg(lm);
+  // side 類（手刀才是最佳視角）不吃整手傾角 —— 同舊 vision.js skipPalmTilt。
+  //   App 10-30 已把 side 類整穴拿掉所以沒這條；網頁若還選得到 side 穴，不能讓 40° 把它們全擋掉。
+  const handTooTilted = info.kind !== "side" && handTilt > HAND_TILT_BLOCK_DEG;
+  const blocked = ACU_GATE_BLOCK && (level !== "ok" || handTooTilted);
 
   // 措辭分兩種：擋下時不能說「位置僅供參考」（根本沒給位置），要說明為什麼看不到點。
-  const hint = blocked
-    ? `${acuName}這塊皮膚幾乎是側著看的（偏離 ${Math.round(info.angleDeg)}°），暫不顯示　${poseHint}`
+  // 整手太偏時講「整隻手」，不是「這塊皮膚」（同 App）
+  const hint = handTooTilted
+    ? `手傾斜 ${Math.round(handTilt)}°，太偏了，暫不顯示　請把手轉正面對鏡頭`
+    : blocked
+    ? `${acuName}這塊皮膚偏離鏡頭 ${Math.round(info.angleDeg)}°（上限 ${limitDeg}°），暫不顯示　${poseHint}`
     : level === "ok"
       ? null
       : `${acuName}這塊皮膚偏離鏡頭 ${Math.round(info.angleDeg)}°（上限 ${limitDeg}°）${
@@ -426,6 +443,8 @@ function computeAcuGate(acuName, lm, W, H) {
     angleDeg: info.angleDeg,
     limitDeg,
     overBy,
+    handTiltDeg: handTilt,
+    handTooTilted,
     kind: info.kind,
     // 綠=在上限內、橘=邊緣、紅=明顯超標。與信心圓盤同一套語意色。
     color: level === "ok" ? "#00e5a0" : level === "edge" ? "#ffaa3c" : "#ff505a",
