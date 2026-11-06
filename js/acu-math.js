@@ -586,8 +586,13 @@ function _calcHegu(lm, W, H, cp, dorsal, ov = {}) {
   const dy = lm[2].y * H - midY;
   const dist = Math.hypot(dx, dy);
   if (dist < 1) return [{ x: midX, y: midY }];
-  const scale = (_HG_CUN * cp) / dist;
-  return [{ x: midX + dx * scale, y: midY + dy * scale }];
+  // 2026-11-07 v37：再往第二掌骨（lm5 那側）垂直偏 HG_PERP 寸（醫生標記；正負看 lm5 在哪側，跟左右手無關）
+  //   舊版本 preset（ov 帶 HG_CUN，如 V34_PARAMS）沒有這一項 → 0，舊版輸出不變
+  const _HG_PERP = ov.HG_PERP ?? ('HG_CUN' in ov ? 0 : HG_PERP);
+  const ux = dx / dist, uy = dy / dist;
+  let nx = -uy, ny = ux;
+  if (nx * (lm[5].x * W - midX) + ny * (lm[5].y * H - midY) < 0) { nx = -nx; ny = -ny; }
+  return [{ x: midX + (ux * _HG_CUN + nx * _HG_PERP) * cp, y: midY + (uy * _HG_CUN + ny * _HG_PERP) * cp }];
 }
 
 // ── 陽池穴 SJ4 ───────────────────────────────────────────────────────────────
