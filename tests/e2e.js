@@ -259,7 +259,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok($('vid-overlay') === null, '收合教學時全螢幕播放器一起關掉');
   w.toggleTutorial(); w.toggleTutorial();
 
-  w.startLocate(); await tick();
+  // 11-07 起認穴頁「開始」一律直接進按摩頁（同 App 批 198）；定位頁只剩從按摩頁返回才進得去 → 這裡直接開
+  w.showPage('camera'); await tick();
   ok(active().join() === 'camera', '進到定位頁');
   ok($('tabbar').style.display === 'none', '定位頁收起分頁列');
   ok($('camera-title').textContent === $('acu-name').textContent, '定位頁標題同步穴名');
@@ -507,7 +508,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     w.eval('flow.readyAuto=true');
   }
   w.skipReadyCountdown(); await tick();
-  ok(active().join() === 'camera', 'skipReadyCountdown 直接進定位頁');
+  ok(active().join() === 'massage', 'skipReadyCountdown 直接進按摩頁（11-07 起不經定位頁）');
   ok($('ready-bar').hidden, '離開認穴頁時倒數條收起');
 
   // ── 自動模式：最後一穴按完 → 先到完成頁（不自動倒數）→「結束並看總結」→ 總結頁 ──
@@ -1289,7 +1290,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.goHome();
 
   // 設定 › 顯示：兩個鏡頭顯示開關（批 C，同 App）
-  ok(w.eval('showSkeleton') === false && w.eval('showAcuNames') === true, '預設：不畫手部節點、要寫穴名');
+  ok(w.eval('showSkeleton') === false && w.eval('showAcuNames') === false, '預設：不畫手部節點、不寫穴名（11-07 改關）');
   w.showPage('settings-display');
   ok($('seg-skeleton').children.length === 2 && $('seg-acu-names').children.length === 2, '設定 › 顯示有兩個開關');
   $('seg-skeleton').children[0].click();
@@ -1454,11 +1455,13 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const fresh = () => { w.eval("state.selectedAcupoints=['合谷穴','陽池穴']; state.currentAcupointIndex=0; sessionLog=[]"); };
     w.setCalibEnabled(true);
     fresh(); w.showPage('acu-detail');
+    // 11-07 照 App 批 198：第一隻手改在按摩頁量（不換頁、不重開相機 → 不黑一下）
     w.startLocate(); await tick();
-    ok(active().join() === 'camera' && w.eval('handCalibRun && handCalibRun.hand') === w.eval('firstHandKey()'),
-       '第一隻手還沒量 → 先到定位頁量手');
-    $('btn-locate-calib-skip').click(); await tick();
-    ok(active().join() === 'massage', '⭐ 按「略過檢測」→ 直接進按摩頁（不用再按「現在開始按摩」）');
+    ok(active().join() === 'massage' && w.eval('handCalibRun && handCalibRun.hand') === w.eval('firstHandKey()'),
+       '⭐ 第一隻手還沒量 → 直接進按摩頁、在按摩頁量手（不經定位頁）');
+    ok(!$('btn-massage-calib-skip').hidden, '按摩頁量手中：出現「略過檢測」');
+    $('btn-massage-calib-skip').click(); await tick();
+    ok(active().join() === 'massage' && w.eval('handCalibRun') === null, '略過檢測 → 留在按摩頁');
     $('back-btn').click(); await tick();
     ok(active().join() === 'camera' && w.eval('handCalibRun') === null, '從按摩頁返回 → 留在定位頁，不會被彈回按摩頁');
     w.showPage('acu-detail');
@@ -1468,7 +1471,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     fresh(); w.showPage('acu-detail');
     w.startLocate(); await tick();
     w.eval('recordHandCalib(handCalibRun.hand, { k: 0.2, tb0: 0.05 }); handCalibRun.onDone()'); await tick();
-    ok(active().join() === 'massage', '⭐ 量好（打勾後）→ 直接進按摩頁');
+    ok(active().join() === 'massage', '⭐ 量好（打勾後）→ 留在按摩頁');
     // 齒輪「重新檢測手部」：自己要量的，量完留在定位頁
     $('back-btn').click(); await tick();
     w.recalibLocate(); await tick();

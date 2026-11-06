@@ -91,7 +91,13 @@ function initCollectionGrid() {
   // 2026-10-31 照 App：App 拿掉的穴不列（手部 removed: true 的 7 穴、臉部球後與兌端）→ 手部 20＋臉部 21＋前臂 15＝56
   //   2026-10-31（晚）用戶再拿掉少商、少澤（removed）→ 手部 18，共 54
   const hand = ACUPOINTS.filter(a => !a.removed).map(a => a.name);
-  const face = FACE_ACUPOINTS.filter(a => !FACE_REMOVED.has(a.code)).map(a => a.code);
+  // 2026-11-07 用戶：「網頁版本讓四白在第一個」→ 同 App 批 192 圖冊臉部：四白、睛明排前面，其餘照原序，承泣最後
+  //   （只改圖冊顯示順序，FACE_ACUPOINTS 本身不動）
+  const faceRaw = FACE_ACUPOINTS.filter(a => !FACE_REMOVED.has(a.code)).map(a => a.code);
+  const FACE_FIRST = ['ST2', 'BL1'], FACE_LAST = ['ST1'];
+  const face = [...FACE_FIRST.filter(c => faceRaw.includes(c)),
+                ...faceRaw.filter(c => !FACE_FIRST.includes(c) && !FACE_LAST.includes(c)),
+                ...FACE_LAST.filter(c => faceRaw.includes(c))];
   const forearm = FOREARM_ACUPOINTS;
 
   grid.appendChild(groupHeader(t('gallery-group-hand').replace('%n', hand.length)));

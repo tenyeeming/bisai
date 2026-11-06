@@ -226,10 +226,10 @@ function setPressCheck(on) {
 // ── 鏡頭顯示（2026-09-25 網頁v2 批 C，同 App 設定 › 顯示）────────────
 // 純粹畫不畫，不影響定位與按壓判定。
 //   showSkeleton：手部 21 點＋按摩手的指尖點（臉部的指尖點也歸它），預設關（App 09-18 用戶：平常只要穴道那顆點）
-//   showAcuNames：鏡頭裡寫穴名（手部與臉部），預設開（App 批 65）
+//   showAcuNames：鏡頭裡寫穴名（手部與臉部），預設關（2026-11-07 用戶：「讓他預設是關掉的」；原預設開，App 批 65）
 //   指引箭頭 2026-10-31 已拿掉（同 App 批 78）。
 let showSkeleton = jget(LS.showSkeleton, false) === true;
-let showAcuNames = jget(LS.showAcuNames, true) !== false;
+let showAcuNames = jget(LS.showAcuNames, false) === true;
 function setShowSkeleton(on) { showSkeleton = !!on; localStorage.setItem(LS.showSkeleton, JSON.stringify(showSkeleton)); }
 function setShowAcuNames(on) { showAcuNames = !!on; localStorage.setItem(LS.showAcuNames, JSON.stringify(showAcuNames)); }
 

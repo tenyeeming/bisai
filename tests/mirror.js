@@ -95,6 +95,7 @@ setTimeout(() => {
   };
 
   // ── 前鏡頭：應該鏡像 ──
+  w.eval("showAcuNames = true");   // 11-07 起預設不寫穴名；這支要驗穴名鏡像，手動打開
   w.eval("facingMode = 'user'");
   ctx.calls.length = 0;
   w.onHandsResults(results);

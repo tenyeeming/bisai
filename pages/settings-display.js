@@ -6,7 +6,7 @@
 // App 的這一頁三樣東西，2026-09-25（網頁v2 批 C）起網頁都有了：
 //   ① 字體大小（小／中／大）—— 倍率與 App 的 FontScale 同一組數字
 //   ② 顯示手部節點（預設關）—— 21 點＋按摩手指尖點（js/vision.js、js/face-vision.js 照這個畫）
-//   ③ 鏡頭中顯示穴位名稱（預設開，App 批 65）
+//   ③ 鏡頭中顯示穴位名稱（預設關，11-07；原預設開，App 批 65）
 
 registerPage('settings-display', {
   tab: 'settings',
