@@ -578,7 +578,10 @@ function setFaGate(kind, msg) {
  */
 async function startForearmCamera(canvasId, gateId, onCalibrated, acuName) {
   if (acuName && FA_POINTS[acuName]) faAcu = acuName;
+  const prevFaCanvas = faCanvas;
   faCanvas = document.getElementById(canvasId);
+  // 舊畫面殘留（11-06，見 vision.js blankCamCanvas）
+  if ((!faCamRunning || faCanvas !== prevFaCanvas) && typeof blankCamCanvas === 'function') blankCamCanvas(faCanvas);
   faGateId = gateId || 'massage-gate';
   faCalibratedCb = onCalibrated || null;
   faCamWanted = true;

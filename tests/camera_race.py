@@ -43,8 +43,11 @@ def check(ok, name):
 
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)
+    _ctx = []
     def fresh():
-        ctx = b.new_context(); pg = ctx.new_page()
+        # 2026-11-06：舊的 context 不關會一直疊（十幾個），跑到 ⑨ 就 MemoryError、瀏覽器被關
+        while _ctx: _ctx.pop().close()
+        ctx = b.new_context(); _ctx.append(ctx); pg = ctx.new_page()
         pg.route('**/vendor/mediapipe/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))
         pg.route('**/cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=''))
         pg.add_init_script(STUB); pg.goto(url, wait_until='networkidle'); return pg
@@ -131,6 +134,29 @@ with sync_playwright() as p:
     pg.evaluate("(() => { startCamera('video-canvas','locate'); })()"); pg.wait_for_timeout(2500)
     s = pg.evaluate(fa_st)
     check(s['live'] == 1 and s['hand'] and not s['fa'] and not s['stuck'], f"⑨' 之後再開手部 → 能開（{s}）")
+
+    # ⑩ 2026-11-06 用戶：「按了一個穴道然後第二個穴道在攝像頭進去的時候會卡出上一次的鏡頭畫面」
+    #    畫布只在結果回來時重畫 → 相機關掉後留著最後一張。重開（或換畫布）時要先清掉。
+    #    先在畫布塗滿紅色當「上一穴最後一張」，關相機、再開 → 開的當下畫布要全空。
+    PAINT = ("(id) => { const c = document.getElementById(id); c.width = 64; c.height = 48;"
+             " const x = c.getContext('2d'); x.fillStyle = '#f00'; x.fillRect(0, 0, 64, 48); }")
+    LIT = ("(id) => { const c = document.getElementById(id);"
+           " const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;"
+           " let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }")
+    for name, cid, start, stop in (
+            ('手部', 'video-canvas', "startCamera('video-canvas','locate')", 'stopCamera()'),
+            ('臉部', 'video-canvas', "startFaceCamera('video-canvas','camera-gate')", 'stopFaceCamera()'),
+            ('前臂', 'massage-canvas', "startForearmCamera('massage-canvas','massage-gate')", 'stopForearmCamera()')):
+        pg = fresh()
+        pg.evaluate(start); pg.wait_for_timeout(1000)
+        pg.evaluate(f"({PAINT})('{cid}')")
+        live_kept = pg.evaluate(f"({LIT})('{cid}')")          # 相機還在跑：不清（下一幀自然蓋掉）
+        pg.evaluate(stop); pg.wait_for_timeout(300)
+        before = pg.evaluate(f"({LIT})('{cid}')")              # 關掉後畫布還留著最後一張（重現用戶看到的）
+        pg.evaluate(f"(() => {{ {start}; }})()")              # 不 await：要看「開的當下」
+        after = pg.evaluate(f"({LIT})('{cid}')")
+        check(live_kept > 0 and before > 0 and after == 0,
+              f"⑩ {name}關掉再開 → 開的當下畫布清空（塗上 {live_kept} 點／關掉後 {before}／重開當下 {after}）")
 
     # ⑤ 小海實驗頁：啟動中連切前後鏡頭 → 最後只剩 1 條、而且是最後選的那顆
     ctx = b.new_context(); pg = ctx.new_page()

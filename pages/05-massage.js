@@ -16,6 +16,7 @@ let massageUserPaused = false;
 let massageRemainMs = 30000;
 let massageTickId = null;
 const TICK_MS = 100;
+const MAX_TICK_MS = 250;   // 單格最多扣多少（同 App MassageScreen.MAX_TICK_MS）
 // 最後一次對準的時間。掉幀（手指遮住被按的手）時，PRESS_GRACE_MS（js/vision.js）內照樣計時，
 // 不讓計時與狀態文字每 0.1 秒閃一次。臉部也走這裡，一起受惠。
 let massageLastOnAt = 0;
@@ -562,13 +563,20 @@ function startMassage() {
   syncZoomBtn();
   syncMassageControls(); // 放大由使用者自行選擇，不隨開始計時跳全螢幕。
 
+  // 🔴 2026-11-06 用戶：「感覺網頁的倒計時很慢」→ 原本每格固定扣 TICK_MS（100ms），
+  //    但 MediaPipe 跟計時器搶同一條主執行緒，setInterval 常常 150ms 以上才來一次 → 倒數比真實時間慢。
+  //    改照 App MassageScreen：扣「實際經過的時間」，上限 MAX_TICK_MS（分頁切走回來不會一口氣扣一大段）。
+  let lastTick = performance.now();
   massageTickId = setInterval(() => {
+    const now = performance.now();
+    const dt = Math.min(Math.max(now - lastTick, 0), MAX_TICK_MS);
+    lastTick = now;
     const disp = document.getElementById('timer-display');
     syncMassageControls();
     if (massageUserPaused || document.hidden || !massageHeld()) { disp.classList.add('paused'); return; }   // 沒對準就不扣時間
     disp.classList.remove('paused');
-    massageRemainMs -= TICK_MS;
-    acuElapsedMs += TICK_MS;                                   // 只算「真的對準」的時間
+    massageRemainMs -= dt;
+    acuElapsedMs += dt;                                        // 只算「真的對準」的時間
     disp.textContent = Math.max(0, Math.ceil(massageRemainMs / 1000));
     if (massageRemainMs <= 0) { stopMassageTimer(); finishRound(); }
   }, TICK_MS);

@@ -93,7 +93,10 @@ async function startFaceCamera(canvasId, gateId, mode) {
   faceGateId = gateId || 'face-gate';
   faceMode = mode === 'massage' ? 'massage' : 'locate';
   faceHandLm = null;
+  const prevFaceCanvas = faceCanvas;
   faceCanvas = document.getElementById(faceCanvasId);
+  // 舊畫面殘留（11-06，見 vision.js blankCamCanvas）
+  if ((!faceCamRunning || faceCanvas !== prevFaceCanvas) && typeof blankCamCanvas === 'function') blankCamCanvas(faceCanvas);
   faceCamWanted = true;
   if (faceCamRunning) return;
   if (faceCamStartP) return faceCamStartP;   // 啟動中：等同一次

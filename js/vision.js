@@ -347,9 +347,19 @@ function warmUpHands() {
   else setTimeout(go, 300);
 }
 
+// 🔴 2026-11-06 用戶：「定位后，然後再開啓別的定位鏡頭會出現之前的畫面暫時卡頓一下」
+//    畫布只在每幀結果回來時重畫；相機關掉後畫布留著最後一張，下次開相機到第一幀進來前
+//    （0.5～1 秒）看到的是上一穴的畫面。手部／臉部／前臂共用 video-canvas、massage-canvas，
+//    → 三套 start 都在換上畫布時先清成黑底。設 width 會清空點陣，不必先拿 context（不影響 alpha 設定）。
+function blankCamCanvas(el) {
+  if (el && el.width) el.width = el.width;
+}
+
 async function startCamera(canvasId, mode) {
   renderMode = mode;
+  const prevCanvas = activeCanvas;
   activeCanvas = document.getElementById(canvasId);
+  if (!camRunning || activeCanvas !== prevCanvas) blankCamCanvas(activeCanvas);
   // 定位頁 → 按摩頁是「相機不停、只換模式」，會走下面的 early return，
   // 所以手數要在這裡先調整，不能等到 getHands() 之後
   if (hands) applyHandsOptions(hands, mode);
