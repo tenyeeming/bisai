@@ -9,10 +9,12 @@
 //   只能靠這張表說實話。表上沒有的穴道，教學區塊就只出文字步驟。
 //
 // 目前只有合谷穴有片（2026-09-05，先拿一支螢幕錄影當佔位，驗流程用）。
+// 2026-11-07 加四白（同 App 批 191 tutorial_sibai.mp4）。臉部用代號當 key（'ST2'），同 App FACE_RAW_NAMES。
 // ═══════════════════════════════════════════════════════════════════
 
 const ACU_VIDEO = {
   '合谷穴': 'hegu.mp4',
+  'ST2': 'sibai.mp4',      // 四白（臉部）
 };
 
 const acuVideoSrc = (name) =>
@@ -101,7 +103,7 @@ function openTutorialVideo(name) {
   v.controls = true;
   v.playsInline = true;
   v.autoplay = true;         // 點了「看教學影片」就是要看，不要再按一次
-  v.setAttribute('aria-label', isZh() ? `${name}教學影片` : `${name} tutorial video`);
+  v.setAttribute('aria-label', isZh() ? `${typeof itemLabel === 'function' ? itemLabel(name) : name}教學影片` : `${typeof itemLabel === 'function' ? itemLabel(name) : name} tutorial video`);
   v.onerror = () => closeTutorialVideo();
   v.onclick = (e) => e.stopPropagation();   // 點影片本身不要關掉
 

@@ -815,7 +815,7 @@ function openFaceInfo(code) {
   // 手部這一格是「手背／手心」提示；臉部沒有正反面，放每穴不同的按壓方式
   if (sheet && sheet.press) body.appendChild(infoField(t('face-sheet-press'), sheet.press));
 
-  body.appendChild(infoExtras(acuVideoPending(),
+  body.appendChild(infoExtras(acuVideoOrPending(code),   // 11-07 四白有片了
     Object.keys(FACE_SYMPTOM_MAP).filter(n => FACE_SYMPTOM_MAP[n].includes(code))));
   openInfoSheet();
 }

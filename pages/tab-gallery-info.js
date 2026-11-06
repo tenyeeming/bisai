@@ -302,10 +302,10 @@ function renderFaceAcuInfo(code) {
     refSec.appendChild(box);
   });
 
-  // 臉部目前一支教學片都沒有 → 灰的「準備中」（App 批 80）
+  // 有片（11-07 起四白）給按鈕，沒片給灰的「準備中」（App 批 80）
   const vidSec = document.getElementById('info-video');
   vidSec.innerHTML = '';
-  vidSec.append(acuVideoPending());
+  vidSec.append(acuVideoOrPending(code));
   vidSec.hidden = false;
 
   // ── 主治：查臉部那張表 ──

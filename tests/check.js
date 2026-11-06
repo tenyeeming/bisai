@@ -190,7 +190,10 @@ ok(orphans.length === 0, '沒有沒人用的翻譯 key' + (orphans.length ? ': '
   vm.runInContext(read('js/acu-video.js'), ctx);
   const map = JSON.parse(vm.runInContext('JSON.stringify(ACU_VIDEO)', ctx));
   const names = Object.keys(map);
-  const acuNames = new Set(JSON.parse(vm.runInContext('JSON.stringify(ACUPOINTS.map(a=>a.name))', ctx)));
+  // 11-07：臉部用代號當 key（四白 'ST2'，同 App FACE_RAW_NAMES）→ 臉部代號也算真的
+  vm.runInContext(read('js/face-data.js'), ctx);
+  const acuNames = new Set(JSON.parse(vm.runInContext(
+    'JSON.stringify(ACUPOINTS.map(a=>a.name).concat(FACE_ACUPOINTS.map(a=>a.code)))', ctx)));
   const badName = names.filter(n => !acuNames.has(n));
   ok(names.length > 0 && badName.length === 0,
      `ACU_VIDEO ${names.length} 個 key 都是真的穴名` + (badName.length ? ': ' + badName : ''));
