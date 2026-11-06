@@ -123,7 +123,10 @@ const median = values => {
 class TwistTracker {
   // fixedBaseline：定位前檢測量到的正面 Tb（js/calib.js，App TwistTracker.fixedBaseline）。
   //   有值就不再滾動收基準，直接用它；reset() 不清它（onHandsResults 每幀照這隻手這一穴設）。
-  constructor() { this.fixedBaseline = null; this.reset(); }
+  // on／off／sideOf：預設是手背 Tb；手心用 Dz（2026-11-07 同 App 批 201，見下面 computeTwistDz）
+  constructor(on = .20, off = .14, sideOf = d => (d > 0 ? 'pinky' : 'index')) {
+    this.on = on; this.off = off; this.sideOf = sideOf; this.fixedBaseline = null; this.reset();
+  }
   reset() { this.baseline = []; this.recent = []; this.active = false; }
   update(tb, tilt, blocked) {
     if (tb == null) { this.recent = []; return null; }
@@ -136,11 +139,22 @@ class TwistTracker {
       : this.baseline.length >= 8 ? median(this.baseline) : null;
     if (base == null) return null;
     const delta = smooth - base;
-    this.active = this.active ? Math.abs(delta) > .14 : Math.abs(delta) > .20;
-    return this.active ? (delta > 0 ? 'pinky' : 'index') : null;
+    this.active = this.active ? Math.abs(delta) > this.off : Math.abs(delta) > this.on;
+    return this.active ? this.sideOf(delta) : null;
   }
 }
 const twistTracker = new TwistTracker();
+// 🔴 2026-11-07 手心用（同 App 批 201）：用戶「手心的箭頭還是沒有」。手心朝鏡頭時 Tb 幾乎不動
+//   （少府影片轉到 47° |ΔTb| 才 0.07），改看食指根與小指根誰離鏡頭遠（Dz）。ΔDz>0＝食指側轉遠＝往食指側轉回 → 'index'。
+//   基準一律滾動收（檢測沒存 Dz）。⚠️ 驗證是用 App 的 Tasks API；網頁是 Solutions API，z 的行為沒驗過。
+const twistTrackerPalm = new TwistTracker(.20, .14, d => (d > 0 ? 'index' : 'pinky'));
+
+/** Dz ＝ (z5 − z17) ÷ |lm5−lm17|（2D 像素）。MediaPipe z 跟 x 同尺度 → 乘 W。同 App acu/TwistHint.kt computeTwistDz */
+function computeTwistDz(lm, W, H) {
+  if (!lm || lm.length < 21 || lm[5].z == null || lm[17].z == null) return null;
+  const wd = Math.hypot((lm[5].x - lm[17].x) * W, (lm[5].y - lm[17].y) * H);
+  return wd < 1e-6 ? null : (lm[5].z - lm[17].z) * W / wd;
+}
 
 function computeTwistTb(lm, W, H) {
   if (!lm || lm.length < 21) return null;
@@ -230,7 +244,7 @@ function runHandCalibFrame(ctx, canvas, W, H, allHands, allSides) {
     if (now - run.doneAt >= CALIB_DONE_SHOW_MS) {
       handCalibRun = null;
       acuPointSmoother.reset();
-      twistTracker.reset();
+      twistTracker.reset(); twistTrackerPalm.reset();
       if (run.onDone) setTimeout(run.onDone, 0);
     }
     return;
@@ -468,7 +482,7 @@ function stopCamera() {
   onTarget = false;
   occludeAnchor = null;
   acuPointSmoother.reset();
-  twistTracker.reset();
+  twistTracker.reset(); twistTrackerPalm.reset();
   if (camera) { try { camera.stop(); } catch (e) {} camera = null; }
   if (video && video.srcObject) {
     video.srcObject.getTracks().forEach(tr => tr.stop());
@@ -703,7 +717,10 @@ function onHandsResults(results) {
   //    根本不知道自己離「轉對」還有多遠。擋下時改用降級樣式（虛線、幾乎不填色），
   //    語意是「這塊皮膚朝哪」而不是「穴道就在這裡」。
   const gateBlocked = !!(best.gate && best.gate.blocked);
-  const twistSide = twistTracker.update(computeTwistTb(best.lm, W, H), tiltDeg, gateBlocked);
+  // 兩個都每幀推進（基準才不會斷）；手心朝鏡頭時用 Dz 那個（2026-11-07 同 App 批 201）
+  const sidePalm = twistTrackerPalm.update(computeTwistDz(best.lm, W, H), tiltDeg, gateBlocked);
+  const sideBack = twistTracker.update(computeTwistTb(best.lm, W, H), tiltDeg, gateBlocked);
+  const twistSide = best.dorsal ? sideBack : sidePalm;
   const drawPts = isMobileWeb() ? acuPointSmoother.smooth(pts, performance.now()) : pts;
   if (gateBlocked) drawTwistArrow(ctx, W, H, twistSide, best.lm, mx);
 

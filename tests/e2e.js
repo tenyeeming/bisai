@@ -1081,6 +1081,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
      'One Euro 第一幀不漂移、下一幀平滑追上');
   const twistProbe = w.eval(`(()=>{const t=new TwistTracker();for(let i=0;i<8;i++)t.update(0,5,false);let r;for(let i=0;i<5;i++)r=t.update(.5,40,true);return r})()`);
   ok(twistProbe === 'pinky', '扭轉基準完成後能指出小指側回正方向');
+  // 11-07 手心 Dz（同 App 批 201）：ΔDz>0＝食指側轉遠 → 'index'；Dz＝(z5−z17)×W÷|lm5−lm17|
+  const palmProbe = w.eval(`(()=>{const lm=Array.from({length:21},()=>({x:.5,y:.5,z:0}));lm[5]={x:.45,y:.5,z:.1};lm[17]={x:.55,y:.5,z:0};
+    const dz=computeTwistDz(lm,640,480);const t=new TwistTracker(.20,.14,d=>(d>0?'index':'pinky'));for(let i=0;i<8;i++)t.update(0,5,false);let r;for(let i=0;i<5;i++)r=t.update(dz,40,true);return [dz,r]})()`);
+  ok(Math.abs(palmProbe[0] - 1) < 1e-9 && palmProbe[1] === 'index', '手心 Dz：食指根比較遠 → 往食指側轉回（' + palmProbe + '）');
 
   // 對位判定遲滯（2026-09-23 對齊 App AcuMath.press 的 tolIn / tolOut=×1.6）
   ok(w.eval('pressOnTarget(20, 20, false)') === true,  '遲滯：未對準時 d=tolIn 進入');
