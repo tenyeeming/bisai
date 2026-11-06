@@ -341,17 +341,25 @@ class FaCalib {
     this.durMs = durMs; this.minSamples = minSamples; this.maxTbRange = maxTbRange;
     this.reset();
   }
-  reset() { this.tbs = []; this.wrs = []; this.startMs = 0; this.result = null; this.issue = 'no-hand'; }
+  reset() { this.tbs = []; this.wrs = []; this.startMs = 0; this.result = null; this.issue = 'no-hand'; this.bad = 0; this.held = null; }
   progress(now) {
     if (this.result) return 1;
+    if (this.held != null) return this.held;
     return this.tbs.length ? Math.min(1, Math.max(0, (now - this.startMs) / this.durMs)) : 0;
   }
   update(bad, tb, wr, now) {
     if (this.result) return;
     if (bad || tb == null || wr == null) {
-      this.issue = bad || 'no-hand'; this.tbs = []; this.wrs = [];
+      this.issue = bad || 'no-hand';
+      // 2026-11-06 用戶：「手肘的檢查也會中斷」「網站也檢查」→ 閃一下進度停住，連續 CALIB_GRACE_FRAMES 幀以上才從頭收（同 App ForearmCalib）
+      if (this.tbs.length && ++this.bad <= (typeof CALIB_GRACE_FRAMES !== 'undefined' ? CALIB_GRACE_FRAMES : 8)) {
+        if (this.held == null) this.held = this.progress(now);
+        return;
+      }
+      this.tbs = []; this.wrs = []; this.bad = 0; this.held = null;
       return;
     }
+    this.bad = 0; this.held = null;
     if (!this.tbs.length) this.startMs = now;
     this.tbs.push(tb); this.wrs.push(wr);
     if (Math.max(...this.tbs) - Math.min(...this.tbs) > this.maxTbRange) {   // 手在動 → 從這一幀重收

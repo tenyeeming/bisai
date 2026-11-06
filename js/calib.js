@@ -24,6 +24,8 @@ const CALIB_HOLD_MS = 2000;
 const CALIB_MIN_SAMPLES = 5;
 const CALIB_AXIS_JITTER = 0.15;
 const CALIB_FINGER_OPEN_RATIO = 1.35;
+/** 收集中允許連續幾幀不合格而不歸零（2026-11-06 用戶：「手肘的檢查也會中斷」「網站也檢查」；同 App CALIB_GRACE_FRAMES）。手、臉、手肘共用 */
+const CALIB_GRACE_FRAMES = 8;
 const CALIB_BOX_FRAC = 0.8;
 const CALIB_BOX_ASPECT = 0.75;
 const CALIB_BOX_SLACK = 0.04;
@@ -57,7 +59,7 @@ class HandCalibrator {
   constructor(holdMs = CALIB_HOLD_MS, minSamples = CALIB_MIN_SAMPLES) {
     this.holdMs = holdMs; this.minSamples = minSamples; this.reset();
   }
-  reset() { this.samples = []; this.done = null; }
+  reset() { this.samples = []; this.done = null; this.bad = 0; this.last = 0; }
   update(s, wrongHand = false) {
     if (this.done) return { progress: 1, issue: null, result: this.done };
     const issue = wrongHand ? 'wrong-hand'
@@ -67,16 +69,23 @@ class HandCalibrator {
       : s.tiltDeg > CALIB_TILT_MAX_DEG ? 'tilted'
       : !s.fingersOpen ? 'fingers'
       : null;
-    if (issue) { this.samples = []; return { progress: 0, issue, result: null }; }
+    if (issue) {
+      // 11-06：收到一半閃一下不歸零（進度停住），連續 CALIB_GRACE_FRAMES 幀以上才從頭收（同 App）
+      if (this.samples.length && ++this.bad <= CALIB_GRACE_FRAMES) return { progress: this.last, issue, result: null };
+      this.samples = []; this.bad = 0; this.last = 0;
+      return { progress: 0, issue, result: null };
+    }
+    this.bad = 0;
 
     this.samples.push(s);
     const axes = this.samples.map(x => x.axisPx);
     if (Math.max(...axes) / Math.min(...axes) - 1 > CALIB_AXIS_JITTER) {
-      this.samples = [s];                                  // 動太多：只留這一幀重新起算
+      this.samples = [s]; this.last = 0;                   // 動太多：只留這一幀重新起算
       return { progress: 0, issue: 'moving', result: null };
     }
     const span = s.atMs - this.samples[0].atMs;
     const progress = Math.min(1, Math.max(0, span / this.holdMs));
+    this.last = progress;
     const tbs = this.samples.map(x => x.tb).filter(v => v != null);
     if (span >= this.holdMs && this.samples.length >= this.minSamples && tbs.length >= this.minSamples / 2) {
       this.done = { k: _calibMedian(this.samples.map(x => x.cunPx / x.axisPx)), tb0: _calibMedian(tbs) };
@@ -93,7 +102,7 @@ class HandCalibrator {
  */
 class FaceCalibrator {
   constructor(holdMs = CALIB_HOLD_MS, minSamples = CALIB_MIN_SAMPLES) {
-    this.holdMs = holdMs; this.minSamples = minSamples; this.samples = []; this.done = null;
+    this.holdMs = holdMs; this.minSamples = minSamples; this.samples = []; this.done = null; this.bad = 0; this.last = 0;
   }
   update(s) {
     if (this.done) return this.done;
@@ -102,11 +111,17 @@ class FaceCalibrator {
       : (s.yawDeg == null || Math.abs(s.yawDeg) > FACE_CALIB_YAW_MAX) ? 'turned'
       : (s.pitchDeg != null && Math.abs(s.pitchDeg) > 30) ? 'pitched'
       : null;
-    if (issue) { this.samples = []; return { progress: 0, issue, done: false }; }
+    if (issue) {
+      // 11-06：同手部，閃一下不歸零
+      if (this.samples.length && ++this.bad <= CALIB_GRACE_FRAMES) return { progress: this.last, issue, done: false };
+      this.samples = []; this.bad = 0; this.last = 0;
+      return { progress: 0, issue, done: false };
+    }
+    this.bad = 0;
     this.samples.push(s);
     const ipds = this.samples.map(x => x.ipdPx);
     if (Math.max(...ipds) / Math.min(...ipds) - 1 > CALIB_AXIS_JITTER) {
-      this.samples = [s];
+      this.samples = [s]; this.last = 0;
       return { progress: 0, issue: 'moving', done: false };
     }
     const span = s.atMs - this.samples[0].atMs;
@@ -117,7 +132,8 @@ class FaceCalibrator {
                     pitch0: pitches.length ? _calibMedian(pitches) : null };
       return this.done;
     }
-    return { progress: Math.min(1, Math.max(0, span / this.holdMs)), issue: null, done: false };
+    this.last = Math.min(1, Math.max(0, span / this.holdMs));
+    return { progress: this.last, issue: null, done: false };
   }
 }
 

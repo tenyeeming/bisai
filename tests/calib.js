@@ -27,7 +27,7 @@ vm.runInContext(read('js/acu-math.js'), sandbox, { filename: 'acu-math.js' });
 vm.runInContext(`var state = { selectedAcupoints: ['合谷穴', '勞宮穴'], currentAcupointIndex: 0 };
   var curAcuName = () => state.selectedAcupoints[state.currentAcupointIndex];`, sandbox);
 const api = vm.runInContext(read('js/calib.js') + `
-;({ HandCalibrator, FaceCalibrator, calibBox, calibBoxForearm, pointsInBox, fingersOpen, calibFacingOk, calibAcuOnPalm,
+;({ CALIB_GRACE_FRAMES, HandCalibrator, FaceCalibrator, calibBox, calibBoxForearm, pointsInBox, fingersOpen, calibFacingOk, calibAcuOnPalm,
     calibImgFile, calibForearmImgFile, handKeyOfLabel, labelOfHandKey,
     needsHandCalib, recordHandCalib, skipHandCalib, resetHandCalib, activeHandCalib, setCalibEnabled,
     needsFaceCalib, recordFaceCalib, skipFaceCalib, savedCalib, faceBaseAngles })`, sandbox, { filename: 'calib.js' });
@@ -38,8 +38,10 @@ const s = (t, o = {}) => Object.assign({ axisPx: 200, cunPx: 40, tb: 0.05, tiltD
 {
   const c = new api.HandCalibrator();
   c.update(s(0)); c.update(s(1000));
-  const st = c.update(s(1100, { facingOk: false }));
-  ok(st.issue === 'wrong-side' && st.progress === 0, '翻錯面：從頭收（App wrongSideResetsProgress）');
+  let st = c.update(s(1100, { facingOk: false }));
+  ok(st.issue === 'wrong-side' && st.progress === 0.5, '翻錯面閃一下：進度停住不歸零（11-06，同 App）');
+  for (let i = 0; i < api.CALIB_GRACE_FRAMES; i++) st = c.update(s(1200 + i * 100, { facingOk: false }));
+  ok(st.issue === 'wrong-side' && st.progress === 0, '持續翻錯面：從頭收（App wrongSideResetsProgress）');
 }
 ok(api.calibFacingOk('合谷穴', true) && !api.calibFacingOk('合谷穴', false)
    && api.calibFacingOk('勞宮穴', false) && !api.calibFacingOk('勞宮穴', true)
@@ -56,8 +58,9 @@ ok(api.calibFacingOk('合谷穴', true) && !api.calibFacingOk('合谷穴', false
   const c = new api.HandCalibrator();
   for (let t = 0; t <= 1500; t += 100) c.update(s(t));
   const a = c.update(s(1550, { tiltDeg: 25 }));
-  const b = c.update(s(1600, { tiltDeg: 35 }));
-  ok(a.issue === null && b.issue === 'tilted' && b.progress === 0 && !b.result, '斜 25° 照收、35° 從頭收（App tiltedHandResetsProgress）');
+  let b = c.update(s(1600, { tiltDeg: 35 }));
+  for (let i = 0; i < api.CALIB_GRACE_FRAMES; i++) b = c.update(s(1700 + i * 100, { tiltDeg: 35 }));
+  ok(a.issue === null && b.issue === 'tilted' && b.progress === 0 && !b.result, '斜 25° 照收、35° 持續就從頭收（App tiltedHandResetsProgress）');
 }
 {
   const c = new api.HandCalibrator();
@@ -68,8 +71,18 @@ ok(api.calibFacingOk('合谷穴', true) && !api.calibFacingOk('合谷穴', false
 {
   const c = new api.HandCalibrator();
   for (let t = 0; t <= 1500; t += 100) c.update(s(t));
-  const st = c.update(s(1600, { inBox: false }));
-  ok(st.issue === 'out-box' && st.progress === 0, '出框：從頭收（App handOutOfBoxResetsProgress）');
+  let st = c.update(s(1600, { inBox: false }));
+  for (let i = 0; i < api.CALIB_GRACE_FRAMES; i++) st = c.update(s(1700 + i * 100, { inBox: false }));
+  ok(st.issue === 'out-box' && st.progress === 0, '持續出框：從頭收（App handOutOfBoxResetsProgress）');
+}
+{
+  // 11-06 用戶：「手部檢測的時候他的進度條會斷掉然後再加載」（同 App briefGlitchKeepsProgress）
+  const c = new api.HandCalibrator();
+  for (let t = 0; t <= 1000; t += 100) c.update(s(t));
+  const g = c.update(null);
+  let last = g;
+  for (let t = 1100; t <= 2000; t += 100) last = c.update(s(t));
+  ok(g.issue === 'no-hand' && g.progress === 0.5 && last.result, '漏一幀：進度停在一半，接著收照樣收滿');
 }
 {
   const c = new api.HandCalibrator();
@@ -118,6 +131,7 @@ const f = (t, o = {}) => Object.assign({ ipdPx: 100, yawDeg: 3, pitchDeg: null, 
   ok(c.update(null).issue === 'no-face' && c.update(f(1100, { inBox: false })).issue === 'out-box'
      && c.update(f(1200, { yawDeg: -15 })).issue === 'turned' && c.update(f(1300, { yawDeg: null })).issue === 'turned',
      '沒臉／出框／轉太多各有原因（App eachIssueResetsProgress）');
+  for (let i = 0; i < api.CALIB_GRACE_FRAMES; i++) c.update(null);   // 11-06：持續不合格才從頭收
   c.update(f(2000));
   ok(!c.update(f(3000)).done, '從頭收：再 1 秒還不夠');
 }

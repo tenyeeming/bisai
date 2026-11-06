@@ -129,6 +129,19 @@ ok(api.faMeasureCuts(insideOf(new Float32Array(W * H), W, H), axis).length === 0
      '檢測：穩 2 秒收滿、手動就重收、不合格講原因');
 }
 {
+  // 2026-11-06 用戶：「手肘的檢查也會中斷」（同 App ForearmMathTest）
+  const c = new api.FaCalib();
+  for (let t = 0; t <= 1000; t += 100) c.update(null, 0.02, 1, t);
+  c.update('out-box', null, null, 1100);
+  const p1 = c.progress(1100), p2 = c.progress(1500);
+  for (let t = 1200; t <= 2100; t += 100) c.update(null, 0.02, 1, t);
+  const d = new api.FaCalib();
+  for (let t = 0; t <= 1000; t += 100) d.update(null, 0.02, 1, t);
+  for (let i = 0; i < 9; i++) d.update('no-hand', null, null, 1100 + i * 100);
+  ok(near(p1, 0.55, 1e-6) && near(p2, 0.55, 1e-6) && c.result && d.progress(2100) === 0,
+     '檢測：閃一下進度停住、接著收照樣收滿；持續不合格才歸零');
+}
+{
   const g = new api.FaTwistGate(0, 1);
   const feed = (tb, deg) => { let r = false; for (let i = 0; i < 5; i++) r = g.update(tb, Math.cos(deg * Math.PI / 180)); return r; };
   ok(feed(0.05, 40) === true, '扭轉閘門：掌寬比掉了但 ΔTb 沒動＝雜訊，放行');
