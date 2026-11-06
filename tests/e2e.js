@@ -142,10 +142,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   //    「可定位」在這裡只代表算得出座標，不代表準（見 FACE_NO_GT）。
   segBtns()[2].click();
   ok(segBtns()[2].classList.contains('on'), '切到臉部');
-  ok(segBtns()[2].querySelector('.n').textContent === '3',
-     '頭痛：臉部 3 穴全部可定位（絲竹空／印堂／太陽）');
+  // 2026-11-06 用戶：「幫我把四白加入到緩解頭疼」→ 4 穴（四白／絲竹空／印堂／太陽）
+  ok(segBtns()[2].querySelector('.n').textContent === '4',
+     '頭痛：臉部 4 穴全部可定位（四白／絲竹空／印堂／太陽）');
   const faceItems = [...$('recommend-list').querySelectorAll('.acu-item')];
-  ok(faceItems.length === 3, `頭痛列出 3 個臉部穴道（實得 ${faceItems.length}）`);
+  ok(faceItems.length === 4, `頭痛列出 4 個臉部穴道（實得 ${faceItems.length}）`);
+  ok(faceItems[0].textContent.includes('四白'), '頭痛臉部第一個是四白');
   const faceSoon = faceItems.filter(e => e.getAttribute('aria-disabled') === 'true');
   ok(faceSoon.length === 0, `已經沒有「準備中」的臉部穴道了（實得 ${faceSoon.length}）`);
   ok(w.eval('state.selectedAcupoints.length') === 2, '換部位不會清掉已勾的穴道');
@@ -564,8 +566,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 2026-10-31：照 App 拿掉手部 7 穴（側緣五穴＋陽溪陽谷）、加少府，臉部拿掉球後、兌端 → 20＋21＋15＝56。
   // 2026-10-31（晚）用戶再拿掉少商、少澤 → 18＋21＋15＝54。
   // 2026-11-02 用戶「全部先刪掉」：前臂拿掉少海／小海／曲澤／四瀆／支正 → 18＋21＋10＝49。
-  const totalTiles = 18 + 21 + 10;
-  ok(/共 49 穴/.test($('gallery-progress').textContent), '圖冊標「共 49 穴」（實得 ' + $('gallery-progress').textContent + '）');
+  // 2026-11-06 照 App 拿掉大骨空、八邪 → 16＋21＋10＝47。
+  const totalTiles = 16 + 21 + 10;
+  ok(/共 47 穴/.test($('gallery-progress').textContent), '圖冊標「共 47 穴」（實得 ' + $('gallery-progress').textContent + '）');
   const dataTotal = w.eval('ACUPOINTS.length + FACE_ACUPOINTS.length');
   ok(dataTotal === 50, '手部與臉部資料表是 50 穴（拿掉的穴資料與公式留著，只是不列；實得 ' + dataTotal + '）');
   ok(!$('collection-grid').querySelector('[data-acu="二間穴"]') && !$('collection-grid').querySelector('[data-acu="EX-HN7"]'),
@@ -574,12 +577,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // ── 每格是該穴參考圖（2026-09-24），沒有鎖、沒有等級 ──
   const cells = [...$('collection-grid').children].filter(e => !e.classList.contains('grp'));
   const groups = [...$('collection-grid').children].filter(e => e.classList.contains('grp'));
-  ok(cells.length === totalTiles, '圖冊有 49 格（實得 ' + cells.length + '）');
+  ok(cells.length === totalTiles, '圖冊有 47 格（實得 ' + cells.length + '）');
   ok(!$('collection-grid').querySelector('[data-acu="少海穴"]') && !$('collection-grid').querySelector('[data-acu="支正穴"]'),
      '圖冊不列拿掉的前臂穴（少海、支正…）');
   ok(groups.length === 3, '手部、臉部與前臂各有一個分組標題');
-  const handTiles = cells.slice(0, 18);
-  const faceTiles = cells.slice(18, 39);
+  const handTiles = cells.slice(0, 16);
+  const faceTiles = cells.slice(16, 37);   // 11-06 手部 18 → 16
   ok(cells.every(t => t.querySelector('img.thumb, .thumb-code')), '54 格都有參考圖或代號圓標');
   ok(handTiles.find(t => t.dataset.acu === '少府穴').querySelector('img.thumb').getAttribute('src') === 'assets/acu-ref/shaofu.jpg',
      '少府（2026-10-31 新增）放的是用戶自繪參考圖');
@@ -938,7 +941,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(/前臂|模型/.test($('massage-gate').textContent), '讀數條講檢測怎麼擺（或模型載入中）：' + $('massage-gate').textContent);
     ok(w.eval('massageHeld()') === false, '內關計時要看對準（不像黑畫面那樣照走）');
     w.eval('onForearmCalibrated()');
-    ok($('btn-massage-start').disabled === false && $('round-switch').hidden === false, '檢測完 → 開始進頁倒數');
+    // 2026-11-06 下午用戶刪掉開始前倒數 → 檢測完直接開始
+    ok(w.eval('massageRunning') === true && $('round-switch').hidden === true, '檢測完 → 直接開始按摩（不倒數）');
+    w.eval('stopMassageTimer()');
     w.flipMassageCamera(); await tick();
     ok($('btn-massage-start').disabled === true, '換鏡頭＝重新檢測，主按鈕又鎖住');
 
@@ -962,8 +967,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     w.eval('flow.switchAuto = false');
     w.eval('onForearmCalibrated()');
     // 2026-11-06 用戶：「開關兩個都要倒數三秒好了」→ 關著也固定倒數 3 秒（ENTRY_PREP_SEC），不再停住等按開始
-    ok(!!w.eval('switchTickId') && w.eval('switchRemain') === w.eval('ENTRY_PREP_SEC'),
-       '左手臂檢測完、換手倒數關著 → 固定倒數 3 秒自動開始（實得 ' + w.eval('switchRemain') + '）');
+    // 2026-11-06 下午用戶：「開始按摩前會有倒計時也幫我刪掉」→ ENTRY_PREP_SEC = 0：關著＝檢測完直接開始
+    ok(!w.eval('switchTickId') && w.eval('massageRunning') === true,
+       '左手臂檢測完、換手倒數關著 → 直接開始（不倒數）');
+    w.eval('stopMassageTimer()');
     w.eval('stopSwitchCountdown()');
     w.eval('flow.switchAuto = true');
     w.goHome(); await tick(); await tick();

@@ -386,7 +386,8 @@ function faceColor(code) {
 const FACE_SYMPTOM_MAP = {
   // 資料庫「目痛」的臉部欄 ＝ 承泣、四白、睛明、瞳子髎、攢竹、陽白、魚腰
   '緩解目痛':   ['ST1', 'ST2', 'BL1', 'GB1', 'BL2', 'GB14', 'EX-HN4'],
-  '緩解頭痛':   ['TE23', 'EX-HN3', 'EX-HN5'],
+  // 2026-11-06 用戶：「幫我把四白加入到緩解頭疼」（同 App FaceData）
+  '緩解頭痛':   ['ST2', 'TE23', 'EX-HN3', 'EX-HN5'],
   '緩解牙痛':   ['ST5', 'ST6', 'ST7', 'SI18'],
   '緩解耳鳴':   ['ST7', 'GB3'],
   '改善失眠':   ['EX-HN3'],

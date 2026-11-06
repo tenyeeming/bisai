@@ -30,9 +30,10 @@ const ACUPOINTS = [
     locate: "小指背側近側指間關節的中點處" },
   { name: "中魁穴", code: "", side: "dorsal", ref: "zhongkui.png",
     locate: "中指背側，近側指間關節的中點處（中指第一指間關節突出處）" },
-  { name: "大骨空", code: "", side: "dorsal", ref: "dagukong.png",
+  // 2026-11-06 照 App：大骨空（App 批 179，11-04）、八邪（App 11-06 用戶「app幫我把八邪穴刪掉」）→ removed
+  { name: "大骨空", code: "", side: "dorsal", removed: true, ref: "dagukong.png",
     locate: "拇指背側指間關節的中點處" },
-  { name: "八邪穴", code: "", side: "dorsal", ref: "baxie.png",
+  { name: "八邪穴", code: "", side: "dorsal", removed: true, ref: "baxie.png",
     locate: "手背側微握拳，第 1～5 指間指蹼緣後方赤白肉際處，左右共八穴" },
   { name: "二間穴", code: "LI2", side: "dorsal", removed: true, skipHullClamp: true, ref: "erjian.png",
     locate: "微握拳，食指橈側緣第 2 掌指關節前方赤白肉際凹陷處" },
@@ -666,13 +667,12 @@ const IMPLEMENTED = new Set([
   "中渚穴",
   "小骨空",
   "中魁穴",
-  "大骨空",
   "中衝穴",
   "魚際穴",
   "神門穴",
   "太淵穴",
   "四縫穴",
-  "八邪穴",
+  // 2026-11-06 照 App：大骨空、八邪拿掉
   // 2026-10-31 照 App：側緣五穴、陽溪、陽谷拿掉；商陽、少衝、關衝、勞宮、少府開放（App 批 102／103）
   "商陽穴",
   "少衝穴",
@@ -686,7 +686,7 @@ const SYMPTOM_MAP = [
   {
     name: "緩解目痛",
     icon: "eye",
-    acupoints: ["大骨空", "小骨空", "關衝穴"],
+    acupoints: ["小骨空", "關衝穴"],   // 11-06 照 App 拿掉大骨空
   },
   {
     name: "緩解感冒症狀",
@@ -723,7 +723,7 @@ const SYMPTOM_MAP = [
   // 🔴 2026-09-20：「昏迷急救」整項刪除（對齊 App 09-17 那批）。中暑保留，但它現在是
   //    一般症狀，不再走急症擋話 —— 本系統定位為日常自我保健，不作為急救、診斷或治療工具。
   { name: "中暑", icon: "sun", acupoints: ["中衝穴"] },
-  { name: "放鬆手指", icon: "hand", acupoints: ["八邪穴", "少衝穴", "少府穴"] },
+  { name: "放鬆手指", icon: "hand", acupoints: ["少衝穴", "少府穴"] },   // 11-06 照 App 拿掉八邪
   {
     name: "緩解喉嚨痛",
     icon: "mic-off",

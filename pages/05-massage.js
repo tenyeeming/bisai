@@ -22,7 +22,7 @@ const MAX_TICK_MS = 250;   // 單格最多扣多少（同 App MassageScreen.MAX_
 let massageLastOnAt = 0;
 // 按壓判定關掉（齒輪選單，state.js pressCheck）時不看 onTarget，但開始計時前先給 3 秒準備 ——
 // 用戶：「一旦取消功能就要給他們三秒的準備時間」。開始、暫停後繼續、計時中途關掉判定都重給一次。
-const PRESS_OFF_PREP_MS = 3000;
+const PRESS_OFF_PREP_MS = 0;   // 2026-11-06 用戶：「開始按摩前會有倒計時也幫我刪掉」「不管是哪一個部位哪一個設備都要刪掉」（原 3000，同 App）
 let pressOffPrepUntil = 0;
 function armPressOffPrep() { pressOffPrepUntil = performance.now() + PRESS_OFF_PREP_MS; }
 function onPressCheckOff() { if (massageRunning && !massageUserPaused) armPressOffPrep(); if (massageRunning) syncMassageControls(); }
@@ -612,7 +612,7 @@ function finishRound() {
 // 所以倒數完自己開始。想快一點就按「立即開始」。
 // ⭐ 2026-09-25 用戶：「定位那裡開始按摩後，倒數三秒準備然後直接開始，不要再按一次開始」。
 //    進頁就用換手倒數同一套（提示列＋「立即開始」），固定 3 秒；計時照舊走按壓判定（pressCheck 預設開）。
-const ENTRY_PREP_SEC = 3;
+const ENTRY_PREP_SEC = 0;   // 2026-11-06 用戶要刪掉開始前倒數（原 3，同 App）：0 → startSwitchCountdown 直接開始
 function startEntryCountdown() {
   const box = document.getElementById('round-switch');
   const base = hasRounds()
