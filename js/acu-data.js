@@ -684,6 +684,12 @@ const IMPLEMENTED = new Set([
 
 // 2026-10-31 照 App data/AcuData.kt SYMPTOM_MAP（側緣五穴、陽溪、陽谷拿掉；關衝、少衝、商陽、勞宮、少府掛上）
 const SYMPTOM_MAP = [
+  // 2026-11-07 用戶：「網頁版本病症第一個要是緩解頭疼」→ 移到第一個（決賽 demo 從這裡開始）
+  {
+    name: "緩解頭痛",
+    icon: "brain",
+    acupoints: ["合谷穴", "陽池穴", "液門穴", "中渚穴", "關衝穴"],
+  },
   {
     name: "緩解目痛",
     icon: "eye",
@@ -703,11 +709,6 @@ const SYMPTOM_MAP = [
     name: "緩解牙痛",
     icon: "zap",
     acupoints: ["合谷穴", "商陽穴"],
-  },
-  {
-    name: "緩解頭痛",
-    icon: "brain",
-    acupoints: ["合谷穴", "陽池穴", "液門穴", "中渚穴", "關衝穴"],
   },
   { name: "改善失眠", icon: "moon", acupoints: ["神門穴"] },
   { name: "緩解胸痛", icon: "heart", acupoints: ["太淵穴", "少衝穴", "勞宮穴", "少府穴"] },
